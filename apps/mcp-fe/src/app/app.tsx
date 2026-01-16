@@ -1,14 +1,16 @@
 // Uncomment this line to use CSS modules
 // import styles from './app.module.scss';
-import NxWelcome from './nx-welcome';
+import { HomePage } from './homePage';
+import { Routes, Link, Route } from 'react-router-dom';
+import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 
-import { Route, Routes, Link } from 'react-router-dom';
+
 
 export function App() {
+  useReactRouterEventTracker();
+
   return (
     <div>
-      <NxWelcome title="@mcp-fe/mcp-fe" />
-
       {/* START: routes */}
       {/* These routes and navigation have been generated for you */}
       {/* Feel free to move and update them to fit your needs */}
@@ -28,11 +30,7 @@ export function App() {
       <Routes>
         <Route
           path="/"
-          element={
-            <div>
-              This is the generated root route.{' '}
-              <Link to="/page-2">Click here for page 2.</Link>
-            </div>
+          element={<HomePage />
           }
         />
         <Route

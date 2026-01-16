@@ -4,7 +4,13 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/mcp-fe-e2e"
+      "path": "./libs/service-worker"
+    },
+    {
+      "path": "./libs/event-tracker"
+    },
+    {
+      "path": "./libs/react-event-tracker"
     },
     {
       "path": "./apps/mcp-fe"

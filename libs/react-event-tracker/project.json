@@ -1,0 +1,9 @@
+{
+  "name": "react-event-tracker",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/react-event-tracker/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project react-event-tracker --web",
+  "targets": {}
+}

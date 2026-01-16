@@ -6,6 +6,10 @@ module.exports = {
   output: {
     path: join(__dirname, 'dist'),
   },
+  entry: {
+    main: './src/main.tsx',
+    sw: '../../libs/service-worker/src/lib/service-worker.ts',
+  },
   devServer: {
     port: 4200,
     historyApiFallback: {
@@ -24,6 +28,8 @@ module.exports = {
       styles: ['./src/styles.scss'],
       outputHashing: process.env['NODE_ENV'] === 'production' ? 'all' : 'none',
       optimization: process.env['NODE_ENV'] === 'production',
+      runtimeChunk: false,
+      excludeChunks: ['sw'],
     }),
     new NxReactRspackPlugin({
       // Uncomment this line if you don't want to use SVGR
