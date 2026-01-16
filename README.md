@@ -1,101 +1,178 @@
-# McpFe
+# Frontend MCP Edge (Service Worker Pattern)
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+This repository documents an architectural pattern for using **Model Context Protocol (MCP)** on the frontend by introducing a **Service Worker–based MCP edge node**.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+The goal is to enable **server-driven access to frontend context** without continuous event streaming or tight coupling between the frontend and AI agents.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+---
 
-## Run tasks
+## Overview
 
-To run the dev server for your app, use:
+Traditional MCP integrations are backend-centric. Frontend applications typically push events continuously (analytics-style), regardless of whether an AI agent actually needs the data.
 
-```sh
-npx nx serve mcp-fe
+This pattern inverts the flow:
+
+* The frontend **does not push context automatically**
+* A Service Worker maintains **session-scoped UI context**
+* The MCP server **pulls context only when needed**
+* AI agents receive context exclusively through the MCP server
+
+---
+
+## Architecture
+
+
+![Architecture](./MCP-FE-architecture-diagram.png?raw=true "MCP FE architecture diagram")
+
+
+---
+
+## Key Concepts
+
+### 1. Service Worker as MCP Edge
+
+The Service Worker acts as a lightweight **edge node**:
+
+* collects UI-level events (navigation, interactions, errors),
+* stores a short-lived, in-memory session context,
+* maintains a persistent WebSocket connection to the MCP server,
+* responds to explicit context requests.
+
+It is **not**:
+
+* a server,
+* an authority,
+* a persistence layer.
+
+---
+
+### 2. Server-Driven Pull Model
+
+The Service Worker never sends data proactively.
+
+Context is shared **only** when the MCP server requests it.
+
+Example request from MCP server:
+
+```json
+{
+  "type": "request_context",
+  "fields": ["route", "recent_events"]
+}
 ```
 
-To create a production bundle:
+Service Worker response:
 
-```sh
-npx nx build mcp-fe
+```json
+{
+  "type": "context_response",
+  "context": {
+    "route": "/checkout",
+    "recent_events": ["submit", "validation_error"]
+  }
+}
 ```
 
-To see all available targets to run for a project, run:
+---
 
-```sh
-npx nx show project mcp-fe
-```
+### 3. Clear Separation of Concerns
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+| Component      | Responsibility                        |
+| -------------- | ------------------------------------- |
+| Frontend App   | Emit UI events only                   |
+| Service Worker | Session context + transport           |
+| MCP Server     | Authority, orchestration, agent calls |
+| AI Agent       | Consume context, generate responses   |
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+The frontend never communicates directly with the agent.
 
-## Add new projects
+---
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+## Why This Pattern Exists
 
-Use the plugin's generator to create new projects.
+### Problems with push-based frontend context
 
-To generate a new application, use:
+* unnecessary network traffic,
+* implicit and uncontrolled context sharing,
+* analytics-style data flow,
+* tight coupling between frontend and agent logic.
 
-```sh
-npx nx g @nx/react:app demo
-```
+### What this pattern improves
 
-To generate a new library, use:
+* context is shared intentionally, not continuously,
+* lower bandwidth usage,
+* better privacy and control,
+* frontend remains agent-agnostic,
+* compatible with existing MCP servers and SDKs.
 
-```sh
-npx nx g @nx/react:lib mylib
-```
+---
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+## What This Is (and Is Not)
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### This **is**
 
-## Set up CI!
+* a frontend architectural pattern,
+* a new way to apply MCP at the UI edge,
+* compatible with existing MCP implementations,
+* suitable for interactive, session-based AI agents.
 
-### Step 1
+### This is **not**
 
-To connect to Nx Cloud, run the following command:
+* a new protocol,
+* a replacement for MCP,
+* an analytics framework,
+* a guaranteed delivery or persistence mechanism.
 
-```sh
-npx nx connect
-```
+---
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+## Lifecycle Notes
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+* Service Worker lifecycle is not guaranteed.
+* WebSocket connections may drop at any time.
+* Missing context is a valid and expected state.
+* MCP server must tolerate partial or empty responses.
 
-### Step 2
+This pattern favors **graceful degradation** over reliability guarantees.
 
-Use the following command to configure a CI workflow for your workspace:
+---
 
-```sh
-npx nx g ci-workflow
-```
+## Use Cases
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+* AI assistants embedded in complex web UIs
+* Agent-driven UI inspection or debugging
+* Context-aware copilots with minimal data exposure
+* Short-lived, interactive user sessions
 
-## Install Nx Console
+---
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+## Non-Goals
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+* Long-term session memory
+* Event analytics or tracking
+* Real-time streaming of UI events
+* Agent execution inside the browser
 
-## Useful links
+---
 
-Learn more:
+## Future Directions
 
-- [Learn more about this workspace setup](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+* Standardizing frontend MCP edge capabilities
+* Optional persistence strategies
+* Multi-agent orchestration
+* Command channels (server → Service Worker → UI)
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
+
+## Summary
+
+This pattern introduces a **Service Worker–based MCP edge** that enables:
+
+* server-driven context access,
+* minimal frontend-to-server traffic,
+* clean separation between UI, transport, and agent logic.
+
+It represents a **new architectural application of Model Context Protocol on the frontend**, not a new protocol.
+
+---
+
+*Feedback and discussion are welcome. This pattern is intentionally minimal and designed to evolve.*
