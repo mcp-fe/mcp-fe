@@ -1,6 +1,8 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { WebSocketServer, WebSocket } from 'ws';
+import express from 'express';
+import { randomUUID } from 'node:crypto';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -155,16 +157,47 @@ function setupHandlers(server: Server) {
 
 setupHandlers(mcpServer);
 
-// Setup WebSocket Server
+// Setup HTTP and WebSocket Server
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
-const wss = new WebSocketServer({ port: PORT });
 
-console.error(`MCP WebSocket Server starting on port ${PORT}...`);
+const httpTransport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: () => randomUUID(),
+});
 
-// Setup STDIO Server
-const streamableHTTPServerTransport = new StreamableHTTPServerTransport();
-mcpServer.connect(streamableHTTPServerTransport).catch((error) => {
-  console.error('Failed to connect StreamableHTTPServer transport:', error);
+const app = express();
+
+// Log all requests
+app.use((req, res, next) => {
+  console.error(`[HTTP] ${req.method} ${req.url}`);
+  next();
+});
+
+// MCP endpoint handles both POST and GET
+// StreamableHTTPServerTransport handles /sse and /message paths internally if mounted at root,
+// but we can also use specific routes.
+// The transport's handleRequest is designed to take Node.js req/res.
+app.all(['/', '/sse', '/message'], async (req, res) => {
+  try {
+    await httpTransport.handleRequest(req, res);
+    console.error(`[HTTP] Handled ${req.method} ${req.url} - Status: ${res.statusCode}`);
+  } catch (err) {
+    console.error('[HTTP Error]', err);
+    if (!res.headersSent) {
+      res.status(500).send('Internal Server Error');
+    }
+  }
+});
+
+const httpServer = app.listen(PORT, () => {
+  console.error(`HTTP Server listening on port ${PORT}`);
+});
+
+const wss = new WebSocketServer({ server: httpServer });
+
+console.error(`MCP Server (HTTP/WS) starting on port ${PORT}...`);
+
+mcpServer.connect(httpTransport).catch((err) => {
+  console.error('Failed to start HTTP MCP server:', err);
 });
 
 wss.on('connection', async (ws) => {

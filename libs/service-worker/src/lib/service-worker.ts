@@ -47,7 +47,7 @@ function connectWebSocket() {
             } else if (field === 'recent_events') {
               // Get last 10 events
               const events = await queryEvents({ limit: 10 });
-              response.context.recent_events = events.map(e => e.type); // README shows array of strings in example
+              response.context.recent_events = events;
             }
           }
         }
