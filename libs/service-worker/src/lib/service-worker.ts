@@ -8,10 +8,71 @@
 
 declare const self: ServiceWorkerGlobalScope;
 
-import { storeEvent } from './database';
+import { queryEvents, storeEvent, UserEvent } from './database';
 import { processMcpRequest } from './mcp-server';
 
 const MCP_ENDPOINT = '/mcp';
+const BACKEND_WS_URL = 'ws://localhost:3001';
+
+let socket: WebSocket | null = null;
+const messageQueue: any[] = [];
+
+function connectWebSocket() {
+  socket = new WebSocket(BACKEND_WS_URL);
+
+  socket.onopen = () => {
+    console.log('Connected to backend MCP server');
+    // Flush queue
+    while (messageQueue.length > 0 && socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(messageQueue.shift()));
+    }
+  };
+
+  socket.onmessage = async (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message.type === 'request_context') {
+        const response: any = {
+          type: 'context_response',
+          requestId: message.requestId,
+          context: {},
+        };
+
+        if (message.fields) {
+          for (const field of message.fields) {
+            if (field === 'route') {
+              // Get last navigation event for route
+              const navEvents = await queryEvents({ type: 'navigation', limit: 1 });
+              response.context.route = navEvents.length > 0 ? navEvents[0].path : '/';
+            } else if (field === 'recent_events') {
+              // Get last 10 events
+              const events = await queryEvents({ limit: 10 });
+              response.context.recent_events = events.map(e => e.type); // README shows array of strings in example
+            }
+          }
+        }
+
+        socket?.send(JSON.stringify(response));
+      }
+    } catch (error) {
+      console.error('Error handling WebSocket message:', error);
+    }
+  };
+
+  socket.onclose = () => {
+    console.log('Disconnected from backend MCP server, retrying in 5s...');
+    socket = null;
+    setTimeout(connectWebSocket, 5000);
+  };
+
+  socket.onerror = (error) => {
+    console.error('WebSocket error:', error);
+  };
+}
+
+// Initial connection
+connectWebSocket();
+
 
 // Handle MCP protocol requests via HTTP
 async function handleMCPRequest(request: Request): Promise<Response> {
@@ -84,7 +145,12 @@ async function handleMCPRequest(request: Request): Promise<Response> {
 self.addEventListener('message', async (event: ExtendableMessageEvent) => {
   if (event.data && event.data.type === 'STORE_EVENT') {
     try {
-      await storeEvent(event.data.event);
+      const userEvent = event.data.event as UserEvent;
+      // Primary context is pulled on demand from IndexedDB via request_context
+      await storeEvent(userEvent);
+      if (socket) {
+        socket.send(JSON.stringify(userEvent));
+      }
       // Send confirmation back to the client
       if (event.ports && event.ports[0]) {
         event.ports[0].postMessage({ success: true });
