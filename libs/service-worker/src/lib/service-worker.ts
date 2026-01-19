@@ -83,9 +83,7 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
       const userEvent = event.data.event as UserEvent;
       // Primary context is pulled on demand from IndexedDB via request_context
       await storeEvent(userEvent);
-      if (socket) {
-        socket.send(JSON.stringify(userEvent));
-      }
+
       // Send confirmation back to the client
       if (event.ports && event.ports[0]) {
         event.ports[0].postMessage({ success: true });
