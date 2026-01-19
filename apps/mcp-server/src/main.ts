@@ -14,28 +14,11 @@ import {
  * via WebSocket and provides an MCP interface to interact with that data.
  */
 
-// Simple in-memory storage for events received from the client
-interface UserEvent {
-  id: string;
-  type: 'navigation' | 'click' | 'input' | 'custom';
-  timestamp: number;
-  path?: string;
-  from?: string;
-  to?: string;
-  element?: string;
-  elementId?: string;
-  elementClass?: string;
-  elementText?: string;
-  metadata?: Record<string, unknown>;
-}
-
-const events: UserEvent[] = [];
-
 // Create MCP server instance
 function createServer() {
   return new Server(
     {
-      name: 'backend-activity-mcp-server',
+      name: 'mcp-server-for-fe',
       version: '1.0.0',
     },
     {
@@ -220,19 +203,8 @@ wss.on('connection', async (ws) => {
       const message = JSON.parse(data.toString());
       console.error(`[Backend] Raw message from client: ${JSON.stringify(message).substring(0, 100)}...`);
 
-      // 0. Handle responses to pull requests
-      if (message.type === 'context_response') {
-        console.error(`[Backend] Received context_response for id: ${message.requestId}`);
-        const handler = pendingRequests.get(message.requestId);
-        if (handler) {
-          handler(message);
-          pendingRequests.delete(message.requestId);
-        }
-        return;
-      }
-
-      // 1. Handle MCP protocol messages (JSON-RPC)
-      // This allows the client to call tools on the server via WebSocket
+      // Handle MCP protocol messages (JSON-RPC)
+      // This allows the client to call tools in the serviceWorker MCP via WebSocket
       if (message.jsonrpc === '2.0') {
         // Handle responses from SW to our requests (e.g. tools/list or tools/call we proxied)
         if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
@@ -244,22 +216,6 @@ wss.on('connection', async (ws) => {
             return;
           }
         }
-        // Other messages (requests from client to us) are handled by WebSocketTransport.start() listener
-        return;
-      }
-
-      // 2. Handle raw events being pushed from the client (backward compatibility)
-      if (message.type === 'EVENT_PUSH') {
-        const event = message.event as UserEvent;
-        console.error(`Received event: ${event.type} at ${event.path}`);
-        events.push(event);
-
-        // Keep memory usage in check
-        if (events.length > 5000) {
-          events.shift();
-        }
-
-        ws.send(JSON.stringify({ type: 'EVENT_ACK', id: event.id }));
         return;
       }
 
