@@ -6,7 +6,6 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 
 /**
  * Node.js MCP Server
@@ -92,21 +91,11 @@ function setupHandlers(server: Server) {
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const localTools = [
       {
-        name: 'get_ui_context',
-        description: 'Get frontend UI context (route, recent events)',
+        name: 'client_status',
+        description: 'Check if there is a client connected via WebSocket',
         inputSchema: {
           type: 'object',
-          properties: {
-            fields: {
-              type: 'array',
-              items: {
-                type: 'string',
-                enum: ['route', 'recent_events'],
-              },
-              description: 'Fields to pull from the frontend context',
-            },
-          },
-          required: ['fields'],
+          properties: {},
         },
       },
     ];
@@ -136,43 +125,15 @@ function setupHandlers(server: Server) {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
-    if (name === 'get_ui_context') {
-      const schema = z.object({
-        fields: z.array(z.enum(['route', 'recent_events'])),
-      });
-
-      const validatedArgs = schema.parse(args || {});
-
-      if (!activeWs) {
-        throw new Error('No Service Worker connected via WebSocket');
-      }
-
-      const requestId = Math.random().toString(36).substring(7);
-      const responsePromise = new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          pendingRequests.delete(requestId);
-          reject(new Error('Timeout waiting for Service Worker response'));
-        }, 10000);
-
-        pendingRequests.set(requestId, (data) => {
-          clearTimeout(timeout);
-          resolve(data);
-        });
-      });
-
-      activeWs.send(JSON.stringify({
-        type: 'request_context',
-        requestId,
-        fields: validatedArgs.fields
-      }));
-
-      const result = await responsePromise as any;
-
+    if (name === 'client_status') {
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result.context, null, 2),
+            text: JSON.stringify({
+              isConnected: !!activeWs,
+              message: activeWs ? 'Client connected' : 'No client connected'
+            }, null, 2),
           },
         ],
       };
