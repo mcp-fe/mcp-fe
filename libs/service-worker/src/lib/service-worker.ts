@@ -58,53 +58,7 @@ connectWebSocket();
 // Handle MCP protocol requests via HTTP
 async function handleMCPRequest(request: Request): Promise<Response> {
   try {
-    const url = new URL(request.url);
-
-    const path = url.pathname;
-
-    // Health check
-    if (path === `${MCP_ENDPOINT}/health` && request.method === 'GET') {
-      return new Response(
-        JSON.stringify({
-          status: 'ok',
-          server: 'user-activity-mcp-server',
-          version: '1.0.0',
-        }),
-        {
-          headers: { 'Content-Type': 'application/json' },
-        },
-      );
-    }
-
-    // Handle MCP JSON-RPC requests
-    if (path === MCP_ENDPOINT && request.method === 'POST') {
-      const body = await request.json();
-
-      try {
-        const response = await processMcpRequest(body);
-        return new Response(JSON.stringify(response), {
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: body.id,
-            error: {
-              code: -32603,
-              message:
-                error instanceof Error ? error.message : 'Internal error',
-            },
-          }),
-          {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
-      }
-    }
-
-    return new Response('Not Found', { status: 404 });
+    return processMcpRequest(request);
   } catch (error) {
     return new Response(
       JSON.stringify({

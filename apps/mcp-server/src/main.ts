@@ -62,7 +62,16 @@ class WebSocketTransport implements Transport {
   constructor(private ws: WebSocket) {}
 
   async start(): Promise<void> {
-    // Already connected
+    this.ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        if (message.jsonrpc === '2.0') {
+          this.onmessage?.(message as JSONRPCMessage);
+        }
+      } catch (error) {
+        this.onerror?.(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
   }
 
   async send(message: JSONRPCMessage): Promise<void> {
@@ -298,9 +307,24 @@ wss.on('connection', async (ws) => {
         return;
       }
 
-      // 1. Handle raw events being pushed from the client
-      // (This is against the "no automatic push" goal but kept for backward compatibility if needed,
-      // however the Service Worker no longer sends these).
+      // 1. Handle MCP protocol messages (JSON-RPC)
+      // This allows the client to call tools on the server via WebSocket
+      if (message.jsonrpc === '2.0') {
+        // Handle responses from SW to our requests (e.g. tools/list or tools/call we proxied)
+        if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
+          const handler = pendingRequests.get(message.id.toString());
+          if (handler) {
+            console.error(`[Backend] Found handler for response id: ${message.id}`);
+            handler(message);
+            pendingRequests.delete(message.id.toString());
+            return;
+          }
+        }
+        // Other messages (requests from client to us) are handled by WebSocketTransport.start() listener
+        return;
+      }
+
+      // 2. Handle raw events being pushed from the client (backward compatibility)
       if (message.type === 'EVENT_PUSH') {
         const event = message.event as UserEvent;
         console.error(`Received event: ${event.type} at ${event.path}`);
@@ -315,37 +339,9 @@ wss.on('connection', async (ws) => {
         return;
       }
 
-      // 2. Handle MCP protocol messages (JSON-RPC)
-      // This allows the client to call tools on the server via WebSocket
-      if (message.jsonrpc === '2.0') {
-        console.error(`[Backend] Received MCP message: ${JSON.stringify(message).substring(0, 100)}...`);
-        // Handle responses from SW to our requests
-        if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
-          console.error(`[Backend] Identified as response for id: ${message.id}`);
-          const handler = pendingRequests.get(message.id.toString());
-          if (handler) {
-            console.error(`[Backend] Found handler for id: ${message.id}`);
-            handler(message);
-            pendingRequests.delete(message.id.toString());
-            return;
-          } else {
-            console.error(`[Backend] No handler found for id: ${message.id}. Pending: ${Array.from(pendingRequests.keys()).join(', ')}`);
-          }
-        }
-        transport.onmessage?.(message as JSONRPCMessage);
-        return;
-      }
-
       console.error('Received unknown message type:', message);
     } catch (error) {
       console.error('Error processing message:', error);
-      ws.send(JSON.stringify({
-        jsonrpc: '2.0',
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : 'Internal error',
-        }
-      }));
     }
   });
 

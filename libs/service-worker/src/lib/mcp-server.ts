@@ -6,6 +6,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { CallToolRequestSchema, ListToolsRequestSchema, JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { z } from 'zod'
 import { queryEvents } from './database'
 
@@ -249,58 +250,14 @@ const callToolInternal = async (request: {
 // Register tool call handler using SDK
 server.setRequestHandler(CallToolRequestSchema, callToolInternal)
 
+// Create a stateless HTTP transport for processing single requests
+const httpTransport = new WebStandardStreamableHTTPServerTransport()
+server.connect(httpTransport).catch((error) => {
+  console.error('[SW] Failed to connect HTTP transport:', error)
+})
+
 // Process MCP requests using registered handlers
-export async function processMcpRequest(request: any): Promise<any> {
-  console.log(`[SW] Processing MCP request: ${JSON.stringify(request)}`);
-
-  if (typeof request === 'object' && request !== null && 'method' in request) {
-    const req = request as { method: string; params?: any; id?: any; jsonrpc?: string }
-
-    try {
-      if (req.method === 'tools/list') {
-        return {
-          jsonrpc: req.jsonrpc || '2.0',
-          id: req.id,
-          result: {
-            tools: TOOLS
-          }
-        }
-      } else if (req.method === 'initialize') {
-        return {
-          jsonrpc: req.jsonrpc || '2.0',
-          id: req.id,
-          result: {
-            protocolVersion: '2024-11-05',
-            capabilities: {
-              tools: {},
-            },
-            serverInfo: {
-              name: 'user-activity-mcp-server',
-              version: '1.0.0',
-            },
-          },
-        }
-      } else if (req.method === 'tools/call') {
-        const result = await callToolInternal({
-          params: req.params as { name: string; arguments?: unknown },
-        })
-        return {
-          jsonrpc: req.jsonrpc || '2.0',
-          id: req.id,
-          result,
-        }
-      }
-    } catch (error) {
-      return {
-        jsonrpc: req.jsonrpc || '2.0',
-        id: req.id,
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : 'Internal error',
-        },
-      }
-    }
-  }
-
-  throw new Error('Method not implemented for HTTP transport');
+export async function processMcpRequest(request: Request): Promise<Response> {
+  console.log(`[SW] Processing MCP request: ${request.method} ${request.url}`)
+  return httpTransport.handleRequest(request)
 }
