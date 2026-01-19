@@ -2,7 +2,6 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { WebSocketServer, WebSocket } from 'ws';
 import express from 'express';
-import { randomUUID } from 'node:crypto';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -161,7 +160,8 @@ setupHandlers(mcpServer);
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 
 const httpTransport = new StreamableHTTPServerTransport({
-  sessionIdGenerator: () => randomUUID(),
+  // Disable the session management before proper implementation
+  sessionIdGenerator: undefined,
 });
 
 const app = express();
