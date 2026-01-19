@@ -135,7 +135,7 @@ export async function trackInput(
     path: path || window.location.pathname,
     metadata: {
       valueLength: value?.length || 0,
-      hasValue: !!value,
+      value: value,
     },
   });
 }
