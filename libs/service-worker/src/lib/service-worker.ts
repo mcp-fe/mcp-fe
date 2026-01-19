@@ -20,6 +20,16 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
 
+async function broadcastStatus(connected: boolean): Promise<void> {
+  const clients = await self.clients.matchAll();
+  clients.forEach((client) => {
+    client.postMessage({
+      type: 'CONNECTION_STATUS',
+      connected,
+    });
+  });
+}
+
 async function connectWebSocket(): Promise<void> {
   if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
     return;
@@ -31,6 +41,7 @@ async function connectWebSocket(): Promise<void> {
     socket.onopen = async () => {
       console.log('Connected to backend MCP server');
       reconnectAttempts = 0;
+      broadcastStatus(true);
 
       if (socket) {
         transport = new WebSocketTransport(socket);
@@ -42,6 +53,7 @@ async function connectWebSocket(): Promise<void> {
 
     socket.onclose = async () => {
       console.log('Disconnected from backend MCP server');
+      broadcastStatus(false);
       if (transport) {
         try {
           await mcpServer.close();
@@ -110,6 +122,13 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
         }
       }
     })());
+  } else if (event.data.type === 'GET_CONNECTION_STATUS') {
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({
+        success: true,
+        connected: socket?.readyState === WebSocket.OPEN,
+      });
+    }
   }
 });
 

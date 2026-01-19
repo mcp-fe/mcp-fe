@@ -4,11 +4,13 @@ import { HomePage } from './homePage';
 import { Routes, Link, Route, useLocation } from 'react-router-dom';
 import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 import { useStoredEvents } from './hooks/useStoredEvents';
+import { useConnectionStatus } from './hooks/useConnectionStatus';
 
 export function App() {
   useReactRouterEventTracker();
   const { events } = useStoredEvents(1000);
   const location = useLocation();
+  const isConnected = useConnectionStatus();
 
   return (
     <div className="app-container">
@@ -26,9 +28,9 @@ export function App() {
             </ul>
           </nav>
         </div>
-        <div className="status-badge connected">
+        <div className={`status-badge ${isConnected ? 'connected' : 'disconnected'}`}>
           <span className="dot"></span>
-          Connected to Proxy
+          {isConnected ? 'Connected to MCP Proxy' : 'Disconnected from MCP Proxy'}
         </div>
       </header>
 

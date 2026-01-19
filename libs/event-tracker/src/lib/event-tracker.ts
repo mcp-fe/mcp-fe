@@ -109,6 +109,40 @@ export async function getStoredEvents(): Promise<any[]> {
 }
 
 /**
+ * Get the current connection status from the service worker
+ */
+export async function getConnectionStatus(): Promise<boolean> {
+  if (!serviceWorkerRegistration) {
+    return false;
+  }
+
+  if (!serviceWorkerRegistration.active) {
+    await navigator.serviceWorker.ready;
+  }
+
+  return new Promise((resolve) => {
+    const messageChannel = new MessageChannel();
+
+    messageChannel.port1.onmessage = (event) => {
+      if (event.data.success) {
+        resolve(!!event.data.connected);
+      } else {
+        resolve(false);
+      }
+    };
+
+    serviceWorkerRegistration!.active!.postMessage(
+      {
+        type: 'GET_CONNECTION_STATUS',
+      },
+      [messageChannel.port2],
+    );
+
+    setTimeout(() => resolve(false), 2000);
+  });
+}
+
+/**
  * Track a navigation event
  */
 export async function trackNavigation(
