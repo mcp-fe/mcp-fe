@@ -5,9 +5,7 @@ import express from 'express';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  JSONRPCMessage,
 } from '@modelcontextprotocol/sdk/types.js';
-import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 /**
@@ -50,38 +48,6 @@ function createServer() {
 }
 
 const mcpServer = createServer();
-
-/**
- * Custom MCP Transport for WebSocket
- */
-class WebSocketTransport implements Transport {
-  onclose?: () => void;
-  onerror?: (error: Error) => void;
-  onmessage?: (message: JSONRPCMessage) => void;
-
-  constructor(private ws: WebSocket) {}
-
-  async start(): Promise<void> {
-    this.ws.on('message', (data) => {
-      try {
-        const message = JSON.parse(data.toString());
-        if (message.jsonrpc === '2.0') {
-          this.onmessage?.(message as JSONRPCMessage);
-        }
-      } catch (error) {
-        this.onerror?.(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
-  }
-
-  async send(message: JSONRPCMessage): Promise<void> {
-    this.ws.send(JSON.stringify(message));
-  }
-
-  async close(): Promise<void> {
-    this.ws.close();
-  }
-}
 
 // Track pending requests and active connections
 const pendingRequests = new Map<string, (value: any) => void>();
@@ -285,11 +251,8 @@ wss.on('connection', async (ws) => {
   console.error('Client connected');
   activeWs = ws;
 
-  const wsServer = createServer();
-  setupHandlers(wsServer);
+  setupHandlers(mcpServer);
 
-  const transport = new WebSocketTransport(ws);
-  await wsServer.connect(transport);
 
   ws.on('message', async (data) => {
     try {
@@ -350,7 +313,8 @@ wss.on('connection', async (ws) => {
     if (activeWs === ws) {
       activeWs = null;
     }
-    await wsServer.close();
+    // Reset handlers to include server only
+    setupHandlers(mcpServer);
   });
 
   ws.on('error', (error) => {

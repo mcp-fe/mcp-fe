@@ -9,9 +9,9 @@
 declare const self: ServiceWorkerGlobalScope;
 
 import { storeEvent, UserEvent } from './database';
-import { server, WebSocketTransport, processMcpRequest } from './mcp-server';
+import { mcpServer } from './mcp-server';
+import { WebSocketTransport } from './websocket-transport';
 
-const MCP_ENDPOINT = '/mcp';
 const BACKEND_WS_URL = 'ws://localhost:3001';
 
 let socket: WebSocket | null = null;
@@ -26,7 +26,7 @@ function connectWebSocket() {
 
     if (socket) {
       transport = new WebSocketTransport(socket);
-      await server.connect(transport);
+      await mcpServer.connect(transport);
       console.log('MCP Server connected to WebSocket transport');
     }
 
@@ -39,7 +39,7 @@ function connectWebSocket() {
   socket.onclose = async () => {
     console.log('Disconnected from backend MCP server, retrying in 5s...');
     if (transport) {
-      await server.close();
+      await mcpServer.close();
       transport = null;
     }
     socket = null;
@@ -53,28 +53,6 @@ function connectWebSocket() {
 
 // Initial connection
 connectWebSocket();
-
-
-// Handle MCP protocol requests via HTTP
-async function handleMCPRequest(request: Request): Promise<Response> {
-  try {
-    return processMcpRequest(request);
-  } catch (error) {
-    return new Response(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        error: {
-          code: -32603,
-          message: error instanceof Error ? error.message : 'Internal error',
-        },
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    );
-  }
-}
 
 // Handle messages from the main thread
 self.addEventListener('message', async (event: ExtendableMessageEvent) => {
@@ -96,15 +74,6 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
         });
       }
     }
-  }
-});
-
-// Handle fetch events for MCP endpoints
-self.addEventListener('fetch', (event: FetchEvent) => {
-  const url = new URL(event.request.url);
-  // Only handle MCP endpoints (same-origin requests are handled automatically)
-  if (url.pathname.startsWith(MCP_ENDPOINT)) {
-    event.respondWith(handleMCPRequest(event.request));
   }
 });
 
