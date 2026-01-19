@@ -8,7 +8,7 @@
 
 declare const self: ServiceWorkerGlobalScope;
 
-import { queryEvents, storeEvent, UserEvent } from './database';
+import { storeEvent, UserEvent } from './database';
 import { processMcpRequest } from './mcp-server';
 
 const MCP_ENDPOINT = '/mcp';
@@ -31,27 +31,11 @@ function connectWebSocket() {
   socket.onmessage = async (event) => {
     try {
       const message = JSON.parse(event.data);
-      if (message.type === 'request_context') {
-        const response: any = {
-          type: 'context_response',
-          requestId: message.requestId,
-          context: {},
-        };
-
-        if (message.fields) {
-          for (const field of message.fields) {
-            if (field === 'route') {
-              // Get last navigation event for route
-              const navEvents = await queryEvents({ type: 'navigation', limit: 1 });
-              response.context.route = navEvents.length > 0 ? navEvents[0].path : '/';
-            } else if (field === 'recent_events') {
-              // Get last 10 events
-              const events = await queryEvents({ limit: 10 });
-              response.context.recent_events = events;
-            }
-          }
-        }
-
+      if (message.jsonrpc === '2.0') {
+        // Handle MCP protocol messages from backend
+        console.log(`[SW] Received MCP request: ${message.method} (id: ${message.id})`);
+        const response = await processMcpRequest(message);
+        console.log(`[SW] Sending response for id: ${message.id}`);
         socket?.send(JSON.stringify(response));
       }
     } catch (error) {

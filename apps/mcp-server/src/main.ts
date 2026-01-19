@@ -76,32 +76,85 @@ class WebSocketTransport implements Transport {
 
 // Track pending requests and active connections
 const pendingRequests = new Map<string, (value: any) => void>();
-let activeWs: any = null;
+let activeWs: WebSocket | null = null;
+
+async function callServiceWorkerTool(message: any): Promise<any> {
+  if (!activeWs) {
+    throw new Error('No Service Worker connected via WebSocket');
+  }
+
+  // Ensure message has a unique ID
+  const requestId = message.id || Math.random().toString(36).substring(7);
+  const mcpMessage = { ...message, id: requestId };
+
+  console.error(`[Backend] Sending request to SW: ${mcpMessage.method} (id: ${requestId})`);
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingRequests.delete(requestId.toString());
+      console.error(`[Backend] Timeout waiting for SW response for id: ${requestId}`);
+      reject(new Error('Timeout waiting for Service Worker response'));
+    }, 15000); // Increased timeout to 15s
+
+    pendingRequests.set(requestId.toString(), (data) => {
+      console.error(`[Backend] Received response from SW for id: ${requestId}`);
+      clearTimeout(timeout);
+      resolve(data);
+    });
+
+    try {
+      activeWs!.send(JSON.stringify(mcpMessage));
+    } catch (err) {
+      clearTimeout(timeout);
+      pendingRequests.delete(requestId.toString());
+      reject(err);
+    }
+  });
+}
 
 function setupHandlers(server: Server) {
   // Register tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        {
-          name: 'get_ui_context',
-          description: 'Get frontend UI context (route, recent events)',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              fields: {
-                type: 'array',
-                items: {
-                  type: 'string',
-                  enum: ['route', 'recent_events'],
-                },
-                description: 'Fields to pull from the frontend context',
+    const localTools = [
+      {
+        name: 'get_ui_context',
+        description: 'Get frontend UI context (route, recent events)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            fields: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['route', 'recent_events'],
               },
+              description: 'Fields to pull from the frontend context',
             },
-            required: ['fields'],
           },
+          required: ['fields'],
         },
-      ],
+      },
+    ];
+
+    if (activeWs) {
+      try {
+        const response = await callServiceWorkerTool({
+          jsonrpc: '2.0',
+          method: 'tools/list',
+        });
+
+        if (response.result && Array.isArray(response.result.tools)) {
+          return {
+            tools: [...localTools, ...response.result.tools],
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching tools from Service Worker:', error);
+      }
+    }
+
+    return {
+      tools: localTools,
     };
   });
 
@@ -150,7 +203,26 @@ function setupHandlers(server: Server) {
       };
     }
 
-    throw new Error(`Unknown tool: ${name}`);
+    // Proxy other tools to Service Worker
+    try {
+      const response = await callServiceWorkerTool({
+        jsonrpc: '2.0',
+        method: 'tools/call',
+        params: {
+          name,
+          arguments: args,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Error calling tool in Service Worker');
+      }
+
+      return response.result;
+    } catch (error) {
+      console.error(`Error proxying tool ${name} to Service Worker:`, error);
+      throw error;
+    }
   });
 }
 
@@ -213,9 +285,11 @@ wss.on('connection', async (ws) => {
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
+      console.error(`[Backend] Raw message from client: ${JSON.stringify(message).substring(0, 100)}...`);
 
       // 0. Handle responses to pull requests
       if (message.type === 'context_response') {
+        console.error(`[Backend] Received context_response for id: ${message.requestId}`);
         const handler = pendingRequests.get(message.requestId);
         if (handler) {
           handler(message);
@@ -244,6 +318,20 @@ wss.on('connection', async (ws) => {
       // 2. Handle MCP protocol messages (JSON-RPC)
       // This allows the client to call tools on the server via WebSocket
       if (message.jsonrpc === '2.0') {
+        console.error(`[Backend] Received MCP message: ${JSON.stringify(message).substring(0, 100)}...`);
+        // Handle responses from SW to our requests
+        if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
+          console.error(`[Backend] Identified as response for id: ${message.id}`);
+          const handler = pendingRequests.get(message.id.toString());
+          if (handler) {
+            console.error(`[Backend] Found handler for id: ${message.id}`);
+            handler(message);
+            pendingRequests.delete(message.id.toString());
+            return;
+          } else {
+            console.error(`[Backend] No handler found for id: ${message.id}. Pending: ${Array.from(pendingRequests.keys()).join(', ')}`);
+          }
+        }
         transport.onmessage?.(message as JSONRPCMessage);
         return;
       }
