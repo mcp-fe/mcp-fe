@@ -4,9 +4,48 @@
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { CallToolRequestSchema, ListToolsRequestSchema, JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { z } from 'zod'
 import { queryEvents } from './database'
+
+/**
+ * Custom MCP Transport for WebSocket in Service Worker
+ */
+export class WebSocketTransport implements Transport {
+  onclose?: () => void;
+  onerror?: (error: Error) => void;
+  onmessage?: (message: JSONRPCMessage) => void;
+
+  constructor(private ws: WebSocket) {}
+
+  async start(): Promise<void> {
+    this.ws.addEventListener('message', (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        this.onmessage?.(message);
+      } catch (error) {
+        this.onerror?.(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+
+    this.ws.addEventListener('close', () => {
+      this.onclose?.();
+    });
+
+    this.ws.addEventListener('error', (event) => {
+      this.onerror?.(new Error('WebSocket error'));
+    });
+  }
+
+  async send(message: JSONRPCMessage): Promise<void> {
+    this.ws.send(JSON.stringify(message));
+  }
+
+  async close(): Promise<void> {
+    this.ws.close();
+  }
+}
 
 // Create MCP server instance for type safety and validation
 export const server = new Server(
@@ -21,7 +60,7 @@ export const server = new Server(
   },
 )
 
-const TOOLS = [
+export const TOOLS = [
   {
     name: 'get_user_events',
     description: 'Get user activity events (navigation, clicks, etc.)',
@@ -87,15 +126,17 @@ const TOOLS = [
   },
 ]
 
-// Store handler functions for manual invocation
-let listToolsHandler: (() => Promise<{ tools: unknown[] }>) | null = async () => ({
-  tools: TOOLS,
+// Register tools list handler using SDK
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: TOOLS,
+  }
 })
 
-const callToolInternal = async (req: {
+const callToolInternal = async (request: {
   params: { name: string; arguments?: unknown }
 }) => {
-  const { name, arguments: args } = req.params
+  const { name, arguments: args } = request.params
 
   switch (name) {
     case 'get_user_events': {
@@ -205,57 +246,24 @@ const callToolInternal = async (req: {
   }
 }
 
-let callToolHandler:
-  | ((request: {
-      params: { name: string; arguments?: unknown }
-    }) => Promise<{ content: Array<{ type: string; text: string }> }>)
-  | null = callToolInternal
-
-// Register tools list handler using SDK
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return listToolsHandler!()
-})
-
 // Register tool call handler using SDK
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  return callToolHandler!(request)
-})
+server.setRequestHandler(CallToolRequestSchema, callToolInternal)
 
 // Process MCP requests using registered handlers
-export async function processMcpRequest(request: unknown): Promise<unknown> {
+export async function processMcpRequest(request: any): Promise<any> {
   console.log(`[SW] Processing MCP request: ${JSON.stringify(request)}`);
 
   if (typeof request === 'object' && request !== null && 'method' in request) {
-    const req = request as { method: string; params?: unknown; id?: unknown; jsonrpc?: string }
+    const req = request as { method: string; params?: any; id?: any; jsonrpc?: string }
 
     try {
       if (req.method === 'tools/list') {
-        console.log(`[SW] Handling tools/list`);
-        if (listToolsHandler) {
-          const result = await listToolsHandler()
-          console.log(`[SW] Returning tools list: ${result.tools.length} tools`);
-          return {
-            jsonrpc: req.jsonrpc || '2.0',
-            id: req.id,
-            result,
-          }
-        } else {
-          console.log(`[SW] listToolsHandler NOT REGISTERED, triggering registration`);
-          // The handler is registered inside the setRequestHandler call,
-          // but we might need to actually call the registration if it hasn't happened.
-          // In the current implementation, it's registered when server.setRequestHandler is called.
-          // Let's force a dummy call to initialize if needed?
-          // No, let's just see if it's there.
-        }
-      } else if (req.method === 'tools/call' && callToolHandler) {
-        console.log(`[SW] Handling tools/call`);
-        const result = await callToolHandler({
-          params: req.params as { name: string; arguments?: unknown },
-        })
         return {
           jsonrpc: req.jsonrpc || '2.0',
           id: req.id,
-          result,
+          result: {
+            tools: TOOLS
+          }
         }
       } else if (req.method === 'initialize') {
         return {
@@ -272,6 +280,15 @@ export async function processMcpRequest(request: unknown): Promise<unknown> {
             },
           },
         }
+      } else if (req.method === 'tools/call') {
+        const result = await callToolInternal({
+          params: req.params as { name: string; arguments?: unknown },
+        })
+        return {
+          jsonrpc: req.jsonrpc || '2.0',
+          id: req.id,
+          result,
+        }
       }
     } catch (error) {
       return {
@@ -285,5 +302,5 @@ export async function processMcpRequest(request: unknown): Promise<unknown> {
     }
   }
 
-  throw new Error('Invalid request format')
+  throw new Error('Method not implemented for HTTP transport');
 }

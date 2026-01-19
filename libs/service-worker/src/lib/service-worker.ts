@@ -9,42 +9,39 @@
 declare const self: ServiceWorkerGlobalScope;
 
 import { storeEvent, UserEvent } from './database';
-import { processMcpRequest } from './mcp-server';
+import { server, WebSocketTransport, processMcpRequest } from './mcp-server';
 
 const MCP_ENDPOINT = '/mcp';
 const BACKEND_WS_URL = 'ws://localhost:3001';
 
 let socket: WebSocket | null = null;
+let transport: WebSocketTransport | null = null;
 const messageQueue: any[] = [];
 
 function connectWebSocket() {
   socket = new WebSocket(BACKEND_WS_URL);
 
-  socket.onopen = () => {
+  socket.onopen = async () => {
     console.log('Connected to backend MCP server');
+
+    if (socket) {
+      transport = new WebSocketTransport(socket);
+      await server.connect(transport);
+      console.log('MCP Server connected to WebSocket transport');
+    }
+
     // Flush queue
     while (messageQueue.length > 0 && socket?.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(messageQueue.shift()));
     }
   };
 
-  socket.onmessage = async (event) => {
-    try {
-      const message = JSON.parse(event.data);
-      if (message.jsonrpc === '2.0') {
-        // Handle MCP protocol messages from backend
-        console.log(`[SW] Received MCP request: ${message.method} (id: ${message.id})`);
-        const response = await processMcpRequest(message);
-        console.log(`[SW] Sending response for id: ${message.id}`);
-        socket?.send(JSON.stringify(response));
-      }
-    } catch (error) {
-      console.error('Error handling WebSocket message:', error);
-    }
-  };
-
-  socket.onclose = () => {
+  socket.onclose = async () => {
     console.log('Disconnected from backend MCP server, retrying in 5s...');
+    if (transport) {
+      await server.close();
+      transport = null;
+    }
     socket = null;
     setTimeout(connectWebSocket, 5000);
   };
