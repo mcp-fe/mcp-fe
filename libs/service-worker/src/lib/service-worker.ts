@@ -16,64 +16,81 @@ const BACKEND_WS_URL = 'ws://localhost:3001';
 
 let socket: WebSocket | null = null;
 let transport: WebSocketTransport | null = null;
-const messageQueue: any[] = [];
+let reconnectAttempts = 0;
+const MAX_RECONNECT_DELAY = 30000;
+const INITIAL_RECONNECT_DELAY = 1000;
 
-function connectWebSocket() {
-  socket = new WebSocket(BACKEND_WS_URL);
+async function connectWebSocket(): Promise<void> {
+  if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
+    return;
+  }
 
-  socket.onopen = async () => {
-    console.log('Connected to backend MCP server');
+  return new Promise((resolve) => {
+    socket = new WebSocket(BACKEND_WS_URL);
 
-    if (socket) {
-      transport = new WebSocketTransport(socket);
-      await mcpServer.connect(transport);
-      console.log('MCP Server connected to WebSocket transport');
-    }
+    socket.onopen = async () => {
+      console.log('Connected to backend MCP server');
+      reconnectAttempts = 0;
 
-    // Flush queue
-    while (messageQueue.length > 0 && socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(messageQueue.shift()));
-    }
-  };
+      if (socket) {
+        transport = new WebSocketTransport(socket);
+        await mcpServer.connect(transport);
+        console.log('MCP Server connected to WebSocket transport');
+      }
+      resolve();
+    };
 
-  socket.onclose = async () => {
-    console.log('Disconnected from backend MCP server, retrying in 5s...');
-    if (transport) {
-      await mcpServer.close();
-      transport = null;
-    }
-    socket = null;
-    setTimeout(connectWebSocket, 5000);
-  };
+    socket.onclose = async () => {
+      console.log('Disconnected from backend MCP server');
+      if (transport) {
+        try {
+          await mcpServer.close();
+        } catch (error) {
+          console.error('Error closing MCP server:', error);
+        }
+        transport = null;
+      }
+      socket = null;
 
-  socket.onerror = (error) => {
-    console.error('WebSocket error:', error);
-  };
+      const delay = Math.min(
+        INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttempts),
+        MAX_RECONNECT_DELAY,
+      );
+      reconnectAttempts++;
+      console.log(`Retrying in ${delay}ms...`);
+      setTimeout(() => connectWebSocket(), delay);
+      resolve(); // Resolve even on close to not block activate indefinitely if backend is down
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      // onclose will be called after onerror
+    };
+  });
 }
-
-// Initial connection
-connectWebSocket();
 
 // Handle messages from the main thread
 self.addEventListener('message', async (event: ExtendableMessageEvent) => {
   if (event.data && event.data.type === 'STORE_EVENT') {
-    try {
-      const userEvent = event.data.event as UserEvent;
-      // Primary context is pulled on demand from IndexedDB via request_context
-      await storeEvent(userEvent);
+    event.waitUntil((async () => {
+      try {
+        const userEvent = event.data.event as UserEvent;
+        // Primary context is pulled on demand from IndexedDB via request_context
+        await storeEvent(userEvent);
 
-      // Send confirmation back to the client
-      if (event.ports && event.ports[0]) {
-        event.ports[0].postMessage({ success: true });
+        // Send confirmation back to the client
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: true });
+        }
+      } catch (error) {
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
       }
-    } catch (error) {
-      if (event.ports && event.ports[0]) {
-        event.ports[0].postMessage({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
+    })());
   }
 });
 
@@ -83,5 +100,10 @@ self.addEventListener('install', (event: ExtendableEvent) => {
 });
 
 self.addEventListener('activate', (event: ExtendableEvent) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      connectWebSocket(),
+    ])
+  );
 });
