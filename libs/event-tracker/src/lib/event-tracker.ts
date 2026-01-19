@@ -53,9 +53,9 @@ export async function trackEvent(event: UserEventData): Promise<void> {
 
     messageChannel.port1.onmessage = (event) => {
       if (event.data.success) {
-        resolve();
+        resolve(event.data.result);
       } else {
-        reject(new Error(event.data.error || 'Failed to store event'));
+        reject(new Error(event.data.error || 'Failed to communicate with service worker'));
       }
     };
 
@@ -71,6 +71,40 @@ export async function trackEvent(event: UserEventData): Promise<void> {
     setTimeout(() => {
       reject(new Error('Event tracking timeout'));
     }, 5000);
+  });
+}
+
+/**
+ * Get all events from the service worker
+ */
+export async function getStoredEvents(): Promise<any[]> {
+  if (!serviceWorkerRegistration) {
+    return [];
+  }
+
+  if (!serviceWorkerRegistration.active) {
+    await navigator.serviceWorker.ready;
+  }
+
+  return new Promise((resolve, reject) => {
+    const messageChannel = new MessageChannel();
+
+    messageChannel.port1.onmessage = (event) => {
+      if (event.data.success) {
+        resolve(event.data.events);
+      } else {
+        reject(new Error(event.data.error || 'Failed to fetch events'));
+      }
+    };
+
+    serviceWorkerRegistration!.active!.postMessage(
+      {
+        type: 'GET_EVENTS',
+      },
+      [messageChannel.port2],
+    );
+
+    setTimeout(() => reject(new Error('Fetch events timeout')), 5000);
   });
 }
 

@@ -71,7 +71,9 @@ async function connectWebSocket(): Promise<void> {
 
 // Handle messages from the main thread
 self.addEventListener('message', async (event: ExtendableMessageEvent) => {
-  if (event.data && event.data.type === 'STORE_EVENT') {
+  if (!event.data) return;
+
+  if (event.data.type === 'STORE_EVENT') {
     event.waitUntil((async () => {
       try {
         const userEvent = event.data.event as UserEvent;
@@ -81,6 +83,23 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
         // Send confirmation back to the client
         if (event.ports && event.ports[0]) {
           event.ports[0].postMessage({ success: true });
+        }
+      } catch (error) {
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+    })());
+  } else if (event.data.type === 'GET_EVENTS') {
+    event.waitUntil((async () => {
+      try {
+        const { queryEvents } = await import('./database');
+        const events = await queryEvents({ limit: 50 });
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: true, events });
         }
       } catch (error) {
         if (event.ports && event.ports[0]) {

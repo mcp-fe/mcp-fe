@@ -1,2 +1,2 @@
 export * from './hooks/useTanstackRouterEventTracker';
-export * from './hooks/useReactRouterEventTracker'
+export * from './hooks/useReactRouterEventTracker';
