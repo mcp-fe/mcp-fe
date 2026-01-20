@@ -3,6 +3,7 @@
 import { HomePage } from './homePage';
 import { Routes, Link, Route, useLocation } from 'react-router-dom';
 import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
+import { setAuthToken } from '@mcp-fe/event-tracker';
 import { useStoredEvents } from './hooks/useStoredEvents';
 import { useConnectionStatus } from './hooks/useConnectionStatus';
 import { useEffect, useState } from 'react';
@@ -18,16 +19,10 @@ export function App() {
 
   useEffect(() => {
     localStorage.setItem('mcp_session_user', sessionUser);
-    // Send JWT (mocked for now) to Service Worker
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      const mockJwt = btoa(JSON.stringify({ sub: sessionUser, exp: Math.floor(Date.now() / 1000) + 3600 }));
-
-      localStorage.setItem('jwtTokenMock', mockJwt);
-      navigator.serviceWorker.controller.postMessage({
-        type: 'SET_AUTH_TOKEN',
-        token: mockJwt,
-      });
-    }
+    // Send JWT (mocked for now) to Worker (SharedWorker or ServiceWorker)
+    const mockJwt = btoa(JSON.stringify({ sub: sessionUser, exp: Math.floor(Date.now() / 1000) + 3600 }));
+    localStorage.setItem('jwtTokenMock', mockJwt);
+    setAuthToken(mockJwt);
   }, [sessionUser]);
 
   return (

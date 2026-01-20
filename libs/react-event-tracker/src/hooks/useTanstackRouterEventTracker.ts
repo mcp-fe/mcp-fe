@@ -16,23 +16,34 @@ export function useTanstackRouterEventTracker(): void {
   const prevPathRef = useRef<string>(location.pathname);
   const isInitializedRef = useRef(false);
 
-  // Initialize service worker and event tracker
+  // Initialize worker (SharedWorker preferred, ServiceWorker fallback) and event tracker
   useEffect(() => {
     if (isInitializedRef.current) {
       return;
     }
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          initEventTracker(registration);
-          isInitializedRef.current = true;
-        })
-        .catch((error) => {
-          console.error('Service worker registration failed:', error);
-        });
-    }
+    // Try SharedWorker first, then fallback to ServiceWorker
+    initEventTracker()
+      .then(() => {
+        isInitializedRef.current = true;
+      })
+      .catch((error) => {
+        console.error('Worker initialization failed:', error);
+        // Try ServiceWorker as explicit fallback
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {
+              return initEventTracker(registration);
+            })
+            .then(() => {
+              isInitializedRef.current = true;
+            })
+            .catch((error) => {
+              console.error('Service worker registration failed:', error);
+            });
+        }
+      });
   }, []);
 
   // Track navigation
