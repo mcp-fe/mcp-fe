@@ -36,15 +36,17 @@ const pendingRequests = new Map<string, (value: any) => void>();
 // Map sessionId to WebSocket connection
 const activeSessions = new Map<string, WebSocket>();
 
-function getSessionIdFromToken(token: string | null): string {
-  if (!token) return 'anonymous';
+function getSessionIdFromToken(token?: string | string[] | null): string | null {
+  if (!token) return null;
   try {
     // Basic JWT decoding for simulation
-    const payload = JSON.parse(Buffer.from(token, 'base64').toString());
-    return payload.sub || 'anonymous';
+    // In a real app, you would verify the signature here
+    const payload = JSON.parse(Buffer.from(token.toString(), 'base64').toString());
+    console.error('Decoded token:', payload);
+    return payload.sub || null;
   } catch (e) {
     console.error('Failed to parse token:', e);
-    return 'anonymous';
+    return null;
   }
 }
 
@@ -86,7 +88,9 @@ async function callServiceWorkerTool(sessionId: string, message: any): Promise<a
 function setupHandlers(server: Server) {
   // Register tools
   server.setRequestHandler(ListToolsRequestSchema, async (request, extra) => {
-    const sessionId = (extra as any)?.sessionId || 'anonymous';
+    const token = extra.requestInfo?.headers['authorization']?.toString().replace('Bearer ', '');
+    const sessionId = getSessionIdFromToken(token)?? 'anonymous';
+
     const localTools = [
       {
         name: 'client_status',
@@ -123,7 +127,10 @@ function setupHandlers(server: Server) {
 
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
-    const sessionId = (extra as any)?.sessionId || 'anonymous';
+    const token = extra.requestInfo?.headers['authorization']
+      ?.toString()
+      .replace('Bearer ', '');
+    const sessionId = getSessionIdFromToken(token) ?? 'anonymous';
 
     if (name === 'client_status') {
       const ws = activeSessions.get(sessionId);
@@ -188,6 +195,15 @@ app.use((req, res, next) => {
 // The transport's handleRequest is designed to take Node.js req/res.
 app.all(['/', '/sse', '/message'], async (req, res) => {
   try {
+    const token = (req.query.token as string) || req.headers.authorization?.split(' ')[1];
+    const sessionId = getSessionIdFromToken(token?.replaceAll("Bearer ", "") || null);
+
+    if (!sessionId) {
+      console.error(`[HTTP Auth] Rejecting unauthorized request from ${req.ip}`);
+      res.status(401).send('Unauthorized');
+      return;
+    }
+
     await httpTransport.handleRequest(req, res);
     console.error(`[HTTP] Handled ${req.method} ${req.url} - Status: ${res.statusCode}`);
   } catch (err) {
@@ -207,20 +223,13 @@ const mcpAuthMiddleware: (info: { origin: string; secure: boolean; req: any }, c
   const token = url.searchParams.get('token');
   const sessionId = getSessionIdFromToken(token);
 
-  if (sessionId === 'anonymous') {
-    console.error(`[WS Auth] Rejecting anonymous connection from ${info.origin}`);
+  if (!sessionId) {
+    console.error(`[WS Auth] Rejecting unauthorized connection from ${info.origin}`);
     callback(false, 401, 'Unauthorized');
   } else {
     console.error(`[WS Auth] Verified session: ${sessionId}`);
     // Attach sessionId to the request object so it can be used in the connection event
     info.req.sessionId = sessionId;
-    info.req.mcpSession = {
-      id: `mcp_${crypto.randomUUID()}`,
-      context: {
-        sessionId,
-        scopes: ['context:read'],
-      },
-    };
     callback(true);
   }
 };

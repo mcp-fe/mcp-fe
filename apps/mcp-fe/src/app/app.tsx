@@ -21,6 +21,8 @@ export function App() {
     // Send JWT (mocked for now) to Service Worker
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       const mockJwt = btoa(JSON.stringify({ sub: sessionUser, exp: Math.floor(Date.now() / 1000) + 3600 }));
+
+      localStorage.setItem('jwtTokenMock', mockJwt);
       navigator.serviceWorker.controller.postMessage({
         type: 'SET_AUTH_TOKEN',
         token: mockJwt,
