@@ -5,12 +5,28 @@ import { Routes, Link, Route, useLocation } from 'react-router-dom';
 import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 import { useStoredEvents } from './hooks/useStoredEvents';
 import { useConnectionStatus } from './hooks/useConnectionStatus';
+import { useEffect, useState } from 'react';
 
 export function App() {
   useReactRouterEventTracker();
   const { events } = useStoredEvents(1000);
   const location = useLocation();
   const isConnected = useConnectionStatus();
+  const [sessionUser, setSessionUser] = useState<string>(() => {
+    return localStorage.getItem('mcp_session_user') || 'user_' + Math.random().toString(36).substring(7);
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mcp_session_user', sessionUser);
+    // Send JWT (mocked for now) to Service Worker
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const mockJwt = btoa(JSON.stringify({ sub: sessionUser, exp: Math.floor(Date.now() / 1000) + 3600 }));
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SET_AUTH_TOKEN',
+        token: mockJwt,
+      });
+    }
+  }, [sessionUser]);
 
   return (
     <div className="app-container">
@@ -28,9 +44,18 @@ export function App() {
             </ul>
           </nav>
         </div>
-        <div className={`status-badge ${isConnected ? 'connected' : 'disconnected'}`}>
-          <span className="dot"></span>
-          {isConnected ? 'Connected to MCP Proxy' : 'Disconnected from MCP Proxy'}
+        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="session-info">
+            User: <input
+              value={sessionUser}
+              onChange={(e) => setSessionUser(e.target.value)}
+              style={{ padding: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
+            />
+          </div>
+          <div className={`status-badge ${isConnected ? 'connected' : 'disconnected'}`}>
+            <span className="dot"></span>
+            {isConnected ? 'Connected to MCP Proxy' : 'Disconnected from MCP Proxy'}
+          </div>
         </div>
       </header>
 

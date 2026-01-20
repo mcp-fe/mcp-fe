@@ -33,37 +33,51 @@ const mcpServer = createServer();
 
 // Track pending requests and active connections
 const pendingRequests = new Map<string, (value: any) => void>();
-let activeWs: WebSocket | null = null;
+// Map sessionId to WebSocket connection
+const activeSessions = new Map<string, WebSocket>();
 
-async function callServiceWorkerTool(message: any): Promise<any> {
-  if (!activeWs) {
-    throw new Error('No Service Worker connected via WebSocket');
+function getSessionIdFromToken(token: string | null): string {
+  if (!token) return 'anonymous';
+  try {
+    // Basic JWT decoding for simulation
+    const payload = JSON.parse(Buffer.from(token, 'base64').toString());
+    return payload.sub || 'anonymous';
+  } catch (e) {
+    console.error('Failed to parse token:', e);
+    return 'anonymous';
+  }
+}
+
+async function callServiceWorkerTool(sessionId: string, message: any): Promise<any> {
+  const ws = activeSessions.get(sessionId);
+  if (!ws) {
+    throw new Error(`No Service Worker connected for session: ${sessionId}`);
   }
 
   // Ensure message has a unique ID
   const requestId = message.id || Math.random().toString(36).substring(7);
   const mcpMessage = { ...message, id: requestId };
 
-  console.error(`[Backend] Sending request to SW: ${mcpMessage.method} (id: ${requestId})`);
+  console.error(`[Backend] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
 
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      pendingRequests.delete(requestId.toString());
-      console.error(`[Backend] Timeout waiting for SW response for id: ${requestId}`);
+      pendingRequests.delete(`${sessionId}:${requestId}`);
+      console.error(`[Backend] Timeout waiting for SW response for session ${sessionId}, id: ${requestId}`);
       reject(new Error('Timeout waiting for Service Worker response'));
     }, 15000); // Increased timeout to 15s
 
-    pendingRequests.set(requestId.toString(), (data) => {
-      console.error(`[Backend] Received response from SW for id: ${requestId}`);
+    pendingRequests.set(`${sessionId}:${requestId}`, (data) => {
+      console.error(`[Backend] Received response from SW for session ${sessionId}, id: ${requestId}`);
       clearTimeout(timeout);
       resolve(data);
     });
 
     try {
-      activeWs!.send(JSON.stringify(mcpMessage));
+      ws.send(JSON.stringify(mcpMessage));
     } catch (err) {
       clearTimeout(timeout);
-      pendingRequests.delete(requestId.toString());
+      pendingRequests.delete(`${sessionId}:${requestId}`);
       reject(err);
     }
   });
@@ -71,7 +85,8 @@ async function callServiceWorkerTool(message: any): Promise<any> {
 
 function setupHandlers(server: Server) {
   // Register tools
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  server.setRequestHandler(ListToolsRequestSchema, async (request, extra) => {
+    const sessionId = (extra as any)?.sessionId || 'anonymous';
     const localTools = [
       {
         name: 'client_status',
@@ -83,9 +98,10 @@ function setupHandlers(server: Server) {
       },
     ];
 
-    if (activeWs) {
+    const ws = activeSessions.get(sessionId);
+    if (ws) {
       try {
-        const response = await callServiceWorkerTool({
+        const response = await callServiceWorkerTool(sessionId, {
           jsonrpc: '2.0',
           method: 'tools/list',
         });
@@ -96,7 +112,7 @@ function setupHandlers(server: Server) {
           };
         }
       } catch (error) {
-        console.error('Error fetching tools from Service Worker:', error);
+        console.error(`Error fetching tools from Service Worker for session ${sessionId}:`, error);
       }
     }
 
@@ -105,17 +121,20 @@ function setupHandlers(server: Server) {
     };
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
+    const sessionId = (extra as any)?.sessionId || 'anonymous';
 
     if (name === 'client_status') {
+      const ws = activeSessions.get(sessionId);
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
-              isConnected: !!activeWs,
-              message: activeWs ? 'Client connected' : 'No client connected'
+              isConnected: !!ws,
+              sessionId,
+              message: ws ? `Client connected for session ${sessionId}` : `No client connected for session ${sessionId}`
             }, null, 2),
           },
         ],
@@ -124,7 +143,7 @@ function setupHandlers(server: Server) {
 
     // Proxy other tools to Service Worker
     try {
-      const response = await callServiceWorkerTool({
+      const response = await callServiceWorkerTool(sessionId, {
         jsonrpc: '2.0',
         method: 'tools/call',
         params: {
@@ -139,7 +158,7 @@ function setupHandlers(server: Server) {
 
       return response.result;
     } catch (error) {
-      console.error(`Error proxying tool ${name} to Service Worker:`, error);
+      console.error(`Error proxying tool ${name} to Service Worker for session ${sessionId}:`, error);
       throw error;
     }
   });
@@ -183,7 +202,33 @@ const httpServer = app.listen(PORT, () => {
   console.error(`HTTP Server listening on port ${PORT}`);
 });
 
-const wss = new WebSocketServer({ server: httpServer });
+const mcpAuthMiddleware: (info: { origin: string; secure: boolean; req: any }, callback: (res: boolean, code?: number, message?: string) => void) => void = (info, callback) => {
+  const url = new URL(info.req.url || '', `http://${info.req.headers.host}`);
+  const token = url.searchParams.get('token');
+  const sessionId = getSessionIdFromToken(token);
+
+  if (sessionId === 'anonymous') {
+    console.error(`[WS Auth] Rejecting anonymous connection from ${info.origin}`);
+    callback(false, 401, 'Unauthorized');
+  } else {
+    console.error(`[WS Auth] Verified session: ${sessionId}`);
+    // Attach sessionId to the request object so it can be used in the connection event
+    info.req.sessionId = sessionId;
+    info.req.mcpSession = {
+      id: `mcp_${crypto.randomUUID()}`,
+      context: {
+        sessionId,
+        scopes: ['context:read'],
+      },
+    };
+    callback(true);
+  }
+};
+
+const wss = new WebSocketServer({
+  server: httpServer,
+  verifyClient: mcpAuthMiddleware,
+});
 
 console.error(`MCP Server (HTTP/WS) starting on port ${PORT}...`);
 
@@ -191,28 +236,26 @@ mcpServer.connect(httpTransport).catch((err) => {
   console.error('Failed to start HTTP MCP server:', err);
 });
 
-wss.on('connection', async (ws) => {
-  console.error('Client connected');
-  activeWs = ws;
+wss.on('connection', async (ws, req) => {
+  const sessionId = (req as any).sessionId || 'anonymous';
 
-  setupHandlers(mcpServer);
-
+  console.error(`Client connected for session: ${sessionId}`);
+  activeSessions.set(sessionId, ws);
 
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
-      console.error(`[Backend] Raw message from client: ${JSON.stringify(message).substring(0, 100)}...`);
+      console.error(`[Backend] Raw message from client (${sessionId}): ${JSON.stringify(message).substring(0, 100)}...`);
 
       // Handle MCP protocol messages (JSON-RPC)
-      // This allows the client to call tools in the serviceWorker MCP via WebSocket
       if (message.jsonrpc === '2.0') {
-        // Handle responses from SW to our requests (e.g. tools/list or tools/call we proxied)
+        // Handle responses from SW to our requests
         if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
-          const handler = pendingRequests.get(message.id.toString());
+          const handler = pendingRequests.get(`${sessionId}:${message.id}`);
           if (handler) {
-            console.error(`[Backend] Found handler for response id: ${message.id}`);
+            console.error(`[Backend] Found handler for response session ${sessionId}, id: ${message.id}`);
             handler(message);
-            pendingRequests.delete(message.id.toString());
+            pendingRequests.delete(`${sessionId}:${message.id}`);
             return;
           }
         }
@@ -226,12 +269,10 @@ wss.on('connection', async (ws) => {
   });
 
   ws.on('close', async () => {
-    console.error('Client disconnected');
-    if (activeWs === ws) {
-      activeWs = null;
+    console.error(`Client disconnected for session: ${sessionId}`);
+    if (activeSessions.get(sessionId) === ws) {
+      activeSessions.delete(sessionId);
     }
-    // Reset handlers to include server only
-    setupHandlers(mcpServer);
   });
 
   ws.on('error', (error) => {

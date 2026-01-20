@@ -17,6 +17,7 @@ const BACKEND_WS_URL = 'ws://localhost:3001';
 let socket: WebSocket | null = null;
 let transport: WebSocketTransport | null = null;
 let reconnectAttempts = 0;
+let authToken: string | null = null;
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
 
@@ -36,7 +37,9 @@ async function connectWebSocket(): Promise<void> {
   }
 
   return new Promise((resolve) => {
-    socket = new WebSocket(BACKEND_WS_URL);
+    // Append token to URL as query parameter for WebSocket auth
+    const url = authToken ? `${BACKEND_WS_URL}?token=${authToken}` : BACKEND_WS_URL;
+    socket = new WebSocket(url);
 
     socket.onopen = async () => {
       console.log('Connected to backend MCP server');
@@ -84,6 +87,17 @@ async function connectWebSocket(): Promise<void> {
 // Handle messages from the main thread
 self.addEventListener('message', async (event: ExtendableMessageEvent) => {
   if (!event.data) return;
+
+  if (event.data.type === 'SET_AUTH_TOKEN') {
+    authToken = event.data.token;
+    console.log('Received auth token, reconnecting WebSocket...');
+    if (socket) {
+      socket.close(); // This will trigger onclose and then connectWebSocket with new token
+    } else {
+      connectWebSocket();
+    }
+    return;
+  }
 
   if (event.data.type === 'STORE_EVENT') {
     event.waitUntil((async () => {
