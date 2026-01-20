@@ -22,27 +22,15 @@ export function useTanstackRouterEventTracker(): void {
       return;
     }
 
-    // Try SharedWorker first, then fallback to ServiceWorker
+    // initEventTracker will try SharedWorker first, then fallback to ServiceWorker automatically
+    // We don't need to manually register ServiceWorker here - initEventTracker handles it
     initEventTracker()
       .then(() => {
         isInitializedRef.current = true;
       })
       .catch((error) => {
         console.error('Worker initialization failed:', error);
-        // Try ServiceWorker as explicit fallback
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker
-            .register('/sw.js')
-            .then((registration) => {
-              return initEventTracker(registration);
-            })
-            .then(() => {
-              isInitializedRef.current = true;
-            })
-            .catch((error) => {
-              console.error('Service worker registration failed:', error);
-            });
-        }
+        isInitializedRef.current = false;
       });
   }, []);
 
