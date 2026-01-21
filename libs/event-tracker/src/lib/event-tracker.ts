@@ -1,5 +1,8 @@
 /**
  * Event Tracker - Client-side utilities to send events to the service worker or shared worker
+ *
+ * Refactored: encapsulate worker selection (SharedWorker preferred, ServiceWorker fallback)
+ * into a WorkerClient class that exposes a unified interface used by the rest of the module.
  */
 
 export interface UserEventData {
@@ -16,434 +19,349 @@ export interface UserEventData {
 
 type WorkerType = 'shared' | 'service';
 
-let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
-let sharedWorker: SharedWorker | null = null;
-let sharedWorkerPort: MessagePort | null = null;
-let workerType: WorkerType | null = null;
-let pendingAuthToken: string | null = null;
-
 /**
- * Initialize the event tracker with SharedWorker (preferred) or ServiceWorker (fallback)
- * Only one worker type will be used - SharedWorker if supported, otherwise ServiceWorker
+ * WorkerClient encapsulates the worker selection and messaging logic.
+ * Public methods provide a unified API to the rest of the library.
  */
-export async function initEventTracker(
-  registration?: ServiceWorkerRegistration,
-): Promise<void> {
-  // If explicitly provided with ServiceWorker registration, use it directly
-  if (registration) {
-    serviceWorkerRegistration = registration;
-    workerType = 'service';
-    console.log('[EventTracker] Using ServiceWorker (explicit registration)');
-    return;
-  }
+class WorkerClient {
+  private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
+  private sharedWorker: SharedWorker | null = null;
+  private sharedWorkerPort: MessagePort | null = null;
+  private workerType: WorkerType | null = null;
+  private pendingAuthToken: string | null = null;
 
-  // Try SharedWorker first if supported
-  if (typeof SharedWorker !== 'undefined') {
-    try {
-      sharedWorker = new SharedWorker('/shared-worker.js', { type: 'module' });
-      sharedWorkerPort = sharedWorker.port;
-      sharedWorkerPort.start();
+  // Initialize and choose worker implementation (prefer SharedWorker)
+  public async init(registration?: ServiceWorkerRegistration): Promise<void> {
+    // If an explicit ServiceWorker registration is provided, use it
+    if (registration) {
+      this.serviceWorkerRegistration = registration;
+      this.workerType = 'service';
+      console.log('[EventTracker] Using ServiceWorker (explicit registration)');
+      // send pending token if exists
+      if (this.pendingAuthToken) {
+        this.sendAuthTokenToServiceWorker(this.pendingAuthToken);
+        this.pendingAuthToken = null;
+      }
+      return;
+    }
 
-      // Handle SharedWorker errors (on the SharedWorker object, not the port)
-      // Note: onerror receives an ErrorEvent, not an Error
-      sharedWorker.onerror = (event: ErrorEvent) => {
-        console.error('[EventTracker] SharedWorker error:', event.message || event.error || event);
-        // On error, fall back to ServiceWorker only if we haven't successfully initialized
-        // Don't fallback if we're already using SharedWorker - let it handle its own errors
-        if (workerType !== 'shared') {
-          initServiceWorkerFallback().catch((err) => {
-            console.error('[EventTracker] Failed to initialize ServiceWorker fallback:', err);
-          });
-        }
-      };
+    // Try SharedWorker first
+    if (typeof SharedWorker !== 'undefined') {
+      try {
+        this.sharedWorker = new SharedWorker('/shared-worker.js', { type: 'module' });
+        this.sharedWorkerPort = this.sharedWorker.port;
+        this.sharedWorkerPort.start();
 
-      // Wait a bit for the SharedWorker to initialize
-      let isResolved = false;
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          if (!isResolved && sharedWorkerPort) {
-            sharedWorkerPort.onmessage = null;
-          }
-          reject(new Error('SharedWorker initialization timeout'));
-        }, 2000);
-
-        // Set up temporary message handler just for initialization
-        const initializationHandler = (event: MessageEvent) => {
-          if (isResolved) {
-            // Already resolved, ignore subsequent messages
-            return;
-          }
-          
-          console.log('[EventTracker] Received initialization message from SharedWorker:', event.data);
-          if (event.data.type === 'CONNECTION_STATUS') {
-            clearTimeout(timeout);
-            workerType = 'shared';
-            isResolved = true;
-            console.log('[EventTracker] SharedWorker is ready, workerType set to:', workerType);
-            
-            // Remove this temporary handler to prevent it from firing on subsequent CONNECTION_STATUS messages
-            if (sharedWorkerPort) {
-              sharedWorkerPort.onmessage = null;
-            }
-            
-            resolve();
+        // SharedWorker error handler
+        this.sharedWorker.onerror = (event: ErrorEvent) => {
+          console.error('[EventTracker] SharedWorker error:', event.message || event.error || event);
+          // If we haven't settled on shared worker, fallback to service worker
+          if (this.workerType !== 'shared') {
+            this.initServiceWorkerFallback().catch((err) => {
+              console.error('[EventTracker] Failed to initialize ServiceWorker fallback:', err);
+            });
           }
         };
-        
-        sharedWorkerPort!.onmessage = initializationHandler;
-      });
 
-      console.log('[EventTracker] Using SharedWorker');
-      
-      // Send any pending auth token immediately after initialization
-      const tokenToSend = pendingAuthToken;
-      if (tokenToSend && sharedWorkerPort) {
-        console.log('[EventTracker] Sending pending auth token to SharedWorker after initialization:', tokenToSend);
-        try {
-          sharedWorkerPort.postMessage({
-            type: 'SET_AUTH_TOKEN',
-            token: tokenToSend,
-          });
-          console.log('[EventTracker] Successfully posted SET_AUTH_TOKEN message with token');
-          pendingAuthToken = null;
-        } catch (error) {
-          console.error('[EventTracker] Failed to send pending auth token:', error);
-        }
-      } else {
-        console.log('[EventTracker] No pending auth token to send. pendingAuthToken:', pendingAuthToken, 'hasPort:', !!sharedWorkerPort);
-      }
+        // Await an initial CONNECTION_STATUS message (or timeout)
+        await new Promise<void>((resolve, reject) => {
+          let resolved = false;
+          const timeout = setTimeout(() => {
+            if (!resolved) {
+              // Stop listening to avoid leaking handlers
+              const p = this.sharedWorkerPort;
+              if (p) p.onmessage = null;
+              reject(new Error('SharedWorker initialization timeout'));
+            }
+          }, 2000);
 
-      return; // Successfully initialized SharedWorker, don't register ServiceWorker
-    } catch (error) {
-      console.warn('[EventTracker] SharedWorker not available, falling back to ServiceWorker:', error);
-      // Fall through to ServiceWorker
-    }
-  }
+          const p = this.sharedWorkerPort;
+          if (!p) {
+            clearTimeout(timeout);
+            return reject(new Error('SharedWorker port not available'));
+          }
 
-  // Fallback to ServiceWorker only if SharedWorker is not supported or failed
-  await initServiceWorkerFallback();
-
-  // Send any pending auth token to ServiceWorker
-  if (pendingAuthToken && workerType === 'service') {
-    if (serviceWorkerRegistration?.active) {
-      serviceWorkerRegistration.active.postMessage({
-        type: 'SET_AUTH_TOKEN',
-        token: pendingAuthToken,
-      });
-    } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: 'SET_AUTH_TOKEN',
-        token: pendingAuthToken,
-      });
-    }
-    pendingAuthToken = null;
-  }
-}
-
-/**
- * Initialize ServiceWorker as fallback
- */
-async function initServiceWorkerFallback(): Promise<void> {
-  if ('serviceWorker' in navigator) {
-    try {
-      // Check if ServiceWorker is already registered
-      const existingRegistration = await navigator.serviceWorker.getRegistration();
-      if (existingRegistration) {
-        serviceWorkerRegistration = existingRegistration;
-        workerType = 'service';
-        console.log('[EventTracker] Using existing ServiceWorker registration');
-        return;
-      }
-
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      serviceWorkerRegistration = reg;
-      workerType = 'service';
-      console.log('[EventTracker] Using ServiceWorker (fallback)');
-    } catch (error) {
-      console.error('[EventTracker] Failed to register ServiceWorker:', error);
-      throw error;
-    }
-  } else {
-    throw new Error('Neither SharedWorker nor ServiceWorker is supported');
-  }
-}
-
-/**
- * Send an event to the worker (SharedWorker or ServiceWorker) for storage
- */
-export async function trackEvent(event: UserEventData): Promise<void> {
-  if (workerType === 'shared' && sharedWorkerPort) {
-    const eventWithTimestamp = {
-      ...event,
-      timestamp: Date.now(),
-    };
-
-    return new Promise((resolve, reject) => {
-      const messageChannel = new MessageChannel();
-
-      messageChannel.port1.onmessage = (event) => {
-        if (event.data.success) {
-          resolve(event.data.result);
-        } else {
-          reject(new Error(event.data.error || 'Failed to communicate with SharedWorker'));
-        }
-      };
-
-      sharedWorkerPort!.postMessage(
-        {
-          type: 'STORE_EVENT',
-          event: eventWithTimestamp,
-        },
-        [messageChannel.port2],
-      );
-
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        reject(new Error('Event tracking timeout'));
-      }, 5000);
-    });
-  }
-
-  if (workerType === 'service' && serviceWorkerRegistration) {
-    // Wait for service worker to be ready
-    if (!serviceWorkerRegistration.active) {
-      await navigator.serviceWorker.ready;
-      if (!serviceWorkerRegistration.active) {
-        console.warn('Service worker not active, event not tracked:', event);
-        return;
-      }
-    }
-
-    const eventWithTimestamp = {
-      ...event,
-      timestamp: Date.now(),
-    };
-
-    return new Promise((resolve, reject) => {
-      const messageChannel = new MessageChannel();
-
-      messageChannel.port1.onmessage = (event) => {
-        if (event.data.success) {
-          resolve(event.data.result);
-        } else {
-          reject(new Error(event.data.error || 'Failed to communicate with service worker'));
-        }
-      };
-
-      serviceWorkerRegistration!.active!.postMessage(
-        {
-          type: 'STORE_EVENT',
-          event: eventWithTimestamp,
-        },
-        [messageChannel.port2],
-      );
-
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        reject(new Error('Event tracking timeout'));
-      }, 5000);
-    });
-  }
-
-  console.warn('No worker registered, event not tracked:', event);
-}
-
-/**
- * Get all events from the worker (SharedWorker or ServiceWorker)
- */
-export async function getStoredEvents(): Promise<any[]> {
-  if (workerType === 'shared' && sharedWorkerPort) {
-    return new Promise((resolve, reject) => {
-      const messageChannel = new MessageChannel();
-
-      messageChannel.port1.onmessage = (event) => {
-        if (event.data.success) {
-          resolve(event.data.events);
-        } else {
-          reject(new Error(event.data.error || 'Failed to fetch events'));
-        }
-      };
-
-      sharedWorkerPort!.postMessage(
-        {
-          type: 'GET_EVENTS',
-        },
-        [messageChannel.port2],
-      );
-
-      setTimeout(() => reject(new Error('Fetch events timeout')), 5000);
-    });
-  }
-
-  if (workerType === 'service' && serviceWorkerRegistration) {
-    if (!serviceWorkerRegistration.active) {
-      await navigator.serviceWorker.ready;
-    }
-
-    return new Promise((resolve, reject) => {
-      const messageChannel = new MessageChannel();
-
-      messageChannel.port1.onmessage = (event) => {
-        if (event.data.success) {
-          resolve(event.data.events);
-        } else {
-          reject(new Error(event.data.error || 'Failed to fetch events'));
-        }
-      };
-
-      serviceWorkerRegistration!.active!.postMessage(
-        {
-          type: 'GET_EVENTS',
-        },
-        [messageChannel.port2],
-      );
-
-      setTimeout(() => reject(new Error('Fetch events timeout')), 5000);
-    });
-  }
-
-  return [];
-}
-
-/**
- * Get the current connection status from the worker (SharedWorker or ServiceWorker)
- */
-export async function getConnectionStatus(): Promise<boolean> {
-  if (workerType === 'shared' && sharedWorkerPort) {
-    return new Promise((resolve) => {
-      const messageChannel = new MessageChannel();
-
-      messageChannel.port1.onmessage = (event) => {
-        if (event.data.success) {
-          resolve(!!event.data.connected);
-        } else {
-          resolve(false);
-        }
-      };
-
-      sharedWorkerPort!.postMessage(
-        {
-          type: 'GET_CONNECTION_STATUS',
-        },
-        [messageChannel.port2],
-      );
-
-      setTimeout(() => resolve(false), 2000);
-    });
-  }
-
-  if (workerType === 'service' && serviceWorkerRegistration) {
-    if (!serviceWorkerRegistration.active) {
-      await navigator.serviceWorker.ready;
-    }
-
-    return new Promise((resolve) => {
-      const messageChannel = new MessageChannel();
-
-      messageChannel.port1.onmessage = (event) => {
-        if (event.data.success) {
-          resolve(!!event.data.connected);
-        } else {
-          resolve(false);
-        }
-      };
-
-      serviceWorkerRegistration!.active!.postMessage(
-        {
-          type: 'GET_CONNECTION_STATUS',
-        },
-        [messageChannel.port2],
-      );
-
-      setTimeout(() => resolve(false), 2000);
-    });
-  }
-
-  return false;
-}
-
-/**
- * Set the auth token for the worker (SharedWorker or ServiceWorker)
- * If the worker is not yet initialized, the token will be queued and sent once ready
- */
-export function setAuthToken(token: string): void {
-  console.log('[EventTracker] setAuthToken called:', token, 'workerType:', workerType, 'hasPort:', !!sharedWorkerPort);
-  
-  // Store the token in case worker isn't ready yet
-  pendingAuthToken = token;
-
-  if (workerType === 'shared' && sharedWorkerPort) {
-    console.log('[EventTracker] Sending auth token to SharedWorker immediately');
-    console.log('[EventTracker] sharedWorkerPort details:', {
-      hasPort: !!sharedWorkerPort,
-      portType: typeof sharedWorkerPort,
-      hasPostMessage: typeof sharedWorkerPort.postMessage,
-    });
-    try {
-      if (typeof sharedWorkerPort.postMessage === 'function') {
-        sharedWorkerPort.postMessage({
-          type: 'SET_AUTH_TOKEN',
-          token,
+          p.onmessage = (ev: MessageEvent) => {
+            if (resolved) return;
+            console.log('[EventTracker] Received initialization message from SharedWorker:', ev.data);
+            if (ev.data && ev.data.type === 'CONNECTION_STATUS') {
+              clearTimeout(timeout);
+              resolved = true;
+              this.workerType = 'shared';
+              // remove temporary handler
+              p.onmessage = null;
+              resolve();
+            }
+          };
         });
-        console.log('[EventTracker] Successfully posted SET_AUTH_TOKEN message');
-        pendingAuthToken = null; // Clear pending since we sent it
-      } else {
-        console.error('[EventTracker] sharedWorkerPort.postMessage is not a function!');
+
+        // Send pending auth token if any
+        const portAfterInit = this.sharedWorkerPort;
+        if (this.pendingAuthToken && portAfterInit) {
+          try {
+            portAfterInit.postMessage({ type: 'SET_AUTH_TOKEN', token: this.pendingAuthToken });
+            this.pendingAuthToken = null;
+          } catch (e) {
+            console.error('[EventTracker] Failed to send pending auth token to SharedWorker:', e);
+          }
+        }
+
+        console.log('[EventTracker] Using SharedWorker');
+        return;
+      } catch (error) {
+        console.warn('[EventTracker] SharedWorker not available, falling back to ServiceWorker:', error);
+        // fall through to service worker fallback
       }
-    } catch (error) {
-      console.error('[EventTracker] Failed to send auth token to SharedWorker:', error);
-      // Keep it as pending so it can be retried
     }
-  } else if (workerType === 'service' && serviceWorkerRegistration?.active) {
-    console.log('[EventTracker] Sending auth token to ServiceWorker');
-    serviceWorkerRegistration.active.postMessage({
-      type: 'SET_AUTH_TOKEN',
-      token,
-    });
-    pendingAuthToken = null; // Clear pending since we sent it
-  } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    // Fallback: try to send directly to service worker controller
-    console.log('[EventTracker] Sending auth token to ServiceWorker controller (fallback)');
-    navigator.serviceWorker.controller.postMessage({
-      type: 'SET_AUTH_TOKEN',
-      token,
-    });
-    pendingAuthToken = null; // Clear pending since we sent it
-  } else {
-    // Worker not ready yet, token is stored in pendingAuthToken
-    // It will be sent once the worker initializes
-    console.log('[EventTracker] Worker not ready, queuing auth token. workerType:', workerType);
+
+    // If SharedWorker isn't supported or failed, use service worker
+    await this.initServiceWorkerFallback();
+
+    // Send pending token if any
+    if (this.pendingAuthToken && this.workerType === 'service') {
+      this.sendAuthTokenToServiceWorker(this.pendingAuthToken);
+      this.pendingAuthToken = null;
+    }
+  }
+
+  private async initServiceWorkerFallback(): Promise<void> {
+    if ('serviceWorker' in navigator) {
+      try {
+        const existingRegistration = await navigator.serviceWorker.getRegistration();
+        if (existingRegistration) {
+          this.serviceWorkerRegistration = existingRegistration;
+          this.workerType = 'service';
+          console.log('[EventTracker] Using existing ServiceWorker registration');
+          return;
+        }
+
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        this.serviceWorkerRegistration = reg;
+        this.workerType = 'service';
+        console.log('[EventTracker] Using ServiceWorker (fallback)');
+      } catch (error) {
+        console.error('[EventTracker] Failed to register ServiceWorker:', error);
+        throw error;
+      }
+    } else {
+      throw new Error('Neither SharedWorker nor ServiceWorker is supported');
+    }
+  }
+
+  // Low-level request that expects a reply via MessageChannel
+  public async request<T = any>(type: string, payload?: Record<string, unknown>, timeoutMs = 5000): Promise<T> {
+    // If using shared worker
+    if (this.workerType === 'shared' && this.sharedWorkerPort) {
+      return new Promise<T>((resolve, reject) => {
+        const mc = new MessageChannel();
+        const timer = setTimeout(() => {
+          mc.port1.onmessage = null;
+          reject(new Error('Request timeout'));
+        }, timeoutMs);
+
+        mc.port1.onmessage = (ev: MessageEvent) => {
+          clearTimeout(timer);
+          if (ev.data && ev.data.success) {
+            resolve(ev.data as T);
+          } else if (ev.data && ev.data.success === false) {
+            reject(new Error(ev.data.error || 'Worker error'));
+          } else {
+            resolve(ev.data as T);
+          }
+        };
+
+        try {
+          const port = this.sharedWorkerPort;
+          if (!port) {
+            clearTimeout(timer);
+            return reject(new Error('SharedWorker port not available'));
+          }
+          port.postMessage({ type, ...(payload || {}) }, [mc.port2]);
+        } catch (e) {
+          clearTimeout(timer);
+          reject(e instanceof Error ? e : new Error(String(e)));
+        }
+      });
+    }
+
+    // If using service worker
+    if (this.workerType === 'service' && this.serviceWorkerRegistration) {
+      // Ensure service worker active
+      const reg = this.serviceWorkerRegistration;
+      if (!reg) throw new Error('Service worker registration missing');
+      if (!reg.active) {
+        await navigator.serviceWorker.ready;
+        if (!reg.active) {
+          throw new Error('Service worker not active');
+        }
+      }
+
+      return new Promise<T>((resolve, reject) => {
+        const mc = new MessageChannel();
+        const timer = setTimeout(() => {
+          mc.port1.onmessage = null;
+          reject(new Error('Request timeout'));
+        }, timeoutMs);
+
+        mc.port1.onmessage = (ev: MessageEvent) => {
+          clearTimeout(timer);
+          if (ev.data && ev.data.success) {
+            resolve(ev.data as T);
+          } else if (ev.data && ev.data.success === false) {
+            reject(new Error(ev.data.error || 'Worker error'));
+          } else {
+            resolve(ev.data as T);
+          }
+        };
+
+        try {
+          const active = reg.active;
+          if (!active) {
+            clearTimeout(timer);
+            return reject(new Error('Service worker active instance not available'));
+          }
+          active.postMessage({ type, ...(payload || {}) }, [mc.port2]);
+        } catch (e) {
+          clearTimeout(timer);
+          reject(e instanceof Error ? e : new Error(String(e)));
+        }
+      });
+    }
+
+    // No worker available
+    throw new Error('No worker registered');
+  }
+
+  // Fire-and-forget postMessage (no response expected)
+  public async post(type: string, payload?: Record<string, unknown>): Promise<void> {
+    if (this.workerType === 'shared' && this.sharedWorkerPort) {
+      try {
+        this.sharedWorkerPort.postMessage({ type, ...(payload || {}) });
+      } catch (e) {
+        console.error('[EventTracker] Failed to post to SharedWorker:', e);
+      }
+      return;
+    }
+
+    if (this.workerType === 'service' && this.serviceWorkerRegistration?.active) {
+      try {
+        this.serviceWorkerRegistration.active.postMessage({ type, ...(payload || {}) });
+      } catch (e) {
+        console.error('[EventTracker] Failed to post to ServiceWorker (active):', e);
+      }
+      return;
+    }
+
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      try {
+        navigator.serviceWorker.controller.postMessage({ type, ...(payload || {}) });
+      } catch (e) {
+        console.error('[EventTracker] Failed to post to ServiceWorker.controller:', e);
+      }
+      return;
+    }
+
+    // If no worker yet, queue token if SET_AUTH_TOKEN
+    if (type === 'SET_AUTH_TOKEN' && payload) {
+      const token = (payload as any)['token'];
+      if (typeof token === 'string') this.pendingAuthToken = token;
+    }
+  }
+
+  private sendAuthTokenToServiceWorker(token: string): void {
+    if (this.serviceWorkerRegistration?.active) {
+      try {
+        this.serviceWorkerRegistration.active.postMessage({ type: 'SET_AUTH_TOKEN', token });
+      } catch (e) {
+        console.error('[EventTracker] Failed to send auth token to ServiceWorker:', e);
+      }
+    } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      try {
+        navigator.serviceWorker.controller.postMessage({ type: 'SET_AUTH_TOKEN', token });
+      } catch (e) {
+        console.error('[EventTracker] Failed to send auth token to ServiceWorker.controller:', e);
+      }
+    } else {
+      // keep as pending
+      this.pendingAuthToken = token;
+    }
+  }
+
+  // Public convenience wrappers
+  public async trackEvent(event: UserEventData): Promise<void> {
+    const userEvent = { ...event, timestamp: Date.now() };
+    await this.request('STORE_EVENT', { event: userEvent }).catch((err) => { throw err; });
+  }
+
+  public async getStoredEvents(): Promise<any[]> {
+    const res = await this.request('GET_EVENTS');
+    // res may be { success: true, events } or just events; normalize
+    if (res && typeof res === 'object' && 'events' in (res as any)) return (res as any).events;
+    return Array.isArray(res) ? (res as any) : [];
+  }
+
+  public async getConnectionStatus(): Promise<boolean> {
+    try {
+      const res = await this.request('GET_CONNECTION_STATUS', undefined, 2000);
+      if (res && typeof res === 'object' && 'connected' in (res as any)) return !!(res as any).connected;
+      return !!(res as any).connected;
+    } catch {
+      return false;
+    }
+  }
+
+  public setAuthToken(token: string): void {
+    this.pendingAuthToken = token;
+    // Try to send immediately if possible
+    if (this.workerType === 'shared' && this.sharedWorkerPort) {
+      try {
+        this.sharedWorkerPort.postMessage({ type: 'SET_AUTH_TOKEN', token });
+        this.pendingAuthToken = null;
+      } catch (e) {
+        console.error('[EventTracker] Failed to set auth token on SharedWorker:', e);
+      }
+    } else if (this.workerType === 'service') {
+      this.sendAuthTokenToServiceWorker(token);
+      this.pendingAuthToken = null;
+    } else {
+      // queued and will be sent when init finishes
+    }
   }
 }
 
-/**
- * Track a navigation event
- */
-export async function trackNavigation(
-  from: string,
-  to: string,
-  path?: string,
-): Promise<void> {
-  return trackEvent({
-    type: 'navigation',
-    from,
-    to,
-    path: path || to,
-  });
+// Singleton client used by exported functions
+const workerClient = new WorkerClient();
+
+// Public API - thin wrappers around workerClient
+export async function initEventTracker(registration?: ServiceWorkerRegistration): Promise<void> {
+  return workerClient.init(registration);
 }
 
-/**
- * Track a click event
- */
-export async function trackClick(
-  element: HTMLElement,
-  path?: string,
-  metadata?: Record<string, unknown>,
-): Promise<void> {
+export async function trackEvent(event: UserEventData): Promise<void> {
+  return workerClient.trackEvent(event);
+}
+
+export async function getStoredEvents(): Promise<any[]> {
+  return workerClient.getStoredEvents();
+}
+
+export async function getConnectionStatus(): Promise<boolean> {
+  return workerClient.getConnectionStatus();
+}
+
+export function setAuthToken(token: string): void {
+  workerClient.setAuthToken(token);
+}
+
+// Convenience helpers (kept outside for ergonomic API)
+export async function trackNavigation(from: string, to: string, path?: string): Promise<void> {
+  return trackEvent({ type: 'navigation', from, to, path: path || to });
+}
+
+export async function trackClick(element: HTMLElement, path?: string, metadata?: Record<string, unknown>): Promise<void> {
   const elementId = element.id || undefined;
   const elementClass = element.className || undefined;
-  const elementText =
-    element.textContent?.trim().substring(0, 100) || undefined;
+  const elementText = element.textContent?.trim().substring(0, 100) || undefined;
   const tagName = element.tagName.toLowerCase();
 
   return trackEvent({
@@ -457,14 +375,7 @@ export async function trackClick(
   });
 }
 
-/**
- * Track an input event
- */
-export async function trackInput(
-  element: HTMLElement,
-  value?: string,
-  path?: string,
-): Promise<void> {
+export async function trackInput(element: HTMLElement, value?: string, path?: string): Promise<void> {
   const elementId = element.id || undefined;
   const elementClass = element.className || undefined;
   const tagName = element.tagName.toLowerCase();
@@ -482,14 +393,7 @@ export async function trackInput(
   });
 }
 
-/**
- * Track a custom event
- */
-export async function trackCustom(
-  eventName: string,
-  metadata?: Record<string, unknown>,
-  path?: string,
-): Promise<void> {
+export async function trackCustom(eventName: string, metadata?: Record<string, unknown>, path?: string): Promise<void> {
   return trackEvent({
     type: 'custom',
     path: path || window.location.pathname,
