@@ -1,4 +1,6 @@
-import { WorkerClient } from '@mcp-fe/service-worker';
+import { queryEvents, type UserEvent, WorkerClient } from '@mcp-fe/service-worker';
+export type { UserEvent } from '@mcp-fe/service-worker';
+
 
 export interface UserEventData {
   type: 'navigation' | 'click' | 'input' | 'custom';
@@ -26,10 +28,9 @@ export async function trackEvent(event: UserEventData): Promise<void> {
   await workerClient.request('STORE_EVENT', { event: userEvent });
 }
 
-export async function getStoredEvents(): Promise<any[]> {
-  const res = await workerClient.request('GET_EVENTS');
-  if (res && typeof res === 'object' && 'events' in (res as any)) return (res as any).events;
-  return Array.isArray(res) ? (res as any) : [];
+export async function getStoredEvents(): Promise<UserEvent[]> {
+  const res = await queryEvents();
+  return Array.isArray(res) ? res : [];
 }
 
 export async function getConnectionStatus(): Promise<boolean> {

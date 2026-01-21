@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { getStoredEvents } from '@mcp-fe/event-tracker';
+import { getStoredEvents, type UserEvent } from '@mcp-fe/event-tracker';
 
 export function useStoredEvents(refreshInterval = 2000) {
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<UserEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
