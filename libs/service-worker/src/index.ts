@@ -1,1 +1,1 @@
-export * from './lib/service-worker';
+export * from './lib/worker-client';

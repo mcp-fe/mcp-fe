@@ -10,7 +10,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noPropertyAccessFromIndexSignature": true,
-    "lib": ["esnext", "webworker"]
+    "lib": ["esnext", "dom", "webworker"]
   },
   "files": [],
   "include": [],
