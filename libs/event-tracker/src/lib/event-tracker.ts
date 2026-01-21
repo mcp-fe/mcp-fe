@@ -29,6 +29,9 @@ class WorkerClient {
   private sharedWorkerPort: MessagePort | null = null;
   private workerType: WorkerType | null = null;
   private pendingAuthToken: string | null = null;
+  // connection status subscribers
+  private connectionStatusCallbacks: Set<(connected: boolean) => void> = new Set();
+  private serviceWorkerMessageHandler: ((ev: MessageEvent) => void) | null = null;
 
   // Initialize and choose worker implementation (prefer SharedWorker)
   public async init(registration?: ServiceWorkerRegistration): Promise<void> {
@@ -51,6 +54,22 @@ class WorkerClient {
         this.sharedWorker = new SharedWorker('/shared-worker.js', { type: 'module' });
         this.sharedWorkerPort = this.sharedWorker.port;
         this.sharedWorkerPort.start();
+
+        // If we already have a pending auth token, try to send it immediately.
+        // This helps avoid race conditions where the worker would otherwise
+        // attempt to connect without auth and then reconnect when the token
+        // arrives. If the postMessage fails, the token remains pending and
+        // will be sent again after the handshake completes.
+        if (this.pendingAuthToken && this.sharedWorkerPort) {
+          try {
+            this.sharedWorkerPort.postMessage({ type: 'SET_AUTH_TOKEN', token: this.pendingAuthToken });
+            // Do not clear pendingAuthToken here; wait until init completes to be sure
+            // the worker has accepted it. We keep it as a fallback.
+          } catch (err) {
+            // ignore - fallback logic will send the token later
+            console.warn('[EventTracker] Immediate postMessage to SharedWorker failed (will retry after init):', err);
+          }
+        }
 
         // SharedWorker error handler
         this.sharedWorker.onerror = (event: ErrorEvent) => {
@@ -106,6 +125,23 @@ class WorkerClient {
           }
         }
 
+        // Set persistent message handler for sharedWorker port to forward CONNECTION_STATUS
+        if (portAfterInit) {
+          portAfterInit.onmessage = (ev: MessageEvent) => {
+            try {
+              const data = ev.data;
+              if (data && data.type === 'CONNECTION_STATUS') {
+                const connected = !!data.connected;
+                this.connectionStatusCallbacks.forEach((cb) => {
+                  try { cb(connected); } catch (_) {}
+                });
+              }
+            } catch (err) {
+              // ignore
+            }
+          };
+        }
+
         console.log('[EventTracker] Using SharedWorker');
         return;
       } catch (error) {
@@ -139,6 +175,25 @@ class WorkerClient {
         this.serviceWorkerRegistration = reg;
         this.workerType = 'service';
         console.log('[EventTracker] Using ServiceWorker (fallback)');
+        // set up service worker message listener to forward CONNECTION_STATUS
+        if (this.serviceWorkerMessageHandler) {
+          navigator.serviceWorker.removeEventListener('message', this.serviceWorkerMessageHandler);
+          this.serviceWorkerMessageHandler = null;
+        }
+        this.serviceWorkerMessageHandler = (ev: MessageEvent) => {
+          try {
+            const data = ev.data;
+            if (data && data.type === 'CONNECTION_STATUS') {
+              const connected = !!data.connected;
+              this.connectionStatusCallbacks.forEach((cb) => {
+                try { cb(connected); } catch (_) {}
+              });
+            }
+          } catch (err) {
+            // ignore
+          }
+        };
+        navigator.serviceWorker.addEventListener('message', this.serviceWorkerMessageHandler);
       } catch (error) {
         console.error('[EventTracker] Failed to register ServiceWorker:', error);
         throw error;
@@ -287,6 +342,15 @@ class WorkerClient {
     }
   }
 
+  // Subscription API for consumers to listen for connection status updates
+  public onConnectionStatus(cb: (connected: boolean) => void): void {
+    this.connectionStatusCallbacks.add(cb);
+  }
+
+  public offConnectionStatus(cb: (connected: boolean) => void): void {
+    this.connectionStatusCallbacks.delete(cb);
+  }
+
   // Public convenience wrappers
   public async trackEvent(event: UserEventData): Promise<void> {
     const userEvent = { ...event, timestamp: Date.now() };
@@ -351,6 +415,15 @@ export async function getConnectionStatus(): Promise<boolean> {
 
 export function setAuthToken(token: string): void {
   workerClient.setAuthToken(token);
+}
+
+// Connection status subscription helpers
+export function onConnectionStatus(cb: (connected: boolean) => void): void {
+  workerClient.onConnectionStatus(cb);
+}
+
+export function offConnectionStatus(cb: (connected: boolean) => void): void {
+  workerClient.offConnectionStatus(cb);
 }
 
 // Convenience helpers (kept outside for ergonomic API)

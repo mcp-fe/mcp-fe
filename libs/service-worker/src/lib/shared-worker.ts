@@ -29,11 +29,6 @@ const controller = new MCPController(BACKEND_WS_URL, (message: unknown) => {
   });
 });
 
-// Ensure we try to connect when the worker starts
-controller.connectWebSocket().catch((err) => {
-  console.error('[SharedWorker] Initial WebSocket connection failed:', err);
-});
-
 // Handle new connections
 self.onconnect = (event: MessageEvent) => {
   const port = event.ports[0];

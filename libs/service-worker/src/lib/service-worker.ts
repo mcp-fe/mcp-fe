@@ -28,10 +28,6 @@ const controller = new MCPController(BACKEND_WS_URL, (message: unknown) => {
   });
 });
 
-async function connectWebSocket(): Promise<void> {
-  return controller.connectWebSocket();
-}
-
 // Handle messages from the main thread
 self.addEventListener('message', async (event: ExtendableMessageEvent) => {
   if (!event.data) return;
@@ -82,10 +78,10 @@ self.addEventListener('install', (event: ExtendableEvent) => {
 });
 
 self.addEventListener('activate', (event: ExtendableEvent) => {
+  // Do not automatically start the WebSocket connection here.
+  // If a client intends to use the service worker it will send messages
+  // (e.g. SET_AUTH_TOKEN) and the controller will connect on demand.
   event.waitUntil(
-    Promise.all([
-      self.clients.claim(),
-      connectWebSocket(),
-    ])
+    Promise.resolve(self.clients.claim())
   );
 });

@@ -21,8 +21,11 @@ export class MCPController {
   private reconnectAttempts = 0;
   private authToken: string | null = null;
   private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
+  private requireAuth: boolean;
 
-  constructor(private backendUrl: string, private broadcastFn: BroadcastFn) {}
+  constructor(private backendUrl: string, private broadcastFn: BroadcastFn, requireAuth = true) {
+    this.requireAuth = requireAuth;
+  }
 
   private startKeepAlive(): void {
     if (this.keepAliveInterval) {
@@ -48,6 +51,12 @@ export class MCPController {
   }
 
   public async connectWebSocket(): Promise<void> {
+    // If we require auth and don't have a token yet, do not attempt connection
+    if (this.requireAuth && !this.authToken) {
+      console.log('[MCPController] Skipping WebSocket connect: auth token not set and requireAuth=true');
+      return;
+    }
+
     if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) {
       return;
     }
