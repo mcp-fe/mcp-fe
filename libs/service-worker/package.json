@@ -1,9 +1,12 @@
 {
   "name": "@mcp-fe/service-worker",
   "version": "0.0.1",
-  "private": true,
+  "private": false,
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
-  "dependencies": {}
+  "dependencies": {},
+  "publishConfig": {
+    "access": "public"
+  }
 }

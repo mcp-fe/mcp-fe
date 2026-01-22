@@ -62,3 +62,22 @@ jobs:
             echo "Running full build for all projects"
             pnpm exec nx run-many --target=build --all --parallel
           fi
+  publish:
+      - name: Publish packages to npm (only on push to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Preparing npm auth"
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+
+          echo "Looking for package.json files in dist/libs"
+          for pkg in dist/libs/*/package.json; do
+            if [ -f "$pkg" ]; then
+              pkgdir=$(dirname "$pkg")
+              echo "Publishing package in $pkgdir"
+              # show package name & version
+              jq -r '.name + "@" + .version' "$pkg"
+              (cd "$pkgdir" && pnpm publish --access public --no-git-checks)
+            fi
+          done
