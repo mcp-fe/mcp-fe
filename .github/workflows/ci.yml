@@ -1,0 +1,62 @@
+name: CI - NX build
+
+on:
+  push:
+    branches:
+      - main
+      - shared-worker
+  pull_request:
+    branches:
+      - main
+      - shared-worker
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.28.0
+
+      - name: Restore pnpm store cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+
+      - name: Restore NX cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .nx/cache
+            node_modules/.cache/nx
+          key: nx-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build libs (affected on PR, all on push)
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "Fetching origin/main to compare"
+            git fetch origin main --depth=1 || true
+            echo "Running affected build (base: origin/main)"
+            pnpm exec nx affected --target=build --base=origin/main --parallel
+          else
+            echo "Running full build for all projects"
+            pnpm exec nx run-many --target=build --all --parallel
+          fi
