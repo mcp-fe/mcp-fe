@@ -14,6 +14,9 @@
     },
     {
       "path": "./apps/mcp-fe"
+    },
+    {
+      "path": "./apps/mcp-server"
     }
   ]
 }

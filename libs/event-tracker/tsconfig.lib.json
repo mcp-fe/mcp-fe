@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "module": "esnext",
     "outDir": "../../dist/out-tsc",
     "declaration": true,
     "types": ["node", "vite/client"]
@@ -19,5 +20,10 @@
     "src/**/*.spec.js",
     "src/**/*.test.jsx",
     "src/**/*.spec.jsx"
+  ],
+  "references": [
+    {
+      "path": "../service-worker/tsconfig.lib.json"
+    }
   ]
 }
