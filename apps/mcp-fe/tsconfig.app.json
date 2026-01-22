@@ -37,12 +37,5 @@
     "../../libs/**/*.ts",
     "../../libs/**/*.tsx"
   ],
-  "references": [
-    {
-      "path": "../../libs/event-tracker/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/react-event-tracker/tsconfig.lib.json"
-    }
-  ]
+  "references": []
 }

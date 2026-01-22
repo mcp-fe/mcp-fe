@@ -32,9 +32,5 @@
     "src/**/*.spec.jsx"
   ],
   "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
-  "references": [
-    {
-      "path": "../event-tracker/tsconfig.lib.json"
-    }
-  ]
+  "references": []
 }
