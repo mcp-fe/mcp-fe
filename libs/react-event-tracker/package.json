@@ -9,6 +9,9 @@
       "require": "./index.js"
     }
   },
+  "dependencies": {
+    "@mcp-fe/event-tracker": "workspace:*"
+  },
   "publishConfig": {
     "access": "public"
   }

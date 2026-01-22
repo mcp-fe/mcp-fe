@@ -5,7 +5,9 @@
   "type": "module",
   "main": "./index.js",
   "types": "./index.d.ts",
-  "dependencies": {},
+  "dependencies": {
+    "@mcp-fe/mcp-worker": "workspace:*"
+  },
   "publishConfig": {
     "access": "public"
   }

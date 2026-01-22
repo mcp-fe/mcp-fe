@@ -114,6 +114,7 @@
     "releaseTagPattern": "v{version}",
     "version": {
       "generatorOptions": {
+        "updateDependents": "subsequent-release",
         "currentVersionResolver": "git-tag",
         "specifierSource": "conventional-commits",
         "fallbackCurrentVersionResolver": "disk"
