@@ -4,7 +4,7 @@
   "files": [],
   "references": [
     {
-      "path": "./libs/service-worker"
+      "path": "./libs/mcp-worker"
     },
     {
       "path": "./libs/event-tracker"

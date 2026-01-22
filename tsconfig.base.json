@@ -19,7 +19,7 @@
     "strict": true,
     "target": "es2022",
     "paths": {
-      "@mcp-fe/service-worker": ["libs/service-worker/src/index.ts"],
+      "@mcp-fe/mcp-worker": ["libs/mcp-worker/src/index.ts"],
       "@mcp-fe/event-tracker": ["libs/event-tracker/src/index.ts"],
       "@mcp-fe/react-event-tracker": ["libs/react-event-tracker/src/index.ts"]
     }

@@ -11,7 +11,7 @@ import { queryEvents } from './database'
 // Create MCP server instance for service worker
 export const mcpServer = new Server(
   {
-    name: 'service-worker-mcp-server',
+    name: 'mcp-worker-server',
     version: '1.0.0',
   },
   {

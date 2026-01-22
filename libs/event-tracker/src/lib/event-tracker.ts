@@ -1,5 +1,5 @@
-import { queryEvents, type UserEvent, WorkerClient } from '@mcp-fe/service-worker';
-export type { UserEvent } from '@mcp-fe/service-worker';
+import { queryEvents, type UserEvent, WorkerClient } from '@mcp-fe/mcp-worker';
+export type { UserEvent } from '@mcp-fe/mcp-worker';
 
 
 export interface UserEventData {

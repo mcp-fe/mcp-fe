@@ -7,7 +7,7 @@ import { nxCopyAssetsPlugin } from '@nx/vite/plugins/nx-copy-assets.plugin';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
-  cacheDir: '../../node_modules/.vite/libs/service-worker',
+  cacheDir: '../../node_modules/.vite/libs/mcp-worker',
   plugins: [
     nxViteTsPaths(),
     nxCopyAssetsPlugin(['*.md']),
@@ -24,7 +24,7 @@ export default defineConfig(() => ({
   // Configuration for building your library.
   // See: https://vite.dev/guide/build.html#library-mode
   build: {
-    outDir: '../../dist/libs/service-worker',
+    outDir: '../../dist/libs/mcp-worker',
     emptyOutDir: true,
     reportCompressedSize: true,
     commonjsOptions: {
@@ -33,7 +33,7 @@ export default defineConfig(() => ({
     lib: {
       // Could also be a dictionary or array of multiple entry points.
       entry: 'src/index.ts',
-      name: 'service-worker',
+      name: 'mcp-worker',
       fileName: 'index',
       // Change this to the formats you want to support.
       // Don't forget to update your package.json as well.
@@ -45,14 +45,14 @@ export default defineConfig(() => ({
     },
   },
   test: {
-    name: 'service-worker',
+    name: 'mcp-worker',
     watch: false,
     globals: true,
     environment: 'node',
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
     coverage: {
-      reportsDirectory: '../../coverage/libs/service-worker',
+      reportsDirectory: '../../coverage/libs/mcp-worker',
       provider: 'v8' as const,
     },
   },
