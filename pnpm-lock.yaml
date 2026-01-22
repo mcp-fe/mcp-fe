@@ -243,11 +243,19 @@ importers:
 
   apps/mcp-fe: {}
 
-  libs/event-tracker: {}
+  libs/event-tracker:
+    dependencies:
+      '@mcp-fe/mcp-worker':
+        specifier: workspace:*
+        version: link:../mcp-worker
 
   libs/mcp-worker: {}
 
-  libs/react-event-tracker: {}
+  libs/react-event-tracker:
+    dependencies:
+      '@mcp-fe/event-tracker':
+        specifier: workspace:*
+        version: link:../event-tracker
 
 packages:
 
