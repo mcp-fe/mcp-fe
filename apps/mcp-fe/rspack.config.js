@@ -9,6 +9,7 @@ module.exports = {
   entry: {
     main: './src/main.tsx',
     sw: '../../libs/service-worker/src/lib/service-worker.ts',
+    'shared-worker': '../../libs/service-worker/src/lib/shared-worker.ts',
   },
   devServer: {
     port: 4200,
@@ -29,7 +30,7 @@ module.exports = {
       outputHashing: process.env['NODE_ENV'] === 'production' ? 'all' : 'none',
       optimization: process.env['NODE_ENV'] === 'production',
       runtimeChunk: false,
-      excludeChunks: ['sw'],
+      excludeChunks: ['sw', 'shared-worker'],
     }),
     new NxReactRspackPlugin({
       // Uncomment this line if you don't want to use SVGR

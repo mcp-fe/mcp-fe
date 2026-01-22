@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   initEventTracker,
@@ -7,82 +7,67 @@ import {
   trackInput,
 } from '@mcp-fe/event-tracker';
 
-/**
- * Hook to initialize and track user activity
- * Should be used once in the root component
- */
 export function useReactRouterEventTracker(): void {
   const location = useLocation();
-  const prevPathRef = useRef<string>(location.pathname);
-  const isInitializedRef = useRef(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize service worker and event tracker
+  const currentPathRef = useRef(location.pathname);
+  const prevPathRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (isInitializedRef.current) {
-      return;
-    }
+    prevPathRef.current = currentPathRef.current;
+    currentPathRef.current = location.pathname;
+  }, [location.pathname]);
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          initEventTracker(registration);
-          isInitializedRef.current = true;
-        })
-        .catch((error) => {
-          console.error('Service worker registration failed:', error);
-        });
-    }
+  useEffect(() => {
+    initEventTracker()
+      .then(() => {
+        setIsInitialized(true);
+      })
+      .catch((error) => {
+        console.error('Worker initialization failed:', error);
+      });
   }, []);
 
-  // Track navigation
   useEffect(() => {
-    const currentPath = location.pathname;
-    const prevPath = prevPathRef.current;
+    if (!isInitialized) return;
 
-    if (prevPath !== currentPath && isInitializedRef.current) {
+    const prevPath = prevPathRef.current;
+    const currentPath = currentPathRef.current;
+
+    if (prevPath && prevPath !== currentPath) {
       trackNavigation(prevPath, currentPath, currentPath).catch((error) => {
         console.error('Failed to track navigation:', error);
       });
-      prevPathRef.current = currentPath;
     }
-  }, [location.pathname]);
+  }, [location.pathname, isInitialized]);
 
-  // Track clicks
   useEffect(() => {
-    if (!isInitializedRef.current) {
-      return;
-    }
+    if (!isInitialized) return;
 
     const handleClick = (event: MouseEvent): void => {
       const target = event.target as HTMLElement;
-      if (target) {
-        // Ignore clicks on interactive elements that are already tracked by their own handlers
-        const isInteractive =
-          target.tagName === 'BUTTON' ||
-          target.tagName === 'A' ||
-          target.closest('button') ||
-          target.closest('a');
+      if (!target) return;
 
-        if (!isInteractive) {
-          trackClick(target, location.pathname).catch((error) => {
-            console.error('Failed to track click:', error);
-          });
-        }
+      const isInteractive =
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'A' ||
+        target.closest('button') ||
+        target.closest('a');
+
+      if (!isInteractive) {
+        trackClick(target, currentPathRef.current).catch((error) => {
+          console.error('Failed to track click:', error);
+        });
       }
     };
 
     document.addEventListener('click', handleClick, true);
-    return () => {
-      document.removeEventListener('click', handleClick, true);
-    };
-  }, [location.pathname]);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, [isInitialized]);
 
-  // Track input changes (debounced)
   useEffect(() => {
-    if (!isInitializedRef.current) {
-      return;
-    }
+    if (!isInitialized) return;
 
     let timeoutId: ReturnType<typeof setTimeout>;
 
@@ -94,9 +79,11 @@ export function useReactRouterEventTracker(): void {
       ) {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
-          trackInput(target, target.value, location.pathname).catch((error) => {
-            console.error('Failed to track input:', error);
-          });
+          trackInput(target, target.value, currentPathRef.current).catch(
+            (error) => {
+              console.error('Failed to track input:', error);
+            },
+          );
         }, 1000); // Debounce by 1 second
       }
     };
@@ -106,5 +93,5 @@ export function useReactRouterEventTracker(): void {
       clearTimeout(timeoutId);
       document.removeEventListener('input', handleInput, true);
     };
-  }, [location.pathname]);
+  }, [isInitialized]);
 }

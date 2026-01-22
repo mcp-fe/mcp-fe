@@ -1,36 +1,57 @@
-import { useState, useEffect } from 'react';
-import { getConnectionStatus } from '@mcp-fe/event-tracker';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { getConnectionStatus, onConnectionStatus, offConnectionStatus } from '@mcp-fe/event-tracker';
 
 export function useConnectionStatus() {
   const [isConnected, setIsConnected] = useState(false);
+  const mountedRef = useRef(true);
+
+  // stable checker used both on mount and as a periodic poll
+  const checkStatus = useCallback(async () => {
+    try {
+      const status = await getConnectionStatus();
+      if (mountedRef.current) setIsConnected(!!status);
+    } catch {
+      if (mountedRef.current) setIsConnected(false);
+    }
+  }, []);
+
+  // stable callback passed to the event-tracker subscription API
+  const handleConnectionUpdate = useCallback((connected: boolean) => {
+    if (!mountedRef.current) {
+      return;
+    }
+
+    if (connected) {
+      // set immediately on positive events
+      setIsConnected(true);
+      return;
+    }
+
+    // on negative events, confirm via an explicit request to avoid spurious flips
+    (async () => {
+      try {
+        const actual = await getConnectionStatus();
+        if (mountedRef.current) setIsConnected(!!actual);
+      } catch {
+        if (mountedRef.current) setIsConnected(false);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
-    const checkStatus = async () => {
-      const status = await getConnectionStatus();
-      if (mounted) {
-        setIsConnected(status);
-      }
-    };
-
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'CONNECTION_STATUS') {
-        setIsConnected(event.data.connected);
-      }
-    };
-
+    // initial check
     checkStatus();
-    navigator.serviceWorker.addEventListener('message', handleMessage);
 
-    const interval = setInterval(checkStatus, 5000);
+    // subscribe and store the stable handler reference
+    onConnectionStatus(handleConnectionUpdate);
 
     return () => {
-      mounted = false;
-      navigator.serviceWorker.removeEventListener('message', handleMessage);
-      clearInterval(interval);
+      mountedRef.current = false;
+      offConnectionStatus(handleConnectionUpdate);
     };
-  }, []);
+  }, [checkStatus, handleConnectionUpdate]);
 
   return isConnected;
 }
