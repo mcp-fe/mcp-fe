@@ -127,7 +127,8 @@
       "manifestRootsToUpdate": [
         "{projectRoot}",
         {
-          "path": "dist/libs/{projectName}"
+          "path": "dist/libs/{projectName}",
+          "preserveLocalDependencyProtocols": false
         }
       ],
       "generatorOptions": {
