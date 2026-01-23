@@ -123,27 +123,13 @@
   "release": {
     "releaseTagPattern": "v{version}",
     "version": {
-      "preVersionCommand": "npx nx run-many -t build",
-      "manifestRootsToUpdate": [
-        "{projectRoot}",
-        {
-          "path": "dist/libs/{projectName}",
-          "preserveLocalDependencyProtocols": false
-        }
-      ],
+      "manifestRootsToUpdate": ["{projectRoot}", "dist/libs/{projectName}"],
       "generatorOptions": {
         "updateDependents": "subsequent-release",
+        "preserveLocalDependencyProtocols": false,
         "currentVersionResolver": "git-tag",
         "specifierSource": "conventional-commits",
         "fallbackCurrentVersionResolver": "disk"
-      }
-    },
-    "groups": {
-      "mcp-group": {
-        "projects": ["mcp-worker", "event-tracker", "react-event-tracker"],
-        "version": {
-          "groupPreVersionCommand": "npx nx run-many -t build -p mcp-worker,event-tracker,react-event-tracker"
-        }
       }
     }
   }
