@@ -5,9 +5,10 @@ import {
   trackNavigation,
   trackClick,
   trackInput,
+  type WorkerClientInitOptions,
 } from '@mcp-fe/event-tracker';
 
-export function useReactRouterEventTracker(): void {
+export function useReactRouterEventTracker(initOptions?: WorkerClientInitOptions): void {
   const location = useLocation();
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -20,14 +21,14 @@ export function useReactRouterEventTracker(): void {
   }, [location.pathname]);
 
   useEffect(() => {
-    initEventTracker()
+    initEventTracker(initOptions)
       .then(() => {
         setIsInitialized(true);
       })
       .catch((error) => {
         console.error('Worker initialization failed:', error);
       });
-  }, []);
+  }, [initOptions]);
 
   useEffect(() => {
     if (!isInitialized) return;

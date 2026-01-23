@@ -1,5 +1,5 @@
-import { queryEvents, type UserEvent, workerClient } from '@mcp-fe/mcp-worker';
-export type { UserEvent } from '@mcp-fe/mcp-worker';
+import { queryEvents, type UserEvent, workerClient, type WorkerClientInitOptions } from '@mcp-fe/mcp-worker';
+export type { UserEvent, WorkerClientInitOptions } from '@mcp-fe/mcp-worker';
 
 
 export interface UserEventData {
@@ -16,8 +16,8 @@ export interface UserEventData {
 
 
 // Public API - thin wrappers around workerClient
-export async function initEventTracker(registration?: ServiceWorkerRegistration): Promise<void> {
-  return workerClient.init(registration);
+export async function initEventTracker(registrationOrOptions?: ServiceWorkerRegistration | WorkerClientInitOptions): Promise<void> {
+  return workerClient.init(registrationOrOptions);
 }
 
 export async function trackEvent(event: UserEventData): Promise<void> {

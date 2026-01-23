@@ -24,10 +24,6 @@
  *   Attempts to obtain the current connection status (uses GET_CONNECTION_STATUS request with a
  *   short timeout) and returns a boolean.
  *
- * - setAuthToken(token: string): void
- *   Stores or immediately sends an auth token to the active worker. If no worker is available the
- *   token is queued and flushed on init.
- *
  * - onConnectionStatus(cb: (connected: boolean) => void): void
  * - offConnectionStatus(cb: (connected: boolean) => void): void
  *   Subscribe/unsubscribe to connection status updates.
@@ -50,9 +46,17 @@ export type WorkerClientInitOptions = {
   sharedWorkerUrl?: string;
   /** URL to the ServiceWorker script (optional) */
   serviceWorkerUrl?: string;
+  /** Backend WebSocket URL to configure inside the worker (optional) */
+  backendWsUrl?: string;
 };
 
 export class WorkerClient {
+  // Configurable worker script URLs (defaults kept for backward compatibility)
+  private sharedWorkerUrl = '/mcp-shared-worker.js';
+  private serviceWorkerUrl = '/mcp-service-worker.js';
+  // Backend websocket URL to pass into the worker(s)
+  private backendWsUrl: string | null = 'ws://localhost:3001';
+
   private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
   private sharedWorker: SharedWorker | null = null;
   private sharedWorkerPort: MessagePort | null = null;
@@ -61,12 +65,6 @@ export class WorkerClient {
   // connection status subscribers
   private connectionStatusCallbacks: Set<(connected: boolean) => void> =
     new Set();
-  private serviceWorkerMessageHandler: ((ev: MessageEvent) => void) | null =
-    null;
-
-  // Configurable worker script URLs
-  private sharedWorkerUrl = '/mcp-shared-worker.js';
-  private serviceWorkerUrl = '/mcp-service-worker.js';
 
   // Mutex/promise to prevent concurrent init runs
   private initPromise: Promise<void> | null = null;
@@ -79,14 +77,14 @@ export class WorkerClient {
     // Normalize args: if a ServiceWorkerRegistration is provided, use it. Otherwise
     // treat the argument as WorkerInitOptions (or undefined).
     let explicitRegistration: ServiceWorkerRegistration | undefined;
-    if (registrationOrOptions &&
-      // duck-typing check for ServiceWorkerRegistration (has 'scope' property)
-      typeof (registrationOrOptions as ServiceWorkerRegistration).scope === 'string') {
+    const maybeReg = registrationOrOptions as unknown as { scope?: string } | undefined;
+    if (maybeReg && typeof maybeReg.scope === 'string') {
       explicitRegistration = registrationOrOptions as ServiceWorkerRegistration;
     } else if (registrationOrOptions) {
       const opts = registrationOrOptions as WorkerClientInitOptions;
       if (opts.sharedWorkerUrl) this.sharedWorkerUrl = opts.sharedWorkerUrl;
       if (opts.serviceWorkerUrl) this.serviceWorkerUrl = opts.serviceWorkerUrl;
+      if (opts.backendWsUrl) this.backendWsUrl = opts.backendWsUrl;
     }
 
     // If an init is already in progress, wait for it and optionally retry if caller provided a registration
@@ -109,10 +107,19 @@ export class WorkerClient {
           console.log(
             '[WorkerClient] Using ServiceWorker (explicit registration)',
           );
-          // send pending token if exists
-          if (this.pendingAuthToken) {
-            this.sendAuthTokenToServiceWorker(this.pendingAuthToken);
-            this.pendingAuthToken = null;
+          // Send INIT (backend URL + auth token if available) to the worker (best-effort)
+          try {
+            const initMsg: Record<string, unknown> = { type: 'INIT', backendUrl: this.backendWsUrl };
+            if (this.pendingAuthToken) initMsg['token'] = this.pendingAuthToken;
+            // try active first
+            if (this.serviceWorkerRegistration.active) {
+              this.serviceWorkerRegistration.active.postMessage(initMsg);
+            } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.controller.postMessage(initMsg);
+            }
+            // keep pendingAuthToken; will be cleared when INIT successfully sent on other paths
+          } catch {
+            // ignore; worker may not be active yet
           }
           return;
         }
@@ -123,12 +130,6 @@ export class WorkerClient {
 
         // If SharedWorker isn't supported or failed, use service worker
         await this.initServiceWorkerFallback();
-
-        // Send pending token if any
-        if (this.pendingAuthToken && this.workerType === 'service') {
-          this.sendAuthTokenToServiceWorker(this.pendingAuthToken);
-          this.pendingAuthToken = null;
-        }
       } finally {
         // Clear the mutex so future init calls can proceed
         this.initPromise = null;
@@ -150,27 +151,7 @@ export class WorkerClient {
       this.sharedWorkerPort = this.sharedWorker.port;
       this.sharedWorkerPort.start();
 
-      if (this.pendingAuthToken && this.sharedWorkerPort) {
-        try {
-          this.sharedWorkerPort.postMessage({
-            type: 'SET_AUTH_TOKEN',
-            token: this.pendingAuthToken,
-          });
-        } catch (err) {
-          console.warn(
-            '[WorkerClient] Immediate postMessage to SharedWorker failed (will retry after init):',
-            err,
-          );
-        }
-      }
-
-      this.sharedWorker.onerror = (event: ErrorEvent) => {
-        console.error(
-          '[WorkerClient] SharedWorker error:',
-          event.message || event.error || event,
-        );
-      };
-
+      // We will send INIT (backendUrl + optional token) once the shared worker confirms availability
       await new Promise<void>((resolve, reject) => {
         let resolved = false;
         const timeout = setTimeout(() => {
@@ -204,22 +185,18 @@ export class WorkerClient {
       });
 
       const portAfterInit = this.sharedWorkerPort;
-      if (this.pendingAuthToken && portAfterInit) {
+      // After init, send a single INIT message containing backend URL and optional token
+      if (portAfterInit) {
         try {
-          portAfterInit.postMessage({
-            type: 'SET_AUTH_TOKEN',
-            token: this.pendingAuthToken,
-          });
+          const initMsg: Record<string, unknown> = { type: 'INIT', backendUrl: this.backendWsUrl };
+          if (this.pendingAuthToken) initMsg['token'] = this.pendingAuthToken;
+          portAfterInit.postMessage(initMsg);
+          // clear pending token after sending INIT
           this.pendingAuthToken = null;
         } catch (e) {
-          console.error(
-            '[WorkerClient] Failed to send pending auth token to SharedWorker:',
-            e,
-          );
+          console.warn('[WorkerClient] Failed to send INIT to SharedWorker port:', e);
         }
-      }
 
-      if (portAfterInit) {
         portAfterInit.onmessage = (ev: MessageEvent) => {
           try {
             const data = ev.data;
@@ -269,34 +246,20 @@ export class WorkerClient {
         );
         this.workerType = 'service';
         console.log('[WorkerClient] Using MCP ServiceWorker (fallback)');
-        if (this.serviceWorkerMessageHandler) {
-          navigator.serviceWorker.removeEventListener(
-            'message',
-            this.serviceWorkerMessageHandler,
-          );
-          this.serviceWorkerMessageHandler = null;
-        }
-        this.serviceWorkerMessageHandler = (ev: MessageEvent) => {
-          try {
-            const data = ev.data;
-            if (data && data.type === 'CONNECTION_STATUS') {
-              const connected = !!data.connected;
-              this.connectionStatusCallbacks.forEach((cb) => {
-                try {
-                  cb(connected);
-                } catch {
-                  /* ignore callback errors */
-                }
-              });
-            }
-          } catch {
-            // ignore
+        // Send INIT (backend URL + optional token) to service worker (best-effort)
+        try {
+          const initMsg: Record<string, unknown> = { type: 'INIT', backendUrl: this.backendWsUrl };
+          if (this.pendingAuthToken) initMsg['token'] = this.pendingAuthToken;
+          if (this.serviceWorkerRegistration.active) {
+            this.serviceWorkerRegistration.active.postMessage(initMsg);
+          } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage(initMsg);
           }
-        };
-        navigator.serviceWorker.addEventListener(
-          'message',
-          this.serviceWorkerMessageHandler,
-        );
+          // clear pending token after sending INIT
+          this.pendingAuthToken = null;
+        } catch {
+          // ignore
+        }
       } catch (error) {
         console.error(
           '[WorkerClient] Failed to register ServiceWorker:',

@@ -5,9 +5,10 @@ import {
   trackNavigation,
   trackClick,
   trackInput,
+  type WorkerClientInitOptions,
 } from '@mcp-fe/event-tracker';
 
-export function useTanstackRouterEventTracker(): void {
+export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOptions): void {
   const location = useLocation();
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -22,12 +23,12 @@ export function useTanstackRouterEventTracker(): void {
   }, [location.pathname]);
 
   useEffect(() => {
-    initEventTracker()
+    initEventTracker(initOptions)
       .then(() => setIsInitialized(true))
       .catch((error) => {
         console.error('Worker initialization failed:', error);
       });
-  }, []);
+  }, [initOptions]);
 
   useEffect(() => {
     if (!isInitialized) return;

@@ -196,4 +196,12 @@ export class MCPController {
       this.socket = null;
     }
   }
+
+  /**
+   * Factory helper to create an MCPController instance. Use this instead of
+   * replicating controller creation logic in callers.
+   */
+  public static create(backendUrl: string, broadcastFn: BroadcastFn, requireAuth = true): MCPController {
+    return new MCPController(backendUrl, broadcastFn, requireAuth);
+  }
 }
