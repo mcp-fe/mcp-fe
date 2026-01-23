@@ -1,4 +1,4 @@
-import { queryEvents, type UserEvent, WorkerClient } from '@mcp-fe/mcp-worker';
+import { queryEvents, type UserEvent, workerClient } from '@mcp-fe/mcp-worker';
 export type { UserEvent } from '@mcp-fe/mcp-worker';
 
 
@@ -14,8 +14,6 @@ export interface UserEventData {
   metadata?: Record<string, unknown>;
 }
 
-// Singleton client used by exported functions
-const workerClient = new WorkerClient();
 
 // Public API - thin wrappers around workerClient
 export async function initEventTracker(registration?: ServiceWorkerRegistration): Promise<void> {
