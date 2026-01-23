@@ -123,6 +123,7 @@
   "release": {
     "releaseTagPattern": "v{version}",
     "version": {
+      "preVersionCommand": "npx nx run-many -t build",
       "manifestRootsToUpdate": [
         {
           "path": "dist/libs/{projectName}",
