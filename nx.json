@@ -125,14 +125,14 @@
     "version": {
       "manifestRootsToUpdate": [
         {
-          "path": "{projectRoot}",
-          "preserveLocalDependencyProtocols": true
+          "path": "dist/libs/{projectName}",
+          "preserveLocalDependencyProtocols": false
         },
         {
-          "path": "dist/libs/{projectName}"
+          "path": "libs/{projectName}",
+          "preserveLocalDependencyProtocols": true
         }
       ],
-      "preserveLocalDependencyProtocols": false,
       "generatorOptions": {
         "updateDependents": "subsequent-release",
         "currentVersionResolver": "git-tag",

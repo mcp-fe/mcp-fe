@@ -1,3 +1,14 @@
+## 0.0.10 (2026-01-23)
+
+### 🩹 Fixes
+
+- Reconfigure the mcp-worker publish to publish the worker files ([5562fed](https://github.com/mcp-fe/mcp-fe/commit/5562fed))
+- Fixed types export for react-event-tracker ([274de1a](https://github.com/mcp-fe/mcp-fe/commit/274de1a))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.0.9 (2026-01-23)
 
 This was a version bump only, there were no code changes.
