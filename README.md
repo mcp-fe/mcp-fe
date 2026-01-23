@@ -1,8 +1,10 @@
-# Frontend MCP Edge (Service Worker Pattern)
+# MCP-FE (Model Context Protocol - Frontend Edge)
 
-This repository documents an architectural pattern for using **Model Context Protocol (MCP)** on the frontend by introducing a **Service Worker–based MCP edge node** and a **Node.js proxy**.
+**MCP-FE** is an architectural pattern that turns the browser into an active, queryable node in the MCP ecosystem. It bridges the gap between AI Agents (like Claude or Cursor) and the real-time state of your frontend application.
+## Why MCP-FE?
+Traditional AI agents are "runtime blind". They know your code, but they don't know the current value of a specific input, the state of a Redux store, or the exact sequence of clicks that led to an error. 
 
-The goal is to enable **server-driven access to frontend context** (navigation, user interactions, application state) without continuous event streaming or tight coupling between the frontend and AI agents.
+MCP-FE solves this by exposing the **Browser Runtime** as a first-class MCP Server.
 
 ---
 
@@ -12,11 +14,11 @@ Traditional MCP integrations are backend-centric. Frontend applications typicall
 
 This pattern inverts the flow:
 
-* The frontend **does not push context automatically** to the server.
-* A **Service Worker** acts as a local MCP server, collecting and storing UI events in IndexedDB.
-* a **Node.js MCP Server** acts as a proxy, maintaining a WebSocket connection to the Service Worker.
-* The MCP server **pulls context only when an agent calls a tool**.
-* AI agents interact with standard MCP tools (e.g., `get_user_events`) to retrieve what they need.
+- The frontend **does not push context automatically** to the server.
+- A browser-resident worker (SharedWorker or ServiceWorker) acts as a local MCP server, collecting and storing UI events in IndexedDB.
+- A **Node.js MCP Proxy** maintains a WebSocket connection to the worker and exposes MCP tools to remote agents.
+- The MCP server **pulls context only when an agent calls a tool**.
+- AI agents interact with standard MCP tools (e.g., `get_user_events`) to retrieve what they need.
 
 ---
 
@@ -24,37 +26,48 @@ This pattern inverts the flow:
 
 ![Architecture](./MCP-FE-architecture-diagram.png?raw=true "MCP FE architecture diagram")
 
-1. **Frontend App**: Tracks user interactions using the `event-tracker` library and sends them to the Service Worker.
-2. **Service Worker MCP server (MCP Edge)**: 
-    * Implements a full MCP server using `@modelcontextprotocol/sdk`.
-    * Stores events in IndexedDB for session-scoped persistence.
-    * Connects to the backend via WebSocket.
-3. **Node.js MCP Server (MCP Proxy)**:
-    * Acts as a proxy between the AI Agent and the Service Worker.
-    * Exposes the Service Worker's tools to the agent.
-    * Routes tool calls through the WebSocket connection to the browser.
+1. **Frontend App**: Tracks user interactions using the `event-tracker` library and posts events to the worker client.
+2. **Browser Worker (MCP Worker)**: 
+   - Implements MCP server endpoints in web worker, stores events in IndexedDB, and maintains a WebSocket transport layer to the MCP proxy server.
+   - Using `SharedWorker` fall back to a `ServiceWorker` when `SharedWorker` is unavailable.
+3. **Node.js MCP Proxy**:
+   - Acts as a proxy between AI Agents and the browser MCP worker.
+   - Allows the client MCP tools to be registered and called remotely.
+   - Routes tool calls over a WebSocket to the worker and routes responses back to the agent.
 4. **AI Agent**: Uses standard MCP clients to discover and call tools.
 
 ---
 
 ## Key Concepts
 
-### 1. Service Worker as MCP Edge
 
-The Service Worker acts as a lightweight **edge node**:
+### MCP workers: SharedWorker vs ServiceWorker
 
-* **Collects** UI-level events (navigation, interactions, errors).
-* **Stores** them in a local database (IndexedDB).
+- SharedWorker (preferred):
+  - One shared instance is available to all same-origin windows/iframes.
+  - Good for multi-tab apps and when you want a single MCP edge connection per browser.
+
+- ServiceWorker (fallback):
+  - Runs in background, lifecycle managed by browser.
+  - Can be used as a fallback when SharedWorker is not supported.
+
+`WorkerClient` in this repo prefers SharedWorker and automatically falls back to ServiceWorker. It also supports passing an explicit `ServiceWorkerRegistration` to use a previously registered service worker.
+
+### Worker as MCP Edge Server
+
+The Shared/Service Worker acts as a lightweight **edge node** enables you to:
+
+* **Collects** UI-level events history (navigation, interactions, errors).
+* **Queries** live application state (e.g., Redux, Zustand, or simple DOM state) in real-time.
 * **Exposes** data through MCP Tools.
 * **Maintains** a persistent WebSocket connection to the proxy.
 
----
 
-### 2. Server-Driven Pull Model (MCP Tools)
+### Server-Driven Pull Model (MCP Tools)
 
-The Service Worker **never sends data proactively to the backend**. Context is shared **only** when an AI agent explicitly requests it by calling a tool.
+The MCP Worker **never sends data proactively to the backend**. Context is shared **only** when an AI agent explicitly requests it by calling a tool.
 
-Example **tool call** from the agent (via Proxy):
+Example **tool call** from the agent (via MCP Server Proxy):
 
 ```json
 {
@@ -71,7 +84,7 @@ Example **tool call** from the agent (via Proxy):
 }
 ```
 
-Service Worker **response**:
+MCP Worker **response**:
 
 ```json
 {
@@ -89,119 +102,41 @@ Service Worker **response**:
 ```
 
 ---
-
-### 3. Clear Separation of Concerns
-
-| Component      | Responsibility                            |
-| -------------- | ----------------------------------------- |
-| Frontend App   | Emit UI events via `trackEvent`           |
-| Service Worker | Local MCP Server + IndexedDB + WebSocket  |
-| Node.js Proxy | Proxy MCP requests to the Service Worker  |
-| AI Agent       | Call MCP tools to retrieve context        |
-
-The frontend never communicates directly with the agent.
-
----
-
-## Why This Pattern Exists
-
-### Problems with push-based frontend context
-
-* unnecessary network traffic,
-* implicit and uncontrolled context sharing,
-* analytics-style data flow,
-* tight coupling between frontend and agent logic.
-
-### What this pattern improves
-
-* context is shared intentionally, not continuously,
-* lower bandwidth usage,
-* better privacy and control,
-* frontend remains agent-agnostic,
-* compatible with existing MCP servers and SDKs.
-
----
-
-## What This Is (and Is Not)
-
-### This **is**
-
-* a frontend architectural pattern,
-* a new way to apply MCP at the UI edge,
-* compatible with existing MCP implementations,
-* suitable for interactive, session-based AI agents.
-
-### This is **not**
-
-* a new protocol,
-* a replacement for MCP,
-* an analytics framework,
-* a guaranteed delivery or persistence mechanism.
-
----
-
-## Lifecycle Notes
-
-* Service Worker lifecycle is not guaranteed.
-* WebSocket connections may drop at any time.
-* Missing context is a valid and expected state.
-* MCP server must tolerate partial or empty responses.
-
-This pattern favors **graceful degradation** over reliability guarantees.
-
----
-
 ## Use Cases
 
-* AI assistants embedded in complex web UIs
-* Agent-driven UI inspection or debugging
-* Context-aware copilots with minimal data exposure
-* Short-lived, interactive user sessions
+- **Context-Aware Support**: Customer support agents can query the user's current UI state and recent interactions to provide instant help.
+- **Agentic Debugging**: Ask the agent "Why is the submit button disabled?" and it inspects the live React state to tell you.
+- **Dynamic Onboarding**: AI guides users through complex workflows based on their real-time progress and errors.
 
 ---
 
-## Non-Goals
 
-* Long-term session memory
-* Event analytics or tracking
-* Real-time streaming of UI events
-* Agent execution inside the browser
+## Quick start (development)
 
----
+1) Install dependencies
 
-## Future Directions
-
-* Standardizing frontend MCP edge capabilities
-* Optional persistence strategies
-* Multi-agent orchestration
-* Command channels (Proxy → Service Worker → UI via `postMessage`)
-
----
-
-## Getting Started
-
-### 1. Install dependencies
 ```bash
 pnpm install
 ```
 
-### 2. Start the MCP Proxy (Server)
+### 2. Start the MCP Proxy (Server) and example MCP Frontend App
 ```bash
-npx nx serve mcp-server
+pnpm start
 ```
 
-### 3. Start the Frontend App
-```bash
-npx nx serve mcp-fe
-```
+### 3. Open the Frontend App in your browser
+Navigate to `http://localhost:4200` (or the port shown in your terminal)
 
-The Service Worker will automatically register and connect to the proxy.
+The Worker will automatically register and connect to the proxy server.
+
+### 4. Connect an AI Agent
+Connect your favorite MCP-compatible AI agent to the MCP Proxy server at `http://localhost:3001` 
 
 ---
 
 ## Summary
 
-This pattern introduces a **Service Worker–based MCP edge** that enables:
+This pattern introduces a **Worker–based MCP edge server** that enables:
 
 * server-driven context access,
 * minimal frontend-to-server traffic,
