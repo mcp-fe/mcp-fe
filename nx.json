@@ -123,8 +123,15 @@
   "release": {
     "releaseTagPattern": "v{version}",
     "version": {
-      "preVersionCommand": "npx nx run-many -t build",
-      "manifestRootsToUpdate": ["dist/libs/{projectName}"],
+      "manifestRootsToUpdate": [
+        {
+          "path": "{projectRoot}",
+          "preserveLocalDependencyProtocols": true
+        },
+        {
+          "path": "dist/libs/{projectName}"
+        }
+      ],
       "preserveLocalDependencyProtocols": false,
       "generatorOptions": {
         "updateDependents": "subsequent-release",
