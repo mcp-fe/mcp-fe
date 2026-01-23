@@ -1,0 +1,20 @@
+version: '3.8'
+
+# Development environment - s hot reloading (bez Docker buildu)
+# Spustit: docker-compose -f docker-compose.dev.yml up
+services:
+  mcp-server-dev:
+    build:
+      context: .
+      dockerfile: apps/mcp-server/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DEBUG=mcp-server:*
+    volumes:
+      # Volume pro node_modules, aby se nepřepsaly
+      - /app/node_modules
+      - /app/dist
+    restart: unless-stopped

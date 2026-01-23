@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: apps/mcp-server/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped
+    # Uncomment for debugging
+    # environment:
+    #   - NODE_ENV=development
+    #   - DEBUG=*
