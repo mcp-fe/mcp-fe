@@ -1,3 +1,13 @@
+## 0.0.13 (2026-01-23)
+
+### 🩹 Fixes
+
+- Specify peerDependencies for react-event-tracker ([9712178](https://github.com/mcp-fe/mcp-fe/commit/9712178))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.0.12 (2026-01-23)
 
 This was a version bump only, there were no code changes.
