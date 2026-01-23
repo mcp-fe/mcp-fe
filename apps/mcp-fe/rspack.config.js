@@ -8,8 +8,8 @@ module.exports = {
   },
   entry: {
     main: './src/main.tsx',
-    sw: '../../libs/mcp-worker/src/lib/service-worker.ts',
-    'shared-worker': '../../libs/mcp-worker/src/lib/shared-worker.ts',
+    'mcp-service-worker': '../../libs/mcp-worker/src/mcp-service-worker.ts',
+    'mcp-shared-worker': '../../libs/mcp-worker/src/mcp-shared-worker.ts',
   },
   devServer: {
     port: 4200,

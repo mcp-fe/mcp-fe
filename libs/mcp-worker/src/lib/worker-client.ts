@@ -44,7 +44,7 @@ export class WorkerClient {
         // Try SharedWorker first
         if (typeof SharedWorker !== 'undefined') {
           try {
-            this.sharedWorker = new SharedWorker('/shared-worker.js', { type: 'module' });
+            this.sharedWorker = new SharedWorker('/mcp-shared-worker.js', { type: 'module' });
             this.sharedWorkerPort = this.sharedWorker.port;
             this.sharedWorkerPort.start();
 
@@ -160,7 +160,7 @@ export class WorkerClient {
           return;
         }
 
-        const reg = await navigator.serviceWorker.register('/sw.js');
+        const reg = await navigator.serviceWorker.register('/mcp-service-worker.js');
         this.serviceWorkerRegistration = reg;
         this.workerType = 'service';
         console.log('[WorkerClient] Using ServiceWorker (fallback)');

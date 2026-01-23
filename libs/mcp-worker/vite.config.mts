@@ -27,6 +27,7 @@ export default defineConfig(() => ({
     outDir: '../../dist/libs/mcp-worker',
     emptyOutDir: true,
     reportCompressedSize: true,
+    sourcemap: true,
     commonjsOptions: {
       transformMixedEsModules: true,
     },
@@ -40,6 +41,18 @@ export default defineConfig(() => ({
       formats: ['es' as const],
     },
     rollupOptions: {
+      // Provide multiple entry points so worker files are emitted separately.
+      input: {
+        index: path.join(import.meta.dirname, 'src/index.ts'),
+        'mcp-service-worker': path.join(import.meta.dirname, 'src/mcp-service-worker.ts'),
+        'mcp-shared-worker': path.join(import.meta.dirname, 'src/mcp-shared-worker.ts'),
+      },
+      output: {
+        // Emit plain .js filenames (no hashes) so they can be referenced directly by worker registration.
+        entryFileNames: '[name].js',
+        chunkFileNames: '[name].js',
+        assetFileNames: '[name][extname]',
+      },
       // External packages that should not be bundled into your library.
       external: [],
     },
