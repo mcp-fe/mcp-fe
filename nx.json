@@ -123,10 +123,11 @@
   "release": {
     "releaseTagPattern": "v{version}",
     "version": {
-      "manifestRootsToUpdate": ["{projectRoot}", "dist/libs/{projectName}"],
+      "preVersionCommand": "npx nx run-many -t build",
+      "manifestRootsToUpdate": ["dist/libs/{projectName}"],
+      "preserveLocalDependencyProtocols": false,
       "generatorOptions": {
         "updateDependents": "subsequent-release",
-        "preserveLocalDependencyProtocols": false,
         "currentVersionResolver": "git-tag",
         "specifierSource": "conventional-commits",
         "fallbackCurrentVersionResolver": "disk"
