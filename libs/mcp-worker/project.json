@@ -4,6 +4,24 @@
   "sourceRoot": "libs/mcp-worker/src",
   "projectType": "library",
   "tags": [],
-  "// targets": "to see all targets run: nx show project mcp-worker --web",
-  "targets": {}
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "additionalEntryPoints": [
+          "libs/mcp-worker/src/mcp-service-worker.ts",
+          "libs/mcp-worker/src/mcp-shared-worker.ts"
+        ],
+        "outputPath": "dist/libs/mcp-worker",
+        "main": "libs/mcp-worker/src/index.ts",
+        "tsConfig": "libs/mcp-worker/tsconfig.lib.json",
+        "assets": ["libs/mcp-worker/*.md"],
+        "format": ["esm"],
+        "bundle": true,
+        "platform": "browser",
+        "thirdParty": true
+      }
+    }
+  }
 }

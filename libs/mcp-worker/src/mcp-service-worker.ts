@@ -7,7 +7,7 @@
 
 declare const self: ServiceWorkerGlobalScope;
 
-import { UserEvent } from './lib/database';
+import type { UserEvent } from './lib/database';
 import { MCPController } from './lib/mcp-controller';
 
 const BACKEND_WS_URL = 'ws://localhost:3001';

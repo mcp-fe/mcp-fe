@@ -1,18 +1,17 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "outDir": "../../dist/out-tsc",
-    "declaration": true,
-    "types": ["node", "vite/client"]
+    "outDir": "../dist/out-tsc",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "lib": ["esnext", "dom", "webworker"],
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "exclude": [
-    "vite.config.ts",
-    "vite.config.mts",
-    "vitest.config.ts",
-    "vitest.config.mts",
-    "src/**/*.test.ts",
+    "jest.config.ts",
+    "jest.config.cts",
     "src/**/*.spec.ts",
     "src/**/*.test.tsx",
     "src/**/*.spec.tsx",
