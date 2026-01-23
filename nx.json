@@ -91,12 +91,13 @@
       "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
       "cache": true
     },
-    "publish": {
+    "nx-release-publish": {
       "dependsOn": ["^build", "build"],
       "executor": "nx:run-commands",
       "options": {
-        "command": "npm publish --access public",
-        "cwd": "{projectRoot}"
+        "envFile": ".env",
+        "command": "echo \"//registry.npmjs.org/:_authToken=${NPM_TOKEN}\" > .npmrc && npm publish --access public",
+        "cwd": "dist/{projectRoot}"
       }
     },
     "@nx/esbuild:esbuild": {
