@@ -1,0 +1,47 @@
+name: Docker Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'apps/mcp-server/**'
+      - 'Dockerfile'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/mcp-server/Dockerfile
+          push: false
+          load: true
+          tags: mcp-server:scan
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: mcp-server:scan
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

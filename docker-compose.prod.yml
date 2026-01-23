@@ -1,0 +1,42 @@
+version: '3.8'
+
+# Production environment - s nginx reverse proxy
+# Spustit: docker-compose -f docker-compose.prod.yml up -d
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: apps/mcp-server/Dockerfile
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: always
+    networks:
+      - mcp-network
+    expose:
+      - 3001
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001', (r) => {if (r.statusCode !== 404) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # Pokud máš SSL certifikáty:
+      # - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - mcp-server
+    restart: always
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
