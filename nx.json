@@ -86,6 +86,11 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "dist/libs/{projectName}"
+      }
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
@@ -119,6 +124,12 @@
     "releaseTagPattern": "v{version}",
     "version": {
       "preVersionCommand": "npx nx run-many -t build",
+      "manifestRootsToUpdate": [
+        "{projectRoot}",
+        {
+          "path": "dist/libs/{projectName}"
+        }
+      ],
       "generatorOptions": {
         "updateDependents": "subsequent-release",
         "currentVersionResolver": "git-tag",
