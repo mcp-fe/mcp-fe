@@ -91,15 +91,6 @@
       "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
       "cache": true
     },
-    "nx-release-publish": {
-      "dependsOn": ["^build", "build"],
-      "executor": "nx:run-commands",
-      "options": {
-        "envFile": ".env",
-        "command": "echo \"//registry.npmjs.org/:_authToken=${NPM_TOKEN}\" > .npmrc && npm publish --access public",
-        "cwd": "dist/{projectRoot}"
-      }
-    },
     "@nx/esbuild:esbuild": {
       "cache": true,
       "dependsOn": ["^build"],
@@ -127,11 +118,20 @@
   "release": {
     "releaseTagPattern": "v{version}",
     "version": {
+      "preVersionCommand": "npx nx run-many -t build",
       "generatorOptions": {
         "updateDependents": "subsequent-release",
         "currentVersionResolver": "git-tag",
         "specifierSource": "conventional-commits",
         "fallbackCurrentVersionResolver": "disk"
+      }
+    },
+    "groups": {
+      "mcp-group": {
+        "projects": ["mcp-worker", "event-tracker", "react-event-tracker"],
+        "version": {
+          "groupPreVersionCommand": "npx nx run-many -t build -p mcp-worker,event-tracker,react-event-tracker"
+        }
       }
     }
   }
