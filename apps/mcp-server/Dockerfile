@@ -23,7 +23,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm nx build mcp-server --configuration=production
 
 # Stage 2: Runtime stage
-FROM node:20-alpine
+FROM --platform=$TARGETPLATFORM node:20-alpine
 
 WORKDIR /app
 

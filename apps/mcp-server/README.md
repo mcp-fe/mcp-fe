@@ -29,6 +29,8 @@ docker run -p 3001:3001 ghcr.io/mcp-fe/mcp-fe/mcp-server:main
 - `latest` - latest build
 - `v1.0.0` - semantic version (if git tag exists)
 
+Docker automatically selects the appropriate image for your system's architecture.
+
 ### Environment variables
 
 ```bash
