@@ -1,6 +1,6 @@
 {
   "name": "@mcp-fe/mcp-worker",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "private": false,
   "type": "module",
   "main": "./index.js",

@@ -1,3 +1,14 @@
+## 0.0.14 (2026-01-25)
+
+### 🩹 Fixes
+
+- Update CodeQL action to v3 ([48ed307](https://github.com/mcp-fe/mcp-fe/commit/48ed307))
+- Expose setAuthToken directly via useReactRouterEventTracker and useTanstackRouterEventTracker ([807e59a](https://github.com/mcp-fe/mcp-fe/commit/807e59a))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.0.13 (2026-01-23)
 
 ### 🩹 Fixes
