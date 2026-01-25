@@ -7,7 +7,6 @@ on:
       - develop
     paths:
       - 'apps/mcp-server/**'
-      - 'libs/**'
       - 'Dockerfile'
       - 'docker-compose*.yml'
       - '.github/workflows/docker-build-test.yml'
