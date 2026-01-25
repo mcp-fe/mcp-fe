@@ -1,0 +1,198 @@
+/**
+ * Session Manager - handles session state and message queueing
+ * Tracks active sessions, server-initiated messages, and connection state
+ */
+
+export interface SessionState {
+  sessionId: string;
+  createdAt: number;
+  lastActivity: number;
+  isWSConnected: boolean;
+  isHTTPConnected: boolean;
+  pendingMessages: any[];
+  pendingRequests: Map<string, { id: string; createdAt: number }>;
+}
+
+export class SessionManager {
+  private sessions = new Map<string, SessionState>();
+  private readonly SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minut
+  private readonly MESSAGE_QUEUE_MAX = 100;
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
+  constructor() {
+    // Periodicky vyčistit expired sessions každých 30 sekund
+    this.cleanupInterval = setInterval(() => this.cleanupExpiredSessions(), 30000);
+  }
+
+  /**
+   * Vytvořit nebo získat session
+   */
+  getOrCreateSession(sessionId: string): SessionState {
+    if (!this.sessions.has(sessionId)) {
+      const now = Date.now();
+      this.sessions.set(sessionId, {
+        sessionId,
+        createdAt: now,
+        lastActivity: now,
+        isWSConnected: false,
+        isHTTPConnected: false,
+        pendingMessages: [],
+        pendingRequests: new Map(),
+      });
+      console.error(`[Session] Created new session: ${sessionId}`);
+    }
+
+    const session = this.sessions.get(sessionId)!;
+    session.lastActivity = Date.now();
+    return session;
+  }
+
+  /**
+   * Označit WS připojení
+   */
+  setWSConnected(sessionId: string, connected: boolean): void {
+    const session = this.getOrCreateSession(sessionId);
+    session.isWSConnected = connected;
+    session.lastActivity = Date.now();
+    console.error(`[Session] WS connection updated for ${sessionId}: ${connected}`);
+  }
+
+  /**
+   * Označit HTTP připojení
+   */
+  setHTTPConnected(sessionId: string, connected: boolean): void {
+    const session = this.getOrCreateSession(sessionId);
+    session.isHTTPConnected = connected;
+    session.lastActivity = Date.now();
+    console.error(`[Session] HTTP connection updated for ${sessionId}: ${connected}`);
+  }
+
+  /**
+   * Přidat zprávu do queue (server-initiated message)
+   */
+  enqueueMessage(sessionId: string, message: any): void {
+    const session = this.getOrCreateSession(sessionId);
+    session.pendingMessages.push({
+      ...message,
+      enqueuedAt: Date.now(),
+    });
+
+    // Omezit queue velikost
+    if (session.pendingMessages.length > this.MESSAGE_QUEUE_MAX) {
+      session.pendingMessages.shift();
+      console.warn(`[Session] Message queue exceeded limit for ${sessionId}, dropped oldest`);
+    }
+
+    session.lastActivity = Date.now();
+    console.error(`[Session] Enqueued message for ${sessionId}, queue size: ${session.pendingMessages.length}`);
+  }
+
+  /**
+   * Vzít všechny zprávy z queue
+   */
+  dequeueMessages(sessionId: string): any[] {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return [];
+    }
+
+    const messages = session.pendingMessages;
+    session.pendingMessages = [];
+    session.lastActivity = Date.now();
+
+    if (messages.length > 0) {
+      console.error(`[Session] Dequeued ${messages.length} messages for ${sessionId}`);
+    }
+
+    return messages;
+  }
+
+  /**
+   * Registrovat pending request
+   */
+  registerPendingRequest(sessionId: string, requestId: string): void {
+    const session = this.getOrCreateSession(sessionId);
+    session.pendingRequests.set(requestId, {
+      id: requestId,
+      createdAt: Date.now(),
+    });
+    session.lastActivity = Date.now();
+  }
+
+  /**
+   * Klíčit pending request
+   */
+  completePendingRequest(sessionId: string, requestId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.pendingRequests.delete(requestId);
+      session.lastActivity = Date.now();
+    }
+  }
+
+  /**
+   *Get session state
+   */
+  getSession(sessionId: string): SessionState | undefined {
+    return this.sessions.get(sessionId);
+  }
+
+  /**
+   * Kontrola health stavu session
+   */
+  isSessionHealthy(sessionId: string): { healthy: boolean; reason?: string } {
+    const session = this.sessions.get(sessionId);
+
+    if (!session) {
+      return { healthy: false, reason: 'Session not found' };
+    }
+
+    const isExpired = Date.now() - session.lastActivity > this.SESSION_TIMEOUT;
+    if (isExpired) {
+      return { healthy: false, reason: 'Session expired' };
+    }
+
+    if (!session.isWSConnected && !session.isHTTPConnected) {
+      return { healthy: false, reason: 'No active connections' };
+    }
+
+    return { healthy: true };
+  }
+
+  /**
+   * Vyčistit expired sessions
+   */
+  private cleanupExpiredSessions(): void {
+    const now = Date.now();
+    const expired: string[] = [];
+
+    for (const [sessionId, session] of this.sessions.entries()) {
+      if (now - session.lastActivity > this.SESSION_TIMEOUT) {
+        expired.push(sessionId);
+        this.sessions.delete(sessionId);
+      }
+    }
+
+    if (expired.length > 0) {
+      console.error(`[Session] Cleaned up ${expired.length} expired sessions: ${expired.join(', ')}`);
+    }
+  }
+
+  /**
+   * Get all active sessions (for debugging)
+   */
+  getAllSessions(): SessionState[] {
+    return Array.from(this.sessions.values());
+  }
+
+  /**
+   * Destroy
+   */
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.sessions.clear();
+  }
+}

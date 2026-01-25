@@ -13,7 +13,7 @@ export class WebSocketManager {
    * Register a WebSocket connection for a session
    */
   registerSession(sessionId: string, ws: WebSocket): void {
-    console.error(`Client connected for session: ${sessionId}`);
+    console.error(`[WS Manager] Registered session: ${sessionId}`);
     this.activeSessions.set(sessionId, ws);
   }
 
@@ -21,7 +21,7 @@ export class WebSocketManager {
    * Unregister a WebSocket connection for a session
    */
   unregisterSession(sessionId: string, ws: WebSocket): void {
-    console.error(`Client disconnected for session: ${sessionId}`);
+    console.error(`[WS Manager] Unregistered session: ${sessionId}`);
     if (this.activeSessions.get(sessionId) === ws) {
       this.activeSessions.delete(sessionId);
     }
@@ -51,10 +51,12 @@ export class WebSocketManager {
       if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
         const handler = this.pendingRequests.get(`${sessionId}:${message.id}`);
         if (handler) {
-          console.error(`[Backend] Found handler for response session ${sessionId}, id: ${message.id}`);
+          console.error(`[WS Manager] Response handler found for session ${sessionId}, id: ${message.id}`);
           handler(message);
           this.pendingRequests.delete(`${sessionId}:${message.id}`);
           return;
+        } else {
+          console.warn(`[WS Manager] No handler found for response in session ${sessionId}, id: ${message.id}`);
         }
       }
     }
@@ -66,6 +68,7 @@ export class WebSocketManager {
   async callServiceWorkerTool(sessionId: string, message: any): Promise<any> {
     const ws = this.activeSessions.get(sessionId);
     if (!ws) {
+      console.error(`[WS Manager] No Service Worker connected for session: ${sessionId}`);
       throw new Error(`No Service Worker connected for session: ${sessionId}`);
     }
 
@@ -73,28 +76,45 @@ export class WebSocketManager {
     const requestId = message.id || Math.random().toString(36).substring(7);
     const mcpMessage = { ...message, id: requestId };
 
-    console.error(`[Backend] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
+    console.error(`[WS Manager] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(`${sessionId}:${requestId}`);
-        console.error(`[Backend] Timeout waiting for SW response for session ${sessionId}, id: ${requestId}`);
-        reject(new Error('Timeout waiting for Service Worker response'));
+        console.error(`[WS Manager] Timeout waiting for SW response for session ${sessionId}, id: ${requestId} (15s)`);
+        reject(new Error(`Timeout waiting for Service Worker response (method: ${mcpMessage.method})`));
       }, 15000); // Increased timeout to 15s
 
       this.pendingRequests.set(`${sessionId}:${requestId}`, (data) => {
-        console.error(`[Backend] Received response from SW for session ${sessionId}, id: ${requestId}`);
+        console.error(`[WS Manager] Received response from SW for session ${sessionId}, id: ${requestId}`);
         clearTimeout(timeout);
         resolve(data);
       });
 
       try {
         ws.send(JSON.stringify(mcpMessage));
+        console.error(`[WS Manager] Message sent successfully to SW (${sessionId})`);
       } catch (err) {
         clearTimeout(timeout);
         this.pendingRequests.delete(`${sessionId}:${requestId}`);
+        console.error(`[WS Manager] Error sending message to SW (${sessionId}):`, err instanceof Error ? err.message : String(err));
         reject(err);
       }
     });
+  }
+
+  /**
+   * Get diagnostic info about active sessions
+   */
+  getDiagnostics(): { [key: string]: { isConnected: boolean; pendingRequests: number } } {
+    const result: { [key: string]: { isConnected: boolean; pendingRequests: number } } = {};
+    for (const [sessionId, ws] of this.activeSessions.entries()) {
+      const pendingCount = Array.from(this.pendingRequests.keys()).filter(k => k.startsWith(`${sessionId}:`)).length;
+      result[sessionId] = {
+        isConnected: ws.readyState === WebSocket.OPEN,
+        pendingRequests: pendingCount,
+      };
+    }
+    return result;
   }
 }
