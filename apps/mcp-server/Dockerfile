@@ -1,40 +1,23 @@
-# Multi-stage build for MCP Server
-# Stage 1: Build stage
+# --- Builder Stage ---
 FROM node:20-alpine AS builder
-
 WORKDIR /app
-
-# Enable corepack for pnpm
 RUN corepack enable
-
-# Copy workspace files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY tsconfig.base.json ./
-COPY nx.json ./
-
-# Copy app files
-COPY apps/mcp-server ./apps/mcp-server
-COPY libs ./libs
-
-# Install dependencies
+COPY . .
 RUN pnpm install --frozen-lockfile
-
-# Build the application
 RUN pnpm nx build mcp-server --configuration=production
 
-# Stage 2: Runtime stage
-FROM --platform=$TARGETPLATFORM node:20-alpine
-
+# --- Runtime Stage ---
+FROM node:20-alpine
 WORKDIR /app
-
-# Enable corepack
 RUN corepack enable
 
-# Copy entire dist directory with node_modules from builder
-COPY --from=builder /app/node_modules ./node_modules
+
+# Copy built application from builder stage
 COPY --from=builder /app/dist/apps/mcp-server ./
 
-# Set environment variables
+# Install only production dependencies for target platform
+RUN pnpm install --prod --frozen-lockfile
+
 ENV NODE_ENV=production
 ENV PORT=3001
 
