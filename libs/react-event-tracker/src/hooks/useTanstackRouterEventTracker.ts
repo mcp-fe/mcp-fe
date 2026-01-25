@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from '@tanstack/react-router';
 import {
   initEventTracker,
+  setAuthToken,
   trackNavigation,
   trackClick,
   trackInput,
   type WorkerClientInitOptions,
 } from '@mcp-fe/event-tracker';
 
-export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOptions): void {
+export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOptions): { setAuthToken: (token: string) => void } {
   const location = useLocation();
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -95,4 +96,8 @@ export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOpti
       document.removeEventListener('input', handleInput, true);
     };
   }, [isInitialized]);
+
+  return {
+    setAuthToken,
+  }
 }

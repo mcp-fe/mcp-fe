@@ -3,13 +3,12 @@
 import { HomePage } from './homePage';
 import { Routes, Link, Route, useLocation } from 'react-router-dom';
 import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
-import { setAuthToken } from '@mcp-fe/event-tracker';
 import { useStoredEvents } from './hooks/useStoredEvents';
 import { useConnectionStatus } from './hooks/useConnectionStatus';
 import { useEffect, useState } from 'react';
 
 export function App() {
-  useReactRouterEventTracker();
+  const { setAuthToken } = useReactRouterEventTracker();
   const { events } = useStoredEvents(1000);
   const location = useLocation();
   const isConnected = useConnectionStatus();

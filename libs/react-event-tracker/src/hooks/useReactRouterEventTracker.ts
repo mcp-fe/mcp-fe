@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   initEventTracker,
+  setAuthToken,
   trackNavigation,
   trackClick,
   trackInput,
   type WorkerClientInitOptions,
 } from '@mcp-fe/event-tracker';
 
-export function useReactRouterEventTracker(initOptions?: WorkerClientInitOptions): void {
+export function useReactRouterEventTracker(initOptions?: WorkerClientInitOptions): { setAuthToken: (token: string) => void } {
   const location = useLocation();
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -95,4 +96,8 @@ export function useReactRouterEventTracker(initOptions?: WorkerClientInitOptions
       document.removeEventListener('input', handleInput, true);
     };
   }, [isInitialized]);
+
+  return {
+    setAuthToken,
+  }
 }
