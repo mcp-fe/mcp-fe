@@ -9,7 +9,7 @@ import { SessionManager } from './session-manager';
  */
 export function createHTTPServer(port: number, sessionManager: SessionManager): { app: express.Application; server: HttpServer; transport: StreamableHTTPServerTransport } {
   const httpTransport = new StreamableHTTPServerTransport({
-    // Disable the session management before proper implementation
+    // Disable session management before proper implementation
     sessionIdGenerator: undefined,
   });
 
@@ -18,7 +18,7 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
   // Log all requests
   app.use((req, res, next) => {
     const query = Object.keys(req.query).length > 0 ? `?${new URLSearchParams(req.query as any).toString()}` : '';
-    console.error(`[HTTP] ${req.method} ${req.url}${query}`);
+    console.debug(`[HTTP] ${req.method} ${req.url}${query}`);
     next();
   });
 
@@ -35,7 +35,7 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
       sessionId = getSessionIdFromToken(token?.replaceAll("Bearer ", "") || null);
 
       if (!sessionId) {
-        console.error(`[HTTP Auth] Rejecting unauthorized ${req.method} ${req.url} from ${req.ip}`);
+        console.warn(`[HTTP Auth] Rejecting unauthorized ${req.method} ${req.url} from ${req.ip}`);
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
@@ -44,7 +44,7 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
       sessionManager.setHTTPConnected(sessionId, true);
       const session = sessionManager.getSession(sessionId);
 
-      console.error(`[HTTP] ${req.method} ${req.url} - Session: ${sessionId}, WS Connected: ${session?.isWSConnected}, Queue size: ${session?.pendingMessages.length || 0}`);
+      console.debug(`[HTTP] ${req.method} ${req.url} - Session: ${sessionId}, WS Connected: ${session?.isWSConnected}, Queue size: ${session?.pendingMessages.length || 0}`);
 
       // Handle the request through MCP transport
       await httpTransport.handleRequest(req, res);
@@ -63,7 +63,7 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
         }
       }
 
-      console.error(`[HTTP] ✓ ${req.method} ${req.url} - Status: ${finalStatus} (${duration}ms)`);
+      console.log(`[HTTP] ✓ ${req.method} ${req.url} - Status: ${finalStatus} (${duration}ms)`);
     } catch (err) {
       const duration = Date.now() - startTime;
       console.error(`[HTTP] ✗ ${req.method} ${req.url} - Error: ${err instanceof Error ? err.message : String(err)} (${duration}ms)`);
@@ -71,7 +71,7 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
       if (sessionId) {
         const session = sessionManager.getSession(sessionId);
         if (session) {
-          console.error(`[HTTP] Session state at error - WS: ${session.isWSConnected}, HTTP: ${session.isHTTPConnected}, Queue: ${session.pendingMessages.length}`);
+          console.debug(`[HTTP] Session state at error - WS: ${session.isWSConnected}, HTTP: ${session.isHTTPConnected}, Queue: ${session.pendingMessages.length}`);
         }
       }
 
@@ -116,8 +116,8 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
   });
 
   const server = app.listen(port, () => {
-    console.error(`[HTTP] Server listening on port ${port}`);
-    console.error(`[HTTP] Debug endpoint available at http://localhost:${port}/debug/sessions?token=YOUR_TOKEN`);
+    console.log(`[HTTP] Server listening on port ${port}`);
+    console.log(`[HTTP] Debug endpoint available at http://localhost:${port}/debug/sessions?token=YOUR_TOKEN`);
   });
 
   return { app, server, transport: httpTransport };

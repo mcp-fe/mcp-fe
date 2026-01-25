@@ -18,16 +18,17 @@ export interface SessionState {
 
 export class SessionManager {
   private sessions = new Map<string, SessionState>();
-  private readonly SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minut
+  private readonly SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
   private readonly MESSAGE_QUEUE_MAX = 100;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
+    // Periodically cleanup expired sessions every 30 seconds
     this.cleanupInterval = setInterval(() => this.cleanupExpiredSessions(), 30000);
   }
 
   /**
-   * Vytvořit nebo získat session
+   * Create or get session
    */
   getOrCreateSession(sessionId: string): SessionState {
     if (!this.sessions.has(sessionId)) {
@@ -41,7 +42,7 @@ export class SessionManager {
         pendingMessages: [],
         pendingRequests: new Map(),
       });
-      console.error(`[Session] Created new session: ${sessionId}`);
+      console.log(`[Session] Created new session: ${sessionId}`);
     }
 
     const session = this.sessions.get(sessionId)!;
@@ -57,7 +58,7 @@ export class SessionManager {
     session.ws = ws;
     session.isWSConnected = true;
     session.lastActivity = Date.now();
-    console.error(`[Session] WebSocket registered for ${sessionId}`);
+    console.log(`[Session] WebSocket registered for ${sessionId}`);
   }
 
   /**
@@ -69,7 +70,7 @@ export class SessionManager {
       session.ws = undefined;
       session.isWSConnected = false;
       session.lastActivity = Date.now();
-      console.error(`[Session] WebSocket unregistered for ${sessionId}`);
+      console.log(`[Session] WebSocket unregistered for ${sessionId}`);
     }
   }
 
@@ -82,17 +83,17 @@ export class SessionManager {
   }
 
   /**
-   * Označit HTTP připojení
+   * Mark HTTP connection state
    */
   setHTTPConnected(sessionId: string, connected: boolean): void {
     const session = this.getOrCreateSession(sessionId);
     session.isHTTPConnected = connected;
     session.lastActivity = Date.now();
-    console.error(`[Session] HTTP connection updated for ${sessionId}: ${connected}`);
+    console.debug(`[Session] HTTP connection updated for ${sessionId}: ${connected}`);
   }
 
   /**
-   * Přidat zprávu do queue (server-initiated message)
+   * Add message to queue (server-initiated message)
    */
   enqueueMessage(sessionId: string, message: any): void {
     const session = this.getOrCreateSession(sessionId);
@@ -101,18 +102,18 @@ export class SessionManager {
       enqueuedAt: Date.now(),
     });
 
-    // Omezit queue velikost
+    // Limit queue size
     if (session.pendingMessages.length > this.MESSAGE_QUEUE_MAX) {
       session.pendingMessages.shift();
       console.warn(`[Session] Message queue exceeded limit for ${sessionId}, dropped oldest`);
     }
 
     session.lastActivity = Date.now();
-    console.error(`[Session] Enqueued message for ${sessionId}, queue size: ${session.pendingMessages.length}`);
+    console.debug(`[Session] Enqueued message for ${sessionId}, queue size: ${session.pendingMessages.length}`);
   }
 
   /**
-   * Vzít všechny zprávy z queue
+   * Dequeue all messages
    */
   dequeueMessages(sessionId: string): any[] {
     const session = this.sessions.get(sessionId);
@@ -125,14 +126,14 @@ export class SessionManager {
     session.lastActivity = Date.now();
 
     if (messages.length > 0) {
-      console.error(`[Session] Dequeued ${messages.length} messages for ${sessionId}`);
+      console.debug(`[Session] Dequeued ${messages.length} messages for ${sessionId}`);
     }
 
     return messages;
   }
 
   /**
-   * Registrovat pending request
+   * Register pending request
    */
   registerPendingRequest(sessionId: string, requestId: string): void {
     const session = this.getOrCreateSession(sessionId);
@@ -144,7 +145,7 @@ export class SessionManager {
   }
 
   /**
-   * Klíčit pending request
+   * Complete pending request
    */
   completePendingRequest(sessionId: string, requestId: string): void {
     const session = this.sessions.get(sessionId);
@@ -155,14 +156,14 @@ export class SessionManager {
   }
 
   /**
-   *Get session state
+   * Get session state
    */
   getSession(sessionId: string): SessionState | undefined {
     return this.sessions.get(sessionId);
   }
 
   /**
-   * Kontrola health stavu session
+   * Check session health status
    */
   isSessionHealthy(sessionId: string): { healthy: boolean; reason?: string } {
     const session = this.sessions.get(sessionId);
@@ -184,7 +185,7 @@ export class SessionManager {
   }
 
   /**
-   * Vyčistit expired sessions
+   * Cleanup expired sessions
    */
   private cleanupExpiredSessions(): void {
     const now = Date.now();
@@ -198,7 +199,7 @@ export class SessionManager {
     }
 
     if (expired.length > 0) {
-      console.error(`[Session] Cleaned up ${expired.length} expired sessions: ${expired.join(', ')}`);
+      console.debug(`[Session] Cleaned up ${expired.length} expired sessions: ${expired.join(', ')}`);
     }
   }
 
@@ -210,7 +211,7 @@ export class SessionManager {
   }
 
   /**
-   * Destroy
+   * Destroy session manager
    */
   destroy(): void {
     if (this.cleanupInterval) {

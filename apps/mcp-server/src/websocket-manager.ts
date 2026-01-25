@@ -21,7 +21,7 @@ export class WebSocketManager {
    * Register a WebSocket connection for a session in SessionManager
    */
   registerSession(sessionId: string, ws: WebSocket): void {
-    console.error(`[WS] Registered WebSocket for session: ${sessionId}`);
+    console.log(`[WS] Registered WebSocket for session: ${sessionId}`);
     this.sessionManager.registerWebSocket(sessionId, ws);
   }
 
@@ -29,7 +29,7 @@ export class WebSocketManager {
    * Unregister a WebSocket connection for a session from SessionManager
    */
   unregisterSession(sessionId: string): void {
-    console.error(`[WS] Unregistered WebSocket for session: ${sessionId}`);
+    console.log(`[WS] Unregistered WebSocket for session: ${sessionId}`);
     // Clear any pending requests for this session
     for (const key of this.pendingRequests.keys()) {
       if (key.startsWith(`${sessionId}:`)) {
@@ -55,7 +55,7 @@ export class WebSocketManager {
         const handler = this.pendingRequests.get(handlerKey);
 
         if (handler) {
-          console.error(`[WS] Response handler found for session ${sessionId}, id: ${message.id}`);
+          console.debug(`[WS] Response handler found for session ${sessionId}, id: ${message.id}`);
           if (message.error) {
             handler.reject(new Error(message.error.message || 'Unknown error from Service Worker'));
           } else {
@@ -86,7 +86,7 @@ export class WebSocketManager {
     const mcpMessage = { ...message, id: requestId };
     const handlerKey = `${sessionId}:${requestId}`;
 
-    console.error(`[WS] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
+    console.debug(`[WS] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -97,7 +97,7 @@ export class WebSocketManager {
 
       this.pendingRequests.set(handlerKey, {
         resolve: (data) => {
-          console.error(`[WS] Received response from SW for session ${sessionId}, id: ${requestId}`);
+          console.debug(`[WS] Received response from SW for session ${sessionId}, id: ${requestId}`);
           clearTimeout(timeout);
           resolve(data);
         },
@@ -109,7 +109,7 @@ export class WebSocketManager {
 
       try {
         ws.send(JSON.stringify(mcpMessage));
-        console.error(`[WS] Message sent successfully to SW (${sessionId})`);
+        console.debug(`[WS] Message sent successfully to SW (${sessionId})`);
       } catch (err) {
         clearTimeout(timeout);
         this.pendingRequests.delete(handlerKey);

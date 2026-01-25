@@ -122,7 +122,7 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
         throw new Error(response.error.message || 'Error calling tool in Service Worker');
       }
 
-      console.error(`[MCP] Tool call completed: ${name}`);
+      console.debug(`[MCP] Tool call completed: ${name}`);
       return response.result;
     } catch (error) {
       console.error(`[MCP] Error proxying tool ${name} to Service Worker for session ${sessionId}:`, error instanceof Error ? error.message : String(error));

@@ -14,10 +14,10 @@ function createWSAuthMiddleware() {
     const sessionId = getSessionIdFromToken(token);
 
     if (!sessionId) {
-      console.error(`[WS Auth] Rejecting unauthorized connection from ${info.origin}`);
+      console.warn(`[WS Auth] Rejecting unauthorized connection from ${info.origin}`);
       callback(false, 401, 'Unauthorized');
     } else {
-      console.error(`[WS Auth] Verified session: ${sessionId}`);
+      console.log(`[WS Auth] Verified session: ${sessionId}`);
       // Attach sessionId to the request object so it can be used in the connection event
       info.req.sessionId = sessionId;
       callback(true);
@@ -45,7 +45,7 @@ export function setupWebSocketServer(httpServer: HttpServer, wsManager: WebSocke
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString());
-        console.error(`[WS] Raw message from client (${sessionId}): ${JSON.stringify(message).substring(0, 100)}...`);
+        console.debug(`[WS] Raw message from client (${sessionId}): ${JSON.stringify(message).substring(0, 100)}...`);
 
         wsManager.handleMessage(sessionId, message);
       } catch (error) {
@@ -55,7 +55,7 @@ export function setupWebSocketServer(httpServer: HttpServer, wsManager: WebSocke
 
     ws.on('close', async () => {
       wsManager.unregisterSession(sessionId);
-      console.error(`[WS] Connection closed for session: ${sessionId}`);
+      console.log(`[WS] Connection closed for session: ${sessionId}`);
     });
 
     ws.on('error', (error) => {
