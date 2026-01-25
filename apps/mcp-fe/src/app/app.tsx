@@ -7,6 +7,21 @@ import { useStoredEvents } from './hooks/useStoredEvents';
 import { useConnectionStatus } from './hooks/useConnectionStatus';
 import { useEffect, useState } from 'react';
 
+/**
+ * Creates a mock JWT token with the given sessionId
+ * This is for development/demo purposes only
+ */
+function createMockJWT(sessionId: string): string {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const payload = btoa(JSON.stringify({
+    sub: sessionId,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iat: Math.floor(Date.now() / 1000)
+  }));
+  // Mock JWT uses empty signature
+  return `${header}.${payload}.`;
+}
+
 export function App() {
   const { setAuthToken } = useReactRouterEventTracker();
   const { events } = useStoredEvents(1000);
@@ -17,12 +32,11 @@ export function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem('mcp_session_user', sessionUser);
-    // Send JWT (mocked for now) to Worker (SharedWorker or ServiceWorker)
-    const mockJwt = btoa(JSON.stringify({ sub: sessionUser, exp: Math.floor(Date.now() / 1000) + 3600 }));
+    // Create mock JWT token client-side
+    const mockJwt = createMockJWT(sessionUser);
     localStorage.setItem('jwtTokenMock', mockJwt);
     setAuthToken(mockJwt);
-  }, [sessionUser]);
+  }, [sessionUser, setAuthToken]);
 
   return (
     <div className="app-container">
