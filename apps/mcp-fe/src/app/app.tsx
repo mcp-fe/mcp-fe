@@ -6,20 +6,24 @@ import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 import { useStoredEvents } from './hooks/useStoredEvents';
 import { useConnectionStatus } from './hooks/useConnectionStatus';
 import { useEffect, useState } from 'react';
+import { SignJWT } from 'jose';
+
+// Shared secret key (must match server's SECRET_KEY in auth.ts)
+const SECRET_KEY = new TextEncoder().encode('mcp-mock-secret-key-do-not-use-in-production');
 
 /**
- * Creates a mock JWT token with the given sessionId
+ * Creates a properly signed mock JWT token with the given sessionId
+ * Uses HS256 signature algorithm with a shared secret key
  * This is for development/demo purposes only
  */
-function createMockJWT(sessionId: string): string {
-  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
-  const payload = btoa(JSON.stringify({
+async function createMockJWT(sessionId: string): Promise<string> {
+  return await new SignJWT({
     sub: sessionId,
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    iat: Math.floor(Date.now() / 1000)
-  }));
-  // Mock JWT uses empty signature
-  return `${header}.${payload}.`;
+  })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(SECRET_KEY);
 }
 
 export function App() {
@@ -33,10 +37,13 @@ export function App() {
 
   useEffect(() => {
     localStorage.setItem('mcp_session_user', sessionUser);
-    // Create mock JWT token client-side
-    const mockJwt = createMockJWT(sessionUser);
-    localStorage.setItem('jwtTokenMock', mockJwt);
-    setAuthToken(mockJwt);
+    // Create mock JWT token client-side asynchronously
+    createMockJWT(sessionUser).then((mockJwt) => {
+      localStorage.setItem('jwtTokenMock', mockJwt);
+      setAuthToken(mockJwt);
+    }).catch((err) => {
+      console.error('Failed to create JWT token:', err);
+    });
   }, [sessionUser, setAuthToken]);
 
   return (
