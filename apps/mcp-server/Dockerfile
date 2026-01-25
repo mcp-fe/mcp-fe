@@ -1,5 +1,10 @@
 # --- Builder Stage ---
-FROM node:20-alpine AS builder
+# Force to use native runner platform for build (amd64)
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
+
+# Turn off NX daemon for CI
+ENV NX_DAEMON=false
+
 WORKDIR /app
 RUN corepack enable
 COPY . .
