@@ -32,6 +32,7 @@ export function App() {
   });
 
   useEffect(() => {
+    localStorage.setItem('mcp_session_user', sessionUser);
     // Create mock JWT token client-side
     const mockJwt = createMockJWT(sessionUser);
     localStorage.setItem('jwtTokenMock', mockJwt);
