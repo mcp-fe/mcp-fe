@@ -1,6 +1,8 @@
+import { WebSocket } from 'ws';
+
 /**
  * Session Manager - handles session state and message queueing
- * Tracks active sessions, server-initiated messages, and connection state
+ * Tracks active sessions, server-initiated messages, connection state, and WebSocket references
  */
 
 export interface SessionState {
@@ -9,6 +11,7 @@ export interface SessionState {
   lastActivity: number;
   isWSConnected: boolean;
   isHTTPConnected: boolean;
+  ws?: WebSocket;
   pendingMessages: any[];
   pendingRequests: Map<string, { id: string; createdAt: number }>;
 }
@@ -20,7 +23,6 @@ export class SessionManager {
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    // Periodicky vyčistit expired sessions každých 30 sekund
     this.cleanupInterval = setInterval(() => this.cleanupExpiredSessions(), 30000);
   }
 
@@ -48,13 +50,35 @@ export class SessionManager {
   }
 
   /**
-   * Označit WS připojení
+   * Register WebSocket connection for a session
    */
-  setWSConnected(sessionId: string, connected: boolean): void {
+  registerWebSocket(sessionId: string, ws: WebSocket): void {
     const session = this.getOrCreateSession(sessionId);
-    session.isWSConnected = connected;
+    session.ws = ws;
+    session.isWSConnected = true;
     session.lastActivity = Date.now();
-    console.error(`[Session] WS connection updated for ${sessionId}: ${connected}`);
+    console.error(`[Session] WebSocket registered for ${sessionId}`);
+  }
+
+  /**
+   * Unregister WebSocket connection for a session
+   */
+  unregisterWebSocket(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.ws = undefined;
+      session.isWSConnected = false;
+      session.lastActivity = Date.now();
+      console.error(`[Session] WebSocket unregistered for ${sessionId}`);
+    }
+  }
+
+  /**
+   * Get WebSocket connection for a session
+   */
+  getWebSocket(sessionId: string): WebSocket | undefined {
+    const session = this.sessions.get(sessionId);
+    return session?.ws;
   }
 
   /**

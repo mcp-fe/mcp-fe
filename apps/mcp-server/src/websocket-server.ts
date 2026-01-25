@@ -40,7 +40,7 @@ export function setupWebSocketServer(httpServer: HttpServer, wsManager: WebSocke
     const sessionId = (req as any).sessionId || 'anonymous';
 
     wsManager.registerSession(sessionId, ws);
-    sessionManager.setWSConnected(sessionId, true);
+    sessionManager.setHTTPConnected(sessionId, false); // WS is registered separately
 
     ws.on('message', async (data) => {
       try {
@@ -54,8 +54,7 @@ export function setupWebSocketServer(httpServer: HttpServer, wsManager: WebSocke
     });
 
     ws.on('close', async () => {
-      wsManager.unregisterSession(sessionId, ws);
-      sessionManager.setWSConnected(sessionId, false);
+      wsManager.unregisterSession(sessionId);
       console.error(`[WS] Connection closed for session: ${sessionId}`);
     });
 

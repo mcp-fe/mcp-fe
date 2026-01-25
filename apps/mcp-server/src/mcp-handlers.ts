@@ -46,7 +46,7 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
       },
     ];
 
-    const ws = wsManager.getSession(sessionId);
+    const ws = sessionManager.getWebSocket(sessionId);
     if (ws) {
       try {
         console.debug(`[MCP] Forwarding tools/list to Service Worker for session: ${sessionId}`);
@@ -84,7 +84,7 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
     console.debug(`[MCP] tools/call: ${name} from session: ${sessionId}`);
 
     if (name === 'client_status') {
-      const ws = wsManager.getSession(sessionId);
+      const ws = sessionManager.getWebSocket(sessionId);
       const health = sessionManager.isSessionHealthy(sessionId);
       return {
         content: [
@@ -103,7 +103,7 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
 
     // Proxy other tools to Service Worker
     try {
-      const ws = wsManager.getSession(sessionId);
+      const ws = sessionManager.getWebSocket(sessionId);
       if (!ws) {
         throw new Error(`No WebSocket connection for session ${sessionId}`);
       }

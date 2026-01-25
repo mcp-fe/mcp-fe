@@ -14,7 +14,7 @@ import { SessionManager } from './session-manager';
 // Initialize components
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const sessionManager = new SessionManager();
-const wsManager = new WebSocketManager();
+const wsManager = new WebSocketManager(sessionManager);
 const mcpServer = createMCPServer();
 
 // Setup MCP handlers

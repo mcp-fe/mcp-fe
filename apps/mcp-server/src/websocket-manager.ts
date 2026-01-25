@@ -1,44 +1,46 @@
 import { WebSocket } from 'ws';
+import { SessionManager } from './session-manager';
 
 /**
- * Manages WebSocket connections to service workers and handles communication
+ * WebSocket Manager - handles WebSocket communication with service workers
+ *
+ * Responsibilities:
+ * - Track pending requests/responses
+ * - Send and receive JSON-RPC messages
+ * - Handle timeouts
+ *
+ * Session state management is delegated to SessionManager
  */
 export class WebSocketManager {
-  // Track pending requests and active connections
-  private pendingRequests = new Map<string, (value: any) => void>();
-  // Map sessionId to WebSocket connection
-  private activeSessions = new Map<string, WebSocket>();
+  // Track pending requests: key = `${sessionId}:${requestId}`, value = resolve/reject handlers
+  private pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void }>();
+
+  constructor(private sessionManager: SessionManager) {}
 
   /**
-   * Register a WebSocket connection for a session
+   * Register a WebSocket connection for a session in SessionManager
    */
   registerSession(sessionId: string, ws: WebSocket): void {
-    console.error(`[WS Manager] Registered session: ${sessionId}`);
-    this.activeSessions.set(sessionId, ws);
+    console.error(`[WS] Registered WebSocket for session: ${sessionId}`);
+    this.sessionManager.registerWebSocket(sessionId, ws);
   }
 
   /**
-   * Unregister a WebSocket connection for a session
+   * Unregister a WebSocket connection for a session from SessionManager
    */
-  unregisterSession(sessionId: string, ws: WebSocket): void {
-    console.error(`[WS Manager] Unregistered session: ${sessionId}`);
-    if (this.activeSessions.get(sessionId) === ws) {
-      this.activeSessions.delete(sessionId);
+  unregisterSession(sessionId: string): void {
+    console.error(`[WS] Unregistered WebSocket for session: ${sessionId}`);
+    // Clear any pending requests for this session
+    for (const key of this.pendingRequests.keys()) {
+      if (key.startsWith(`${sessionId}:`)) {
+        const handler = this.pendingRequests.get(key);
+        if (handler) {
+          handler.reject(new Error(`WebSocket disconnected for session ${sessionId}`));
+        }
+        this.pendingRequests.delete(key);
+      }
     }
-  }
-
-  /**
-   * Check if a session has an active connection
-   */
-  hasSession(sessionId: string): boolean {
-    return this.activeSessions.has(sessionId);
-  }
-
-  /**
-   * Get the WebSocket connection for a session
-   */
-  getSession(sessionId: string): WebSocket | undefined {
-    return this.activeSessions.get(sessionId);
+    this.sessionManager.unregisterWebSocket(sessionId);
   }
 
   /**
@@ -46,75 +48,88 @@ export class WebSocketManager {
    */
   handleMessage(sessionId: string, message: any): void {
     // Handle MCP protocol messages (JSON-RPC)
-    if (message.jsonrpc === '2.0') {
-      // Handle responses from SW to our requests
-      if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
-        const handler = this.pendingRequests.get(`${sessionId}:${message.id}`);
+    if (message.jsonrpc === '2.0' && message.id !== undefined) {
+      // Handle responses (result or error)
+      if (message.result !== undefined || message.error !== undefined) {
+        const handlerKey = `${sessionId}:${message.id}`;
+        const handler = this.pendingRequests.get(handlerKey);
+
         if (handler) {
-          console.error(`[WS Manager] Response handler found for session ${sessionId}, id: ${message.id}`);
-          handler(message);
-          this.pendingRequests.delete(`${sessionId}:${message.id}`);
-          return;
+          console.error(`[WS] Response handler found for session ${sessionId}, id: ${message.id}`);
+          if (message.error) {
+            handler.reject(new Error(message.error.message || 'Unknown error from Service Worker'));
+          } else {
+            handler.resolve(message);
+          }
+          this.pendingRequests.delete(handlerKey);
         } else {
-          console.warn(`[WS Manager] No handler found for response in session ${sessionId}, id: ${message.id}`);
+          console.warn(`[WS] No pending request handler found for session ${sessionId}, id: ${message.id}`);
         }
       }
     }
   }
 
   /**
-   * Call a tool on the service worker via WebSocket
+   * Send a message to service worker and wait for response
+   * Delegated to SessionManager for WebSocket retrieval
    */
   async callServiceWorkerTool(sessionId: string, message: any): Promise<any> {
-    const ws = this.activeSessions.get(sessionId);
+    // Get WebSocket from SessionManager
+    const ws = this.sessionManager.getWebSocket(sessionId);
     if (!ws) {
-      console.error(`[WS Manager] No Service Worker connected for session: ${sessionId}`);
+      console.error(`[WS] No WebSocket connected for session: ${sessionId}`);
       throw new Error(`No Service Worker connected for session: ${sessionId}`);
     }
 
     // Ensure message has a unique ID
     const requestId = message.id || Math.random().toString(36).substring(7);
     const mcpMessage = { ...message, id: requestId };
+    const handlerKey = `${sessionId}:${requestId}`;
 
-    console.error(`[WS Manager] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
+    console.error(`[WS] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.pendingRequests.delete(`${sessionId}:${requestId}`);
-        console.error(`[WS Manager] Timeout waiting for SW response for session ${sessionId}, id: ${requestId} (15s)`);
+        this.pendingRequests.delete(handlerKey);
+        console.error(`[WS] Timeout waiting for SW response for session ${sessionId}, id: ${requestId} (15s)`);
         reject(new Error(`Timeout waiting for Service Worker response (method: ${mcpMessage.method})`));
-      }, 15000); // Increased timeout to 15s
+      }, 15000);
 
-      this.pendingRequests.set(`${sessionId}:${requestId}`, (data) => {
-        console.error(`[WS Manager] Received response from SW for session ${sessionId}, id: ${requestId}`);
-        clearTimeout(timeout);
-        resolve(data);
+      this.pendingRequests.set(handlerKey, {
+        resolve: (data) => {
+          console.error(`[WS] Received response from SW for session ${sessionId}, id: ${requestId}`);
+          clearTimeout(timeout);
+          resolve(data);
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
       });
 
       try {
         ws.send(JSON.stringify(mcpMessage));
-        console.error(`[WS Manager] Message sent successfully to SW (${sessionId})`);
+        console.error(`[WS] Message sent successfully to SW (${sessionId})`);
       } catch (err) {
         clearTimeout(timeout);
-        this.pendingRequests.delete(`${sessionId}:${requestId}`);
-        console.error(`[WS Manager] Error sending message to SW (${sessionId}):`, err instanceof Error ? err.message : String(err));
+        this.pendingRequests.delete(handlerKey);
+        console.error(`[WS] Error sending message to SW (${sessionId}):`, err instanceof Error ? err.message : String(err));
         reject(err);
       }
     });
   }
 
   /**
-   * Get diagnostic info about active sessions
+   * Get diagnostic info about WebSocket pending requests
    */
-  getDiagnostics(): { [key: string]: { isConnected: boolean; pendingRequests: number } } {
-    const result: { [key: string]: { isConnected: boolean; pendingRequests: number } } = {};
-    for (const [sessionId, ws] of this.activeSessions.entries()) {
-      const pendingCount = Array.from(this.pendingRequests.keys()).filter(k => k.startsWith(`${sessionId}:`)).length;
-      result[sessionId] = {
-        isConnected: ws.readyState === WebSocket.OPEN,
-        pendingRequests: pendingCount,
-      };
+  getDiagnostics(): { pendingRequests: Record<string, number> } {
+    const result: Record<string, number> = {};
+
+    for (const key of this.pendingRequests.keys()) {
+      const sessionId = key.split(':')[0];
+      result[sessionId] = (result[sessionId] || 0) + 1;
     }
-    return result;
+
+    return { pendingRequests: result };
   }
 }
