@@ -451,6 +451,9 @@ if (isConnected) {
 - **[@mcp-fe/react-event-tracker](../react-event-tracker/README.md)**: React-specific integration
 - **[Main MCP-FE Project](../../README.md)**: Complete ecosystem documentation
 
+## Credits
+
+Created and maintained with ❤️ by [Michal Kopecký](https://github.com/kopecmi8).
 
 ## License
 
