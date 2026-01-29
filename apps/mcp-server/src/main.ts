@@ -21,7 +21,11 @@ const mcpServer = createMCPServer();
 setupMCPHandlers(mcpServer, wsManager, sessionManager);
 
 // Setup HTTP server
-const { server: httpServer, transport: httpTransport } = createHTTPServer(PORT, sessionManager);
+const { server: httpServer } = createHTTPServer(
+  PORT,
+  sessionManager,
+  mcpServer,
+);
 
 // Setup WebSocket server
 setupWebSocketServer(httpServer, wsManager, sessionManager);
@@ -29,13 +33,10 @@ setupWebSocketServer(httpServer, wsManager, sessionManager);
 // Connect MCP server to HTTP transport
 console.log(`[Main] MCP Server (HTTP/WS) starting on port ${PORT}...`);
 
-mcpServer.connect(httpTransport).catch((err) => {
-  console.error('[Main] Failed to start HTTP MCP server:', err);
-});
-
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('[Main] Shutting down gracefully...');
   sessionManager.destroy();
+  mcpServer.close();
   process.exit(0);
 });
