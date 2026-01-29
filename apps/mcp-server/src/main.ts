@@ -28,7 +28,7 @@ const { server: httpServer } = createHTTPServer(
 );
 
 // Setup WebSocket server
-setupWebSocketServer(httpServer, wsManager, sessionManager);
+setupWebSocketServer(httpServer, wsManager);
 
 // Connect MCP server to HTTP transport
 console.log(`[Main] MCP Server (HTTP/WS) starting on port ${PORT}...`);

@@ -26,8 +26,6 @@ function isInitializeRequest(
   );
 }
 
-const transports: Record<string, StreamableHTTPServerTransport> = {};
-
 /**
  * Creates and configures the HTTP server with Express
  */
@@ -54,9 +52,21 @@ export function createHTTPServer(
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     let transport: StreamableHTTPServerTransport;
 
-    if (sessionId && transports[sessionId]) {
+    if (sessionId) {
       // Reuse existing transport
-      transport = transports[sessionId];
+      const session = sessionManager.getSession(sessionId);
+      if (!session) {
+        res.status(400).send('Invalid session ID');
+        return;
+      }
+
+      if (!session.transport) {
+        console.error(`[HTTP] No transport found for session: ${sessionId}`);
+        res.status(500).send('Transport not found for session');
+        return;
+      }
+
+      transport = session.transport;
     } else if (!sessionId && isInitializeRequest(req.body)) {
       const token =
         (req.query.token as string) || req.headers.authorization?.split(' ')[1];
@@ -64,25 +74,31 @@ export function createHTTPServer(
         token?.replaceAll('Bearer ', '') || null,
       );
 
-      // New initialization request
+      if (!sessionId) {
+        console.error(`[HTTP] Unauthorized initialization attempt`);
+        res.status(401).send('Unauthorized: Invalid or missing token');
+        return;
+      }
+
+      // Create new transport for initialization request
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => sessionId ?? crypto.randomUUID(),
         onsessioninitialized: (sessionId) => {
-          // Store the transport by session ID
-          transports[sessionId] = transport;
+          sessionManager.attachTransport(sessionId, transport);
         },
       });
 
       // Clean up transport when closed
       transport.onclose = () => {
         if (transport.sessionId) {
-          delete transports[transport.sessionId];
+          sessionManager.closeTransport(sessionId);
         }
       };
 
       await mcpServer.connect(transport);
     } else {
-      // TODO handle this
+      console.debug(`[HTTP] Missing session ID for non-initialization request`);
+      res.status(400).send('Missing mcp-session-id header');
       return;
     }
 
@@ -92,25 +108,47 @@ export function createHTTPServer(
   // Handle GET requests
   app.get('/mcp', async (req, res) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
-    if (!sessionId || !transports[sessionId]) {
-      res.status(400).send('Invalid or missing session ID');
+    if (!sessionId) {
+      res.status(400).send('Missing mcp-session-id header');
       return;
     }
 
-    const transport = transports[sessionId];
-    await transport.handleRequest(req, res);
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      res.status(400).send('Invalid session ID');
+      return;
+    }
+
+    if (!session.transport) {
+      console.error(`[HTTP] No transport found for session: ${sessionId}`);
+      res.status(500).send('Transport not found for session');
+      return;
+    }
+
+    await session.transport.handleRequest(req, res);
   });
 
   // Handle DELETE requests for session termination
   app.delete('/mcp', async (req, res) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
-    if (!sessionId || !transports[sessionId]) {
-      res.status(400).send('Invalid or missing session ID');
+    if (!sessionId) {
+      res.status(400).send('Missing mcp-session-id header');
       return;
     }
 
-    const transport = transports[sessionId];
-    await transport.handleRequest(req, res);
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      res.status(400).send('Invalid session ID');
+      return;
+    }
+
+    if (!session.transport) {
+      console.error(`[HTTP] No transport found for session: ${sessionId}`);
+      res.status(500).send('Transport not found for session');
+      return;
+    }
+
+    await session.transport.handleRequest(req, res);
   });
 
   // Debug endpoint - show session status
@@ -136,7 +174,7 @@ export function createHTTPServer(
       createdAt: new Date(session.createdAt),
       lastActivity: new Date(session.lastActivity),
       isWSConnected: session.isWSConnected,
-      isHTTPConnected: session.isHTTPConnected,
+      transport: session.transport ? 'StreamableHTTP' : 'None',
       pendingMessagesCount: session.pendingMessages.length,
       pendingRequestsCount: session.pendingRequests.size,
       health: health.healthy ? 'HEALTHY' : `UNHEALTHY (${health.reason})`,

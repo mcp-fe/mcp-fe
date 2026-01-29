@@ -1,3 +1,4 @@
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { WebSocket } from 'ws';
 
 /**
@@ -10,7 +11,7 @@ export interface SessionState {
   createdAt: number;
   lastActivity: number;
   isWSConnected: boolean;
-  isHTTPConnected: boolean;
+  transport?: StreamableHTTPServerTransport;
   ws?: WebSocket;
   pendingMessages: any[];
   pendingRequests: Map<string, { id: string; createdAt: number }>;
@@ -24,7 +25,10 @@ export class SessionManager {
 
   constructor() {
     // Periodically cleanup expired sessions every 30 seconds
-    this.cleanupInterval = setInterval(() => this.cleanupExpiredSessions(), 30000);
+    this.cleanupInterval = setInterval(
+      () => this.cleanupExpiredSessions(),
+      30000,
+    );
   }
 
   /**
@@ -38,7 +42,6 @@ export class SessionManager {
         createdAt: now,
         lastActivity: now,
         isWSConnected: false,
-        isHTTPConnected: false,
         pendingMessages: [],
         pendingRequests: new Map(),
       });
@@ -85,11 +88,22 @@ export class SessionManager {
   /**
    * Mark HTTP connection state
    */
-  setHTTPConnected(sessionId: string, connected: boolean): void {
+  attachTransport(
+    sessionId: string,
+    transport: StreamableHTTPServerTransport,
+  ): void {
     const session = this.getOrCreateSession(sessionId);
-    session.isHTTPConnected = connected;
+    session.transport = transport;
     session.lastActivity = Date.now();
-    console.debug(`[Session] HTTP connection updated for ${sessionId}: ${connected}`);
+    console.debug(`[Session] HTTP transport connected for ${sessionId}`);
+  }
+
+  closeTransport(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session && session.transport) {
+      session.transport = undefined;
+      console.debug(`[Session] HTTP transport closed for ${sessionId}`);
+    }
   }
 
   /**
@@ -105,11 +119,15 @@ export class SessionManager {
     // Limit queue size
     if (session.pendingMessages.length > this.MESSAGE_QUEUE_MAX) {
       session.pendingMessages.shift();
-      console.warn(`[Session] Message queue exceeded limit for ${sessionId}, dropped oldest`);
+      console.warn(
+        `[Session] Message queue exceeded limit for ${sessionId}, dropped oldest`,
+      );
     }
 
     session.lastActivity = Date.now();
-    console.debug(`[Session] Enqueued message for ${sessionId}, queue size: ${session.pendingMessages.length}`);
+    console.debug(
+      `[Session] Enqueued message for ${sessionId}, queue size: ${session.pendingMessages.length}`,
+    );
   }
 
   /**
@@ -126,7 +144,9 @@ export class SessionManager {
     session.lastActivity = Date.now();
 
     if (messages.length > 0) {
-      console.debug(`[Session] Dequeued ${messages.length} messages for ${sessionId}`);
+      console.debug(
+        `[Session] Dequeued ${messages.length} messages for ${sessionId}`,
+      );
     }
 
     return messages;
@@ -177,7 +197,7 @@ export class SessionManager {
       return { healthy: false, reason: 'Session expired' };
     }
 
-    if (!session.isWSConnected && !session.isHTTPConnected) {
+    if (!session.isWSConnected && !session.transport) {
       return { healthy: false, reason: 'No active connections' };
     }
 
@@ -199,7 +219,9 @@ export class SessionManager {
     }
 
     if (expired.length > 0) {
-      console.debug(`[Session] Cleaned up ${expired.length} expired sessions: ${expired.join(', ')}`);
+      console.debug(
+        `[Session] Cleaned up ${expired.length} expired sessions: ${expired.join(', ')}`,
+      );
     }
   }
 
