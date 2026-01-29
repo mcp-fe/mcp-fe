@@ -102,11 +102,163 @@ MCP Worker **response**:
 ```
 
 ---
+
 ## Use Cases
 
 - **Context-Aware Support**: Customer support agents can query the user's current UI state and recent interactions to provide instant help.
 - **Agentic Debugging**: Ask the agent "Why is the submit button disabled?" and it inspects the live React state to tell you.
 - **Dynamic Onboarding**: AI guides users through complex workflows based on their real-time progress and errors.
+
+
+---
+
+## Using MCP-FE in Your Applications
+
+MCP-FE is available as a set of NPM packages that you can integrate into your existing applications:
+
+### Core Package: `@mcp-fe/mcp-worker`
+
+The main package that provides the MCP Worker client and ready-to-use worker scripts. This package handles the core functionality of running MCP server endpoints in the browser and maintaining connections to the backend.
+
+**Installation:**
+```bash
+npm install @mcp-fe/mcp-worker
+# or
+pnpm add @mcp-fe/mcp-worker
+```
+
+**Key Features:**
+- Browser-based MCP server implementation using SharedWorker (with ServiceWorker fallback)
+- WebSocket transport layer for connecting to MCP proxy servers
+- IndexedDB storage for UI events and application state
+- Automatic worker lifecycle management
+
+For detailed usage instructions, see the [full documentation in the package README](./libs/mcp-worker/README.md).
+
+**Quick Example:**
+```typescript
+import { workerClient } from '@mcp-fe/mcp-worker';
+
+// Initialize the worker
+await workerClient.init({
+  backendWsUrl: 'ws://localhost:3001'
+});
+
+// Send events to the worker
+await workerClient.post('STORE_EVENT', { 
+  event: { type: 'click', element: 'button' }
+});
+```
+
+### Event Tracking: `@mcp-fe/event-tracker`
+
+A framework-agnostic event tracking library that provides a simple API for collecting user interactions and sending them to the MCP worker.
+
+**Installation:**
+```bash
+npm install @mcp-fe/event-tracker
+```
+
+**Features:**
+- Simple API for tracking navigation, clicks, input changes, and custom events
+- Automatic event timestamping
+- Connection status monitoring
+- Prepared to be used with `@mcp-fe/mcp-worker`
+
+**Example:**
+```typescript
+import { initEventTracker, trackEvent } from '@mcp-fe/event-tracker';
+
+// Initialize
+await initEventTracker();
+
+// Track user interactions
+await trackEvent({
+  type: 'click',
+  element: 'button',
+  elementText: 'Submit',
+  metadata: { formId: 'login-form' }
+});
+```
+
+### React Integration: `@mcp-fe/react-event-tracker`
+
+React-specific hooks that automatically track navigation and user interactions with minimal setup.
+
+**Installation:**
+```bash
+npm install @mcp-fe/react-event-tracker
+```
+
+**Features:**
+- Automatic navigation tracking for React Router and TanStack Router
+- Automatic click and input event tracking
+- React hooks for easy integration
+- Built-in connection status management
+
+**React Router Example:**
+```typescript
+import { useEffect } from 'react';
+import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
+
+function App() {
+  const { setAuthToken } = useReactRouterEventTracker({
+    backendWsUrl: 'ws://localhost:3001'
+  });
+
+  // Set authentication token when available
+  useEffect(() => {
+    // Get token from your auth system (localStorage, context, etc.)
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      setAuthToken(token);
+    }
+  }, [setAuthToken]);
+
+  // The hook automatically tracks navigation, clicks, and input changes
+  // No additional setup required!
+  
+  return (
+    // Your app components here
+    <div>Your App</div>
+  );
+}
+```
+
+**TanStack Router Example:**
+```typescript
+import { useEffect } from 'react';
+import { useTanstackRouterEventTracker } from '@mcp-fe/react-event-tracker';
+
+function App() {
+  const { setAuthToken } = useTanstackRouterEventTracker();
+  
+  // Set authentication token when available
+  useEffect(() => {
+    // Get token from your auth system (localStorage, context, etc.)
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      setAuthToken(token);
+    }
+  }, [setAuthToken]);
+  
+  return (
+    // Your app components here  
+    <div>Your App</div>
+  );
+}
+```
+
+### Integration Steps
+
+1. **Install the packages** you need based on your framework
+2. **Copy worker files** to your public directory (from `@mcp-fe/mcp-worker`)
+3. **Initialize event tracking** in your application entry point
+4. **Set up your MCP proxy server** to connect AI agents
+5. **Configure authentication** if needed using `setAuthToken()`
+
+The packages work together to provide a complete MCP-FE integration with minimal boilerplate code.
+
 
 ---
 
@@ -130,7 +282,7 @@ Navigate to `http://localhost:4200` (or the port shown in your terminal)
 The Worker will automatically register and connect to the proxy server.
 
 ### 4. Connect an AI Agent
-Connect your favorite MCP-compatible AI agent to the MCP Proxy server at `http://localhost:3001` 
+Connect your favorite MCP-compatible AI agent to the MCP Proxy server at `http://localhost:3001/mcp` 
 
 ---
 
@@ -146,4 +298,4 @@ It represents a **new architectural application of Model Context Protocol on the
 
 ---
 
-*Feedback and discussion are welcome. This pattern is intentionally minimal and designed to evolve.*
+*Feedback and discussion are welcome. This pattern is in early stage and not all features are fully implemented yet.*
