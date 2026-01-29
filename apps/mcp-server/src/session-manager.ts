@@ -66,20 +66,12 @@ export class SessionManager {
       return session.mcpServer;
     }
 
-    session.mcpServer = new Server(
-      {
-        name: 'mcp-server-for-fe',
-        version: '1.0.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      },
-    );
-
-    // Setup handlers for this server instance
-    this.setupSessionMCPHandlers(session.mcpServer, sessionId, wsManager);
+    // Import here to avoid circular dependency
+    const { createMCPServerForSession } = require('./mcp-handlers');
+    session.mcpServer = createMCPServerForSession(
+      sessionId,
+      wsManager,
+    ) as Server;
 
     console.log(`[Session] Created MCP Server for session: ${sessionId}`);
     return session.mcpServer;
@@ -90,143 +82,8 @@ export class SessionManager {
    */
   getMCPServer(sessionId: string): Server | undefined {
     const session = this.sessions.get(sessionId);
-    return session?.mcpServer;
-  }
-
-  /**
-   * Setup MCP handlers for a specific session server
-   */
-  private setupSessionMCPHandlers(
-    server: Server,
-    sessionId: string,
-    wsManager: any,
-  ): void {
-    const {
-      ListToolsRequestSchema,
-      CallToolRequestSchema,
-    } = require('@modelcontextprotocol/sdk/types.js');
-
-    // Register tools/list handler
-    server.setRequestHandler(
-      ListToolsRequestSchema,
-      async (request: any, extra: any) => {
-        console.debug(`[MCP] tools/list request from session: ${sessionId}`);
-
-        const localTools = [
-          {
-            name: 'client_status',
-            description: 'Check if there is a client connected via WebSocket',
-            inputSchema: {
-              type: 'object',
-              properties: {},
-            },
-          },
-        ];
-
-        const ws = this.getWebSocket(sessionId);
-        if (ws) {
-          try {
-            console.debug(
-              `[MCP] Forwarding tools/list to Service Worker for session: ${sessionId}`,
-            );
-            const response = await wsManager.callServiceWorkerTool(sessionId, {
-              jsonrpc: '2.0',
-              method: 'tools/list',
-            });
-
-            if (response.result && Array.isArray(response.result.tools)) {
-              console.debug(
-                `[MCP] Received ${response.result.tools.length} tools from Service Worker`,
-              );
-              return {
-                tools: [...localTools, ...response.result.tools],
-              };
-            }
-          } catch (error) {
-            console.error(
-              `[MCP] Error fetching tools from Service Worker for session ${sessionId}:`,
-              error instanceof Error ? error.message : String(error),
-            );
-          }
-        } else {
-          console.warn(
-            `[MCP] tools/list: No WebSocket connection for session ${sessionId}`,
-          );
-        }
-
-        return {
-          tools: localTools,
-        };
-      },
-    );
-
-    // Register tools/call handler
-    server.setRequestHandler(
-      CallToolRequestSchema,
-      async (request: any, extra: any) => {
-        const { name, arguments: args } = request.params;
-        console.debug(`[MCP] tools/call: ${name} from session: ${sessionId}`);
-
-        if (name === 'client_status') {
-          const ws = this.getWebSocket(sessionId);
-          const health = this.isSessionHealthy(sessionId);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    isConnected: !!ws,
-                    sessionId,
-                    isHealthy: health.healthy,
-                    message: ws
-                      ? `Client connected for session ${sessionId}`
-                      : `No client connected for session ${sessionId}`,
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
-          };
-        }
-
-        // Proxy other tools to Service Worker
-        try {
-          const ws = this.getWebSocket(sessionId);
-          if (!ws) {
-            throw new Error(`No WebSocket connection for session ${sessionId}`);
-          }
-
-          console.debug(
-            `[MCP] Forwarding tool call to Service Worker: ${name}`,
-          );
-          const response = await wsManager.callServiceWorkerTool(sessionId, {
-            jsonrpc: '2.0',
-            method: 'tools/call',
-            params: {
-              name,
-              arguments: args,
-            },
-          });
-
-          if (response.error) {
-            throw new Error(
-              response.error.message || 'Error calling tool in Service Worker',
-            );
-          }
-
-          console.debug(`[MCP] Tool call completed: ${name}`);
-          return response.result;
-        } catch (error) {
-          console.error(
-            `[MCP] Error proxying tool ${name} to Service Worker for session ${sessionId}:`,
-            error instanceof Error ? error.message : String(error),
-          );
-          throw error;
-        }
-      },
-    );
+    if (!session) return undefined;
+    return session.mcpServer;
   }
 
   /**
