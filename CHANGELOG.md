@@ -1,3 +1,13 @@
+## 0.0.15 (2026-01-29)
+
+### 🩹 Fixes
+
+- Support real JWT token format on server. Improved mock ([7eb8c41](https://github.com/mcp-fe/mcp-fe/commit/7eb8c41))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.0.14 (2026-01-25)
 
 ### 🩹 Fixes
