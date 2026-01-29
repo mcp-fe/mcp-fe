@@ -1,6 +1,7 @@
 {
   "name": "@mcp-fe/mcp-worker",
   "version": "0.0.14",
+  "license": "Apache-2.0",
   "private": false,
   "type": "module",
   "main": "./index.js",
