@@ -94,6 +94,10 @@ export class SessionManager {
     session.ws = ws;
     session.isWSConnected = true;
     session.lastActivity = Date.now();
+
+    // Notify MCP client about tools change (new tools available)
+    this.notifyToolsChange(sessionId);
+
     console.log(`[Session] WebSocket registered for ${sessionId}`);
   }
 
@@ -106,7 +110,31 @@ export class SessionManager {
       session.ws = undefined;
       session.isWSConnected = false;
       session.lastActivity = Date.now();
+
+      // Notify MCP client about tools change
+      this.notifyToolsChange(sessionId);
+
       console.log(`[Session] WebSocket unregistered for ${sessionId}`);
+    }
+  }
+
+  /**
+   * Notify MCP client about tools list change
+   */
+  private async notifyToolsChange(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (session?.mcpServer) {
+      try {
+        await session.mcpServer.sendToolListChanged();
+        console.debug(
+          `[MCP] Sent tools/list_changed notification to session: ${sessionId}`,
+        );
+      } catch (error) {
+        console.warn(
+          `[MCP] Failed to send tools notification for session ${sessionId}:`,
+          error,
+        );
+      }
     }
   }
 
