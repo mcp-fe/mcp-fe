@@ -37,7 +37,10 @@ export function createHTTPServer(
 ): {
   server: HttpServer;
 } {
-  const app = createMcpExpressApp();
+  const app = createMcpExpressApp({
+    host: '0.0.0.0',
+    allowedHosts: ['host.docker.internal', 'localhost'],
+  });
 
   // Log all requests
   app.use((req, res, next) => {
