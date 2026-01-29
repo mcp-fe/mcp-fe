@@ -298,10 +298,6 @@ It represents a **new architectural application of Model Context Protocol on the
 
 ---
 
-*Feedback and discussion are welcome. This pattern is in early stage and not all features are fully implemented yet.*
-
----
-
 ## License
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -318,3 +314,4 @@ limitations under the License.
 
 ---
 
+*Feedback and discussion are welcome. This pattern is in early stage and not all features are fully implemented yet.*
