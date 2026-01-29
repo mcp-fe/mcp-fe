@@ -2,6 +2,11 @@
   "name": "@mcp-fe/source",
   "version": "0.0.0",
   "license": "Apache-2.0",
+  "homepage": "https://mcp-fe.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mcp-fe/mcp-fe.git"
+  },
   "scripts": {
     "start": "nx run-many -t serve --projects=mcp-fe,mcp-server --parallel"
   },

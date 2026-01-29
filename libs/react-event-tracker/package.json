@@ -2,6 +2,12 @@
   "name": "@mcp-fe/react-event-tracker",
   "version": "0.0.15",
   "license": "Apache-2.0",
+  "homepage": "https://mcp-fe.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mcp-fe/mcp-fe.git",
+    "directory": "libs/react-event-tracker"
+  },
   "main": "./index.js",
   "types": "./index.d.ts",
   "exports": {
