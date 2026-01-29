@@ -1,4 +1,6 @@
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { WebSocket } from 'ws';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
 /**
  * Session Manager - handles session state and message queueing
@@ -10,8 +12,9 @@ export interface SessionState {
   createdAt: number;
   lastActivity: number;
   isWSConnected: boolean;
-  isHTTPConnected: boolean;
+  transport?: StreamableHTTPServerTransport;
   ws?: WebSocket;
+  mcpServer?: Server;
   pendingMessages: any[];
   pendingRequests: Map<string, { id: string; createdAt: number }>;
 }
@@ -24,7 +27,10 @@ export class SessionManager {
 
   constructor() {
     // Periodically cleanup expired sessions every 30 seconds
-    this.cleanupInterval = setInterval(() => this.cleanupExpiredSessions(), 30000);
+    this.cleanupInterval = setInterval(
+      () => this.cleanupExpiredSessions(),
+      30000,
+    );
   }
 
   /**
@@ -38,7 +44,6 @@ export class SessionManager {
         createdAt: now,
         lastActivity: now,
         isWSConnected: false,
-        isHTTPConnected: false,
         pendingMessages: [],
         pendingRequests: new Map(),
       });
@@ -51,6 +56,37 @@ export class SessionManager {
   }
 
   /**
+   * Create MCP Server instance for a session with handlers setup
+   */
+  createMCPServerForSession(sessionId: string, wsManager: any): Server {
+    const session = this.getOrCreateSession(sessionId);
+
+    if (session.mcpServer) {
+      console.debug(`[Session] MCP Server already exists for ${sessionId}`);
+      return session.mcpServer;
+    }
+
+    // Import here to avoid circular dependency
+    const { createMCPServerForSession } = require('./mcp-handlers');
+    session.mcpServer = createMCPServerForSession(
+      sessionId,
+      wsManager,
+    ) as Server;
+
+    console.log(`[Session] Created MCP Server for session: ${sessionId}`);
+    return session.mcpServer;
+  }
+
+  /**
+   * Get MCP Server instance for a session
+   */
+  getMCPServer(sessionId: string): Server | undefined {
+    const session = this.sessions.get(sessionId);
+    if (!session) return undefined;
+    return session.mcpServer;
+  }
+
+  /**
    * Register WebSocket connection for a session
    */
   registerWebSocket(sessionId: string, ws: WebSocket): void {
@@ -58,6 +94,10 @@ export class SessionManager {
     session.ws = ws;
     session.isWSConnected = true;
     session.lastActivity = Date.now();
+
+    // Notify MCP client about tools change (new tools available)
+    this.notifyToolsChange(sessionId);
+
     console.log(`[Session] WebSocket registered for ${sessionId}`);
   }
 
@@ -70,7 +110,31 @@ export class SessionManager {
       session.ws = undefined;
       session.isWSConnected = false;
       session.lastActivity = Date.now();
+
+      // Notify MCP client about tools change
+      this.notifyToolsChange(sessionId);
+
       console.log(`[Session] WebSocket unregistered for ${sessionId}`);
+    }
+  }
+
+  /**
+   * Notify MCP client about tools list change
+   */
+  private async notifyToolsChange(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (session?.mcpServer) {
+      try {
+        await session.mcpServer.sendToolListChanged();
+        console.debug(
+          `[MCP] Sent tools/list_changed notification to session: ${sessionId}`,
+        );
+      } catch (error) {
+        console.warn(
+          `[MCP] Failed to send tools notification for session ${sessionId}:`,
+          error,
+        );
+      }
     }
   }
 
@@ -85,11 +149,22 @@ export class SessionManager {
   /**
    * Mark HTTP connection state
    */
-  setHTTPConnected(sessionId: string, connected: boolean): void {
+  attachTransport(
+    sessionId: string,
+    transport: StreamableHTTPServerTransport,
+  ): void {
     const session = this.getOrCreateSession(sessionId);
-    session.isHTTPConnected = connected;
+    session.transport = transport;
     session.lastActivity = Date.now();
-    console.debug(`[Session] HTTP connection updated for ${sessionId}: ${connected}`);
+    console.debug(`[Session] HTTP transport connected for ${sessionId}`);
+  }
+
+  closeTransport(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session && session.transport) {
+      session.transport = undefined;
+      console.debug(`[Session] HTTP transport closed for ${sessionId}`);
+    }
   }
 
   /**
@@ -105,11 +180,15 @@ export class SessionManager {
     // Limit queue size
     if (session.pendingMessages.length > this.MESSAGE_QUEUE_MAX) {
       session.pendingMessages.shift();
-      console.warn(`[Session] Message queue exceeded limit for ${sessionId}, dropped oldest`);
+      console.warn(
+        `[Session] Message queue exceeded limit for ${sessionId}, dropped oldest`,
+      );
     }
 
     session.lastActivity = Date.now();
-    console.debug(`[Session] Enqueued message for ${sessionId}, queue size: ${session.pendingMessages.length}`);
+    console.debug(
+      `[Session] Enqueued message for ${sessionId}, queue size: ${session.pendingMessages.length}`,
+    );
   }
 
   /**
@@ -126,7 +205,9 @@ export class SessionManager {
     session.lastActivity = Date.now();
 
     if (messages.length > 0) {
-      console.debug(`[Session] Dequeued ${messages.length} messages for ${sessionId}`);
+      console.debug(
+        `[Session] Dequeued ${messages.length} messages for ${sessionId}`,
+      );
     }
 
     return messages;
@@ -177,7 +258,7 @@ export class SessionManager {
       return { healthy: false, reason: 'Session expired' };
     }
 
-    if (!session.isWSConnected && !session.isHTTPConnected) {
+    if (!session.isWSConnected && !session.transport) {
       return { healthy: false, reason: 'No active connections' };
     }
 
@@ -194,12 +275,30 @@ export class SessionManager {
     for (const [sessionId, session] of this.sessions.entries()) {
       if (now - session.lastActivity > this.SESSION_TIMEOUT) {
         expired.push(sessionId);
+
+        // Close MCP Server instance
+        if (session.mcpServer) {
+          try {
+            session.mcpServer.close();
+            console.debug(
+              `[Session] Closed MCP Server for expired session: ${sessionId}`,
+            );
+          } catch (error) {
+            console.warn(
+              `[Session] Error closing MCP Server for session ${sessionId}:`,
+              error,
+            );
+          }
+        }
+
         this.sessions.delete(sessionId);
       }
     }
 
     if (expired.length > 0) {
-      console.debug(`[Session] Cleaned up ${expired.length} expired sessions: ${expired.join(', ')}`);
+      console.debug(
+        `[Session] Cleaned up ${expired.length} expired sessions: ${expired.join(', ')}`,
+      );
     }
   }
 
@@ -218,6 +317,24 @@ export class SessionManager {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
+
+    // Close all MCP Server instances
+    for (const [sessionId, session] of this.sessions.entries()) {
+      if (session.mcpServer) {
+        try {
+          session.mcpServer.close();
+          console.debug(
+            `[Session] Closed MCP Server for session: ${sessionId}`,
+          );
+        } catch (error) {
+          console.warn(
+            `[Session] Error closing MCP Server for session ${sessionId}:`,
+            error,
+          );
+        }
+      }
+    }
+
     this.sessions.clear();
   }
 }

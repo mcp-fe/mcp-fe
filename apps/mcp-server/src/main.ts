@@ -5,7 +5,6 @@
  * via WebSocket and provides an MCP interface to interact with that data.
  */
 
-import { createMCPServer, setupMCPHandlers } from './mcp-handlers';
 import { createHTTPServer } from './http-server';
 import { setupWebSocketServer } from './websocket-server';
 import { WebSocketManager } from './websocket-manager';
@@ -15,23 +14,19 @@ import { SessionManager } from './session-manager';
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const sessionManager = new SessionManager();
 const wsManager = new WebSocketManager(sessionManager);
-const mcpServer = createMCPServer();
 
-// Setup MCP handlers
-setupMCPHandlers(mcpServer, wsManager, sessionManager);
-
-// Setup HTTP server
-const { server: httpServer, transport: httpTransport } = createHTTPServer(PORT, sessionManager);
+// Setup HTTP server (no global MCP server needed)
+const { server: httpServer } = createHTTPServer(
+  PORT,
+  sessionManager,
+  wsManager,
+);
 
 // Setup WebSocket server
-setupWebSocketServer(httpServer, wsManager, sessionManager);
+setupWebSocketServer(httpServer, wsManager);
 
 // Connect MCP server to HTTP transport
 console.log(`[Main] MCP Server (HTTP/WS) starting on port ${PORT}...`);
-
-mcpServer.connect(httpTransport).catch((err) => {
-  console.error('[Main] Failed to start HTTP MCP server:', err);
-});
 
 // Graceful shutdown
 process.on('SIGINT', () => {

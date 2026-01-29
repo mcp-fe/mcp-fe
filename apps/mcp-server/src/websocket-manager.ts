@@ -13,7 +13,10 @@ import { SessionManager } from './session-manager';
  */
 export class WebSocketManager {
   // Track pending requests: key = `${sessionId}:${requestId}`, value = resolve/reject handlers
-  private pendingRequests = new Map<string, { resolve: (value: any) => void; reject: (error: any) => void }>();
+  private pendingRequests = new Map<
+    string,
+    { resolve: (value: any) => void; reject: (error: any) => void }
+  >();
 
   constructor(private sessionManager: SessionManager) {}
 
@@ -35,7 +38,9 @@ export class WebSocketManager {
       if (key.startsWith(`${sessionId}:`)) {
         const handler = this.pendingRequests.get(key);
         if (handler) {
-          handler.reject(new Error(`WebSocket disconnected for session ${sessionId}`));
+          handler.reject(
+            new Error(`WebSocket disconnected for session ${sessionId}`),
+          );
         }
         this.pendingRequests.delete(key);
       }
@@ -55,15 +60,23 @@ export class WebSocketManager {
         const handler = this.pendingRequests.get(handlerKey);
 
         if (handler) {
-          console.debug(`[WS] Response handler found for session ${sessionId}, id: ${message.id}`);
+          console.debug(
+            `[WS] Response handler found for session ${sessionId}, id: ${message.id}`,
+          );
           if (message.error) {
-            handler.reject(new Error(message.error.message || 'Unknown error from Service Worker'));
+            handler.reject(
+              new Error(
+                message.error.message || 'Unknown error from Service Worker',
+              ),
+            );
           } else {
             handler.resolve(message);
           }
           this.pendingRequests.delete(handlerKey);
         } else {
-          console.warn(`[WS] No pending request handler found for session ${sessionId}, id: ${message.id}`);
+          console.warn(
+            `[WS] No pending request handler found for session ${sessionId}, id: ${message.id}`,
+          );
         }
       }
     }
@@ -86,18 +99,28 @@ export class WebSocketManager {
     const mcpMessage = { ...message, id: requestId };
     const handlerKey = `${sessionId}:${requestId}`;
 
-    console.debug(`[WS] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`);
+    console.debug(
+      `[WS] Sending request to SW (${sessionId}): ${mcpMessage.method} (id: ${requestId})`,
+    );
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(handlerKey);
-        console.error(`[WS] Timeout waiting for SW response for session ${sessionId}, id: ${requestId} (15s)`);
-        reject(new Error(`Timeout waiting for Service Worker response (method: ${mcpMessage.method})`));
+        console.error(
+          `[WS] Timeout waiting for SW response for session ${sessionId}, id: ${requestId} (15s)`,
+        );
+        reject(
+          new Error(
+            `Timeout waiting for Service Worker response (method: ${mcpMessage.method})`,
+          ),
+        );
       }, 15000);
 
       this.pendingRequests.set(handlerKey, {
         resolve: (data) => {
-          console.debug(`[WS] Received response from SW for session ${sessionId}, id: ${requestId}`);
+          console.debug(
+            `[WS] Received response from SW for session ${sessionId}, id: ${requestId}`,
+          );
           clearTimeout(timeout);
           resolve(data);
         },
@@ -113,7 +136,10 @@ export class WebSocketManager {
       } catch (err) {
         clearTimeout(timeout);
         this.pendingRequests.delete(handlerKey);
-        console.error(`[WS] Error sending message to SW (${sessionId}):`, err instanceof Error ? err.message : String(err));
+        console.error(
+          `[WS] Error sending message to SW (${sessionId}):`,
+          err instanceof Error ? err.message : String(err),
+        );
         reject(err);
       }
     });
@@ -131,5 +157,19 @@ export class WebSocketManager {
     }
 
     return { pendingRequests: result };
+  }
+
+  /**
+   * Get WebSocket connection for a session
+   */
+  getWebSocket(sessionId: string) {
+    return this.sessionManager.getWebSocket(sessionId);
+  }
+
+  /**
+   * Check if session is healthy
+   */
+  isSessionHealthy(sessionId: string) {
+    return this.sessionManager.isSessionHealthy(sessionId);
   }
 }

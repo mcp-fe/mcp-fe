@@ -1,97 +1,179 @@
-import express from 'express';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { Server as HttpServer } from 'http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { getSessionIdFromToken } from './auth';
 import { SessionManager } from './session-manager';
+import { WebSocketManager } from './websocket-manager';
+
+/**
+ * Checks if a request body is an MCP initialize request
+ */
+function isInitializeRequest(
+  body: unknown,
+): body is { method: string; jsonrpc: string; id: unknown } {
+  return (
+    body !== null &&
+    typeof body === 'object' &&
+    'method' in body &&
+    'jsonrpc' in body &&
+    'id' in body &&
+    (body as { method: unknown; jsonrpc: unknown; id: unknown }).method ===
+      'initialize' &&
+    (body as { method: unknown; jsonrpc: unknown; id: unknown }).jsonrpc ===
+      '2.0' &&
+    (body as { method: unknown; jsonrpc: unknown; id: unknown }).id !==
+      undefined
+  );
+}
 
 /**
  * Creates and configures the HTTP server with Express
  */
-export function createHTTPServer(port: number, sessionManager: SessionManager): { app: express.Application; server: HttpServer; transport: StreamableHTTPServerTransport } {
-  const httpTransport = new StreamableHTTPServerTransport({
-    // Disable session management before proper implementation
-    sessionIdGenerator: undefined,
+export function createHTTPServer(
+  port: number,
+  sessionManager: SessionManager,
+  wsManager: WebSocketManager,
+): {
+  server: HttpServer;
+} {
+  const app = createMcpExpressApp({
+    host: '0.0.0.0',
+    allowedHosts: ['host.docker.internal', 'localhost'],
   });
-
-  const app = express();
 
   // Log all requests
   app.use((req, res, next) => {
-    const query = Object.keys(req.query).length > 0 ? `?${new URLSearchParams(req.query as any).toString()}` : '';
+    const query =
+      Object.keys(req.query).length > 0
+        ? `?${new URLSearchParams(req.query as Record<string, string>).toString()}`
+        : '';
     console.debug(`[HTTP] ${req.method} ${req.url}${query}`);
     next();
   });
 
-  // MCP endpoint handles both POST and GET
-  // StreamableHTTPServerTransport handles /sse and /message paths internally if mounted at root,
-  // but we can also use specific routes.
-  // The transport's handleRequest is designed to take Node.js req/res.
-  app.all(['/', '/sse', '/message'], async (req, res) => {
-    const startTime = Date.now();
-    let sessionId: string | null = null;
+  app.post('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    let transport: StreamableHTTPServerTransport;
+    let mcpServer: Server;
 
-    try {
-      const token = (req.query.token as string) || req.headers.authorization?.split(' ')[1];
-      sessionId = getSessionIdFromToken(token?.replaceAll("Bearer ", "") || null);
-
-      if (!sessionId) {
-        console.warn(`[HTTP Auth] Rejecting unauthorized ${req.method} ${req.url} from ${req.ip}`);
-        res.status(401).json({ error: 'Unauthorized' });
+    if (sessionId) {
+      // Reuse existing session and its MCP Server
+      const session = sessionManager.getSession(sessionId);
+      if (!session) {
+        res.status(400).send('Invalid session ID');
         return;
       }
 
-      // Track session activity
-      sessionManager.setHTTPConnected(sessionId, true);
-      const session = sessionManager.getSession(sessionId);
+      if (!session.transport || !session.mcpServer) {
+        console.error(
+          `[HTTP] No transport or MCP server found for session: ${sessionId}`,
+        );
+        res.status(500).send('Session not properly initialized');
+        return;
+      }
 
-      console.debug(`[HTTP] ${req.method} ${req.url} - Session: ${sessionId}, WS Connected: ${session?.isWSConnected}, Queue size: ${session?.pendingMessages.length || 0}`);
+      transport = session.transport;
+      mcpServer = session.mcpServer;
+    } else if (!sessionId && isInitializeRequest(req.body)) {
+      const token =
+        (req.query.token as string) || req.headers.authorization?.split(' ')[1];
+      const authSessionId = getSessionIdFromToken(
+        token?.replaceAll('Bearer ', '') || null,
+      );
 
-      // Handle the request through MCP transport
-      await httpTransport.handleRequest(req, res);
+      if (!authSessionId) {
+        console.error(`[HTTP] Unauthorized initialization attempt`);
+        res.status(401).send('Unauthorized: Invalid or missing token');
+        return;
+      }
 
-      const duration = Date.now() - startTime;
-      const finalStatus = res.statusCode;
+      // Create new MCP Server and transport for this session
+      mcpServer = sessionManager.createMCPServerForSession(
+        authSessionId,
+        wsManager,
+      );
 
-      // Special handling for 409 Conflict
-      if (finalStatus === 409) {
-        const health = sessionManager.isSessionHealthy(sessionId);
-        console.warn(`[HTTP] 409 Conflict on ${req.method} ${req.url} - Session: ${sessionId}`);
-        console.warn(`[HTTP] Session health: ${health.healthy ? 'HEALTHY' : 'UNHEALTHY'} ${health.reason ? `(${health.reason})` : ''}`);
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => authSessionId,
+        onsessioninitialized: (sessionId) => {
+          sessionManager.attachTransport(sessionId, transport);
+        },
+      });
 
-        if (session) {
-          console.warn(`[HTTP] Session state - WS: ${session.isWSConnected}, HTTP: ${session.isHTTPConnected}, Queue: ${session.pendingMessages.length}, Pending requests: ${session.pendingRequests.size}`);
+      // Clean up transport when closed
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          sessionManager.closeTransport(authSessionId);
         }
-      }
+      };
 
-      console.log(`[HTTP] ✓ ${req.method} ${req.url} - Status: ${finalStatus} (${duration}ms)`);
-    } catch (err) {
-      const duration = Date.now() - startTime;
-      console.error(`[HTTP] ✗ ${req.method} ${req.url} - Error: ${err instanceof Error ? err.message : String(err)} (${duration}ms)`);
-
-      if (sessionId) {
-        const session = sessionManager.getSession(sessionId);
-        if (session) {
-          console.debug(`[HTTP] Session state at error - WS: ${session.isWSConnected}, HTTP: ${session.isHTTPConnected}, Queue: ${session.pendingMessages.length}`);
-        }
-      }
-
-      if (!res.headersSent) {
-        res.status(500).json({
-          error: 'Internal Server Error',
-          ...(process.env.NODE_ENV === 'development' && { message: err instanceof Error ? err.message : String(err) })
-        });
-      }
-    } finally {
-      if (sessionId) {
-        sessionManager.setHTTPConnected(sessionId, false);
-      }
+      await mcpServer.connect(transport);
+      console.log(
+        `[HTTP] Created new MCP Server and transport for session: ${authSessionId}`,
+      );
+    } else {
+      console.debug(`[HTTP] Missing session ID for non-initialization request`);
+      res.status(400).send('Missing mcp-session-id header');
+      return;
     }
+
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  // Handle GET requests
+  app.get('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId) {
+      res.status(400).send('Missing mcp-session-id header');
+      return;
+    }
+
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      res.status(400).send('Invalid session ID');
+      return;
+    }
+
+    if (!session.transport) {
+      console.error(`[HTTP] No transport found for session: ${sessionId}`);
+      res.status(500).send('Transport not found for session');
+      return;
+    }
+
+    await session.transport.handleRequest(req, res);
+  });
+
+  // Handle DELETE requests for session termination
+  app.delete('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId) {
+      res.status(400).send('Missing mcp-session-id header');
+      return;
+    }
+
+    const session = sessionManager.getSession(sessionId);
+    if (!session) {
+      res.status(400).send('Invalid session ID');
+      return;
+    }
+
+    if (!session.transport) {
+      console.error(`[HTTP] No transport found for session: ${sessionId}`);
+      res.status(500).send('Transport not found for session');
+      return;
+    }
+
+    await session.transport.handleRequest(req, res);
   });
 
   // Debug endpoint - show session status
   app.get('/debug/sessions', (req, res) => {
-    const token = (req.query.token as string) || req.headers.authorization?.split(' ')[1];
-    const sessionId = getSessionIdFromToken(token?.replaceAll("Bearer ", "") || null);
+    const token =
+      (req.query.token as string) || req.headers.authorization?.split(' ')[1];
+    const sessionId = getSessionIdFromToken(
+      token?.replaceAll('Bearer ', '') || null,
+    );
 
     if (!sessionId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -108,7 +190,8 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
       createdAt: new Date(session.createdAt),
       lastActivity: new Date(session.lastActivity),
       isWSConnected: session.isWSConnected,
-      isHTTPConnected: session.isHTTPConnected,
+      transport: session.transport ? 'StreamableHTTP' : 'None',
+      mcpServer: session.mcpServer ? 'Active' : 'None',
       pendingMessagesCount: session.pendingMessages.length,
       pendingRequestsCount: session.pendingRequests.size,
       health: health.healthy ? 'HEALTHY' : `UNHEALTHY (${health.reason})`,
@@ -117,8 +200,10 @@ export function createHTTPServer(port: number, sessionManager: SessionManager): 
 
   const server = app.listen(port, () => {
     console.log(`[HTTP] Server listening on port ${port}`);
-    console.log(`[HTTP] Debug endpoint available at http://localhost:${port}/debug/sessions?token=YOUR_TOKEN`);
+    console.log(
+      `[HTTP] Debug endpoint available at http://localhost:${port}/debug/sessions?token=YOUR_TOKEN`,
+    );
   });
 
-  return { app, server, transport: httpTransport };
+  return { server };
 }

@@ -2,19 +2,23 @@ import { WebSocketServer } from 'ws';
 import { Server as HttpServer } from 'http';
 import { getSessionIdFromToken } from './auth';
 import { WebSocketManager } from './websocket-manager';
-import { SessionManager } from './session-manager';
 
 /**
  * Creates WebSocket authentication middleware
  */
 function createWSAuthMiddleware() {
-  return (info: { origin: string; secure: boolean; req: any }, callback: (res: boolean, code?: number, message?: string) => void) => {
+  return (
+    info: { origin: string; secure: boolean; req: any },
+    callback: (res: boolean, code?: number, message?: string) => void,
+  ) => {
     const url = new URL(info.req.url || '', `http://${info.req.headers.host}`);
     const token = url.searchParams.get('token');
     const sessionId = getSessionIdFromToken(token);
 
     if (!sessionId) {
-      console.warn(`[WS Auth] Rejecting unauthorized connection from ${info.origin}`);
+      console.warn(
+        `[WS Auth] Rejecting unauthorized connection from ${info.origin}`,
+      );
       callback(false, 401, 'Unauthorized');
     } else {
       console.log(`[WS Auth] Verified session: ${sessionId}`);
@@ -28,7 +32,10 @@ function createWSAuthMiddleware() {
 /**
  * Sets up and starts the WebSocket server
  */
-export function setupWebSocketServer(httpServer: HttpServer, wsManager: WebSocketManager, sessionManager: SessionManager): WebSocketServer {
+export function setupWebSocketServer(
+  httpServer: HttpServer,
+  wsManager: WebSocketManager,
+): WebSocketServer {
   const wsAuthMiddleware = createWSAuthMiddleware();
 
   const wss = new WebSocketServer({
@@ -40,12 +47,13 @@ export function setupWebSocketServer(httpServer: HttpServer, wsManager: WebSocke
     const sessionId = (req as any).sessionId || 'anonymous';
 
     wsManager.registerSession(sessionId, ws);
-    sessionManager.setHTTPConnected(sessionId, false); // WS is registered separately
 
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString());
-        console.debug(`[WS] Raw message from client (${sessionId}): ${JSON.stringify(message).substring(0, 100)}...`);
+        console.debug(
+          `[WS] Raw message from client (${sessionId}): ${JSON.stringify(message).substring(0, 100)}...`,
+        );
 
         wsManager.handleMessage(sessionId, message);
       } catch (error) {

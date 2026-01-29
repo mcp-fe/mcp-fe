@@ -3,9 +3,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { getSessionIdFromToken } from './auth';
 import { WebSocketManager } from './websocket-manager';
-import { SessionManager } from './session-manager';
 
 /**
  * Creates a new MCP server instance
@@ -20,19 +18,32 @@ export function createMCPServer(): Server {
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 }
 
 /**
- * Sets up MCP request handlers
+ * Creates a new MCP server instance with handlers configured for a specific session
  */
-export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, sessionManager: SessionManager): void {
+export function createMCPServerForSession(
+  sessionId: string,
+  wsManager: WebSocketManager,
+): Server {
+  const server = createMCPServer();
+  setupSessionMCPHandlers(server, sessionId, wsManager);
+  return server;
+}
+
+/**
+ * Sets up MCP request handlers for a specific session server
+ */
+export function setupSessionMCPHandlers(
+  server: Server,
+  sessionId: string,
+  wsManager: WebSocketManager,
+): void {
   // Register tools/list handler
   server.setRequestHandler(ListToolsRequestSchema, async (request, extra) => {
-    const token = extra.requestInfo?.headers['authorization']?.toString().replace('Bearer ', '');
-    const sessionId = getSessionIdFromToken(token) ?? 'anonymous';
-
     console.debug(`[MCP] tools/list request from session: ${sessionId}`);
 
     const localTools = [
@@ -46,26 +57,35 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
       },
     ];
 
-    const ws = sessionManager.getWebSocket(sessionId);
+    const ws = wsManager.getWebSocket(sessionId);
     if (ws) {
       try {
-        console.debug(`[MCP] Forwarding tools/list to Service Worker for session: ${sessionId}`);
+        console.debug(
+          `[MCP] Forwarding tools/list to Service Worker for session: ${sessionId}`,
+        );
         const response = await wsManager.callServiceWorkerTool(sessionId, {
           jsonrpc: '2.0',
           method: 'tools/list',
         });
 
         if (response.result && Array.isArray(response.result.tools)) {
-          console.debug(`[MCP] Received ${response.result.tools.length} tools from Service Worker`);
+          console.debug(
+            `[MCP] Received ${response.result.tools.length} tools from Service Worker`,
+          );
           return {
             tools: [...localTools, ...response.result.tools],
           };
         }
       } catch (error) {
-        console.error(`[MCP] Error fetching tools from Service Worker for session ${sessionId}:`, error instanceof Error ? error.message : String(error));
+        console.error(
+          `[MCP] Error fetching tools from Service Worker for session ${sessionId}:`,
+          error instanceof Error ? error.message : String(error),
+        );
       }
     } else {
-      console.warn(`[MCP] tools/list: No WebSocket connection for session ${sessionId}`);
+      console.warn(
+        `[MCP] tools/list: No WebSocket connection for session ${sessionId}`,
+      );
     }
 
     return {
@@ -76,26 +96,27 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
   // Register tools/call handler
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
-    const token = extra.requestInfo?.headers['authorization']
-      ?.toString()
-      .replace('Bearer ', '');
-    const sessionId = getSessionIdFromToken(token) ?? 'anonymous';
-
     console.debug(`[MCP] tools/call: ${name} from session: ${sessionId}`);
 
     if (name === 'client_status') {
-      const ws = sessionManager.getWebSocket(sessionId);
-      const health = sessionManager.isSessionHealthy(sessionId);
+      const ws = wsManager.getWebSocket(sessionId);
+      const health = wsManager.isSessionHealthy(sessionId);
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              isConnected: !!ws,
-              sessionId,
-              isHealthy: health.healthy,
-              message: ws ? `Client connected for session ${sessionId}` : `No client connected for session ${sessionId}`
-            }, null, 2),
+            text: JSON.stringify(
+              {
+                isConnected: !!ws,
+                sessionId,
+                isHealthy: health.healthy,
+                message: ws
+                  ? `Client connected for session ${sessionId}`
+                  : `No client connected for session ${sessionId}`,
+              },
+              null,
+              2,
+            ),
           },
         ],
       };
@@ -103,7 +124,7 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
 
     // Proxy other tools to Service Worker
     try {
-      const ws = sessionManager.getWebSocket(sessionId);
+      const ws = wsManager.getWebSocket(sessionId);
       if (!ws) {
         throw new Error(`No WebSocket connection for session ${sessionId}`);
       }
@@ -119,14 +140,33 @@ export function setupMCPHandlers(server: Server, wsManager: WebSocketManager, se
       });
 
       if (response.error) {
-        throw new Error(response.error.message || 'Error calling tool in Service Worker');
+        throw new Error(
+          response.error.message || 'Error calling tool in Service Worker',
+        );
       }
 
       console.debug(`[MCP] Tool call completed: ${name}`);
       return response.result;
     } catch (error) {
-      console.error(`[MCP] Error proxying tool ${name} to Service Worker for session ${sessionId}:`, error instanceof Error ? error.message : String(error));
+      console.error(
+        `[MCP] Error proxying tool ${name} to Service Worker for session ${sessionId}:`,
+        error instanceof Error ? error.message : String(error),
+      );
       throw error;
     }
   });
+}
+
+/**
+ * Send tools/list_changed notification to MCP client
+ */
+export function notifyToolsChanged(server: Server): void {
+  try {
+    server.notification({
+      method: 'notifications/tools/list_changed',
+    });
+    console.debug(`[MCP] Sent tools/list_changed notification`);
+  } catch (error) {
+    console.warn(`[MCP] Failed to send tools notification:`, error);
+  }
 }
