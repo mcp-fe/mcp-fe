@@ -5,7 +5,6 @@
  * via WebSocket and provides an MCP interface to interact with that data.
  */
 
-import { createMCPServer, setupMCPHandlers } from './mcp-handlers';
 import { createHTTPServer } from './http-server';
 import { setupWebSocketServer } from './websocket-server';
 import { WebSocketManager } from './websocket-manager';
@@ -15,16 +14,12 @@ import { SessionManager } from './session-manager';
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const sessionManager = new SessionManager();
 const wsManager = new WebSocketManager(sessionManager);
-const mcpServer = createMCPServer();
 
-// Setup MCP handlers
-setupMCPHandlers(mcpServer, wsManager, sessionManager);
-
-// Setup HTTP server
+// Setup HTTP server (no global MCP server needed)
 const { server: httpServer } = createHTTPServer(
   PORT,
   sessionManager,
-  mcpServer,
+  wsManager,
 );
 
 // Setup WebSocket server
@@ -37,6 +32,5 @@ console.log(`[Main] MCP Server (HTTP/WS) starting on port ${PORT}...`);
 process.on('SIGINT', () => {
   console.log('[Main] Shutting down gracefully...');
   sessionManager.destroy();
-  mcpServer.close();
   process.exit(0);
 });
