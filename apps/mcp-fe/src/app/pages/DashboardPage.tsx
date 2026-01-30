@@ -50,7 +50,10 @@ export const DashboardPage = () => {
       <div className="dashboard-actions">
         <h3>Quick Actions</h3>
         <div className="action-buttons">
-          <Link to="/forms" className="action-btn primary">
+          <Link to="/how-it-works" className="action-btn primary">
+            📖 How It Works
+          </Link>
+          <Link to="/forms" className="action-btn secondary">
             📝 Try Forms Demo
           </Link>
           <Link to="/components" className="action-btn secondary">

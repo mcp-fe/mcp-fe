@@ -122,6 +122,12 @@ export const HomePage = () => (
           real-time progress and errors
         </li>
       </ul>
+      <p style={{ marginTop: '1rem' }}>
+        Want to learn more about the architecture?{' '}
+        <Link to="/how-it-works" style={{ fontWeight: 'bold' }}>
+          See How It Works →
+        </Link>
+      </p>
     </div>
 
     <div className="demo-sections">

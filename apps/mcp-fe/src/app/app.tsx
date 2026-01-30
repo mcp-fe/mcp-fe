@@ -1,6 +1,7 @@
 // Uncomment this line to use CSS modules
 // import styles from './app.module.scss';
 import { HomePage } from './pages/HomePage';
+import { HowItWorksPage } from './pages/HowItWorksPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { FormsPage } from './pages/FormsPage';
 import { ComponentsPage } from './pages/ComponentsPage';
@@ -71,6 +72,16 @@ export function App() {
                   className={location.pathname === '/' ? 'active' : ''}
                 >
                   Home
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/how-it-works"
+                  className={
+                    location.pathname === '/how-it-works' ? 'active' : ''
+                  }
+                >
+                  How It Works
                 </Link>
               </li>
               <li>
@@ -154,6 +165,7 @@ export function App() {
           <div className="card">
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/how-it-works" element={<HowItWorksPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/forms" element={<FormsPage />} />
               <Route path="/components" element={<ComponentsPage />} />
