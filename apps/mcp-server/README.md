@@ -33,12 +33,33 @@ Docker automatically selects the appropriate image for your system's architectur
 
 ### Environment variables
 
+**Basic Configuration:**
 ```bash
 docker run -p 3001:3001 \
   -e NODE_ENV=production \
   -e PORT=3001 \
   ghcr.io/mcp-fe/mcp-fe/mcp-server:main
 ```
+
+**Public Access Configuration:**
+```bash
+docker run -p 3001:3001 \
+  -e NODE_ENV=production \
+  -e PORT=3001 \
+  -e SERVER_HOST=0.0.0.0 \
+  -e ALLOWED_DOMAIN=yourdomain.com \
+  ghcr.io/mcp-fe/mcp-fe/mcp-server:main
+```
+
+**Available Environment Variables:**
+- `NODE_ENV` - Node.js environment (development/production)
+- `PORT` - Server port (default: 3001)
+- `SERVER_HOST` - Host to bind server to (default: 0.0.0.0)
+  - `127.0.0.1` or `localhost` for local access only
+  - `0.0.0.0` for public access (required for external connections)
+- `ALLOWED_DOMAIN` - Domain name allowed for public access
+  - Required for DNS rebinding protection when hosting publicly
+  - Example: `api.yourcompany.com`
 
 ## Development
 

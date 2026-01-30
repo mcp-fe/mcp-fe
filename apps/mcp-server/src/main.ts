@@ -28,15 +28,27 @@ import { SessionManager } from './session-manager';
 
 // Initialize components
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+const SERVER_HOST = process.env.SERVER_HOST || '0.0.0.0';
+const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN;
+
 const sessionManager = new SessionManager();
 const wsManager = new WebSocketManager(sessionManager);
 
+console.log(`[Main] Server configuration:`);
+console.log(`[Main] - Port: ${PORT}`);
+console.log(`[Main] - Host: ${SERVER_HOST}`);
+if (ALLOWED_DOMAIN) {
+  console.log(`[Main] - Allowed domain: ${ALLOWED_DOMAIN}`);
+} else {
+  console.log(`[Main] - Allowed domain: not set (localhost only)`);
+}
+
 // Setup HTTP server (no global MCP server needed)
-const { server: httpServer } = createHTTPServer(
-  PORT,
-  sessionManager,
-  wsManager,
-);
+const { server: httpServer } = createHTTPServer(sessionManager, wsManager, {
+  port: PORT,
+  host: SERVER_HOST,
+  allowedDomain: ALLOWED_DOMAIN,
+});
 
 // Setup WebSocket server
 setupWebSocketServer(httpServer, wsManager);

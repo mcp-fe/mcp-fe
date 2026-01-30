@@ -10,6 +10,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      # Public access configuration
+      - SERVER_HOST=0.0.0.0
+      - ALLOWED_DOMAIN=api.yourdomain.com  # Replace with your actual domain
     restart: always
     networks:
       - mcp-network

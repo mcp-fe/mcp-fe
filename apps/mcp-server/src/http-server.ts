@@ -28,18 +28,41 @@ function isInitializeRequest(
 }
 
 /**
+ * Server configuration options
+ */
+export interface ServerConfig {
+  port?: number;
+  host?: string;
+  allowedDomain?: string;
+}
+
+/**
  * Creates and configures the HTTP server with Express
  */
 export function createHTTPServer(
-  port: number,
   sessionManager: SessionManager,
   wsManager: WebSocketManager,
+  config: ServerConfig = {},
 ): {
   server: HttpServer;
 } {
+  const { port = 3001, host = '0.0.0.0', allowedDomain } = config;
+
+  // Build allowed hosts array
+  const allowedHosts = ['host.docker.internal', 'localhost'];
+
+  // Add custom domain if specified
+  if (allowedDomain) {
+    allowedHosts.push(allowedDomain);
+    console.log(`[HTTP] Added allowed domain: ${allowedDomain}`);
+  }
+
+  console.log(`[HTTP] Server host: ${host}`);
+  console.log(`[HTTP] Allowed hosts: ${allowedHosts.join(', ')}`);
+
   const app = createMcpExpressApp({
-    host: '0.0.0.0',
-    allowedHosts: ['host.docker.internal', 'localhost'],
+    host,
+    allowedHosts,
   });
 
   // Log all requests
