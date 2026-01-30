@@ -16,6 +16,9 @@ FROM node:20-alpine
 WORKDIR /app
 RUN corepack enable
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist/apps/mcp-server ./
@@ -29,9 +32,9 @@ ENV PORT=3001
 # Expose the port
 EXPOSE 3001
 
-# Health check
+# Health check using liveness probe endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001', (r) => {if (r.statusCode !== 404) throw new Error(r.statusCode)})"
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health/live || exit 1
 
 # Start the application
 CMD ["node", "main.js"]

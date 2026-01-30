@@ -167,6 +167,94 @@ export function createHTTPServer(
     await session.transport.handleRequest(req, res);
   });
 
+  // Health check endpoints
+
+  // Liveness probe - indicates if the server is running
+  app.get('/health/live', (req, res) => {
+    res.status(200).json({
+      status: 'UP',
+      timestamp: new Date().toISOString(),
+      service: 'mcp-server',
+    });
+  });
+
+  // Readiness probe - indicates if the server is ready to accept traffic
+  app.get('/health/ready', (req, res) => {
+    try {
+      // Check if critical components are available
+      const isReady = sessionManager && wsManager;
+
+      if (isReady) {
+        res.status(200).json({
+          status: 'UP',
+          timestamp: new Date().toISOString(),
+          service: 'mcp-server',
+          checks: {
+            sessionManager: 'UP',
+            webSocketManager: 'UP',
+          },
+        });
+      } else {
+        res.status(503).json({
+          status: 'DOWN',
+          timestamp: new Date().toISOString(),
+          service: 'mcp-server',
+          checks: {
+            sessionManager: sessionManager ? 'UP' : 'DOWN',
+            webSocketManager: wsManager ? 'UP' : 'DOWN',
+          },
+        });
+      }
+    } catch (error) {
+      res.status(503).json({
+        status: 'DOWN',
+        timestamp: new Date().toISOString(),
+        service: 'mcp-server',
+        error: 'Health check failed',
+      });
+    }
+  });
+
+  // Combined health endpoint
+  app.get('/health', (req, res) => {
+    try {
+      const isHealthy = sessionManager && wsManager;
+
+      if (isHealthy) {
+        res.status(200).json({
+          status: 'UP',
+          timestamp: new Date().toISOString(),
+          service: 'mcp-server',
+          version: process.env.npm_package_version || 'unknown',
+          uptime: process.uptime(),
+          checks: {
+            sessionManager: 'UP',
+            webSocketManager: 'UP',
+          },
+        });
+      } else {
+        res.status(503).json({
+          status: 'DOWN',
+          timestamp: new Date().toISOString(),
+          service: 'mcp-server',
+          version: process.env.npm_package_version || 'unknown',
+          uptime: process.uptime(),
+          checks: {
+            sessionManager: sessionManager ? 'UP' : 'DOWN',
+            webSocketManager: wsManager ? 'UP' : 'DOWN',
+          },
+        });
+      }
+    } catch (error) {
+      res.status(503).json({
+        status: 'DOWN',
+        timestamp: new Date().toISOString(),
+        service: 'mcp-server',
+        error: 'Health check failed',
+      });
+    }
+  });
+
   // Debug endpoint - show session status
   app.get('/debug/sessions', (req, res) => {
     const token =
@@ -200,6 +288,10 @@ export function createHTTPServer(
 
   const server = app.listen(port, () => {
     console.log(`[HTTP] Server listening on port ${port}`);
+    console.log(`[HTTP] Health endpoints available at:`);
+    console.log(`  - Liveness:  http://localhost:${port}/health/live`);
+    console.log(`  - Readiness: http://localhost:${port}/health/ready`);
+    console.log(`  - Combined:  http://localhost:${port}/health`);
     console.log(
       `[HTTP] Debug endpoint available at http://localhost:${port}/debug/sessions?token=YOUR_TOKEN`,
     );
