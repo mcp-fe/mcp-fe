@@ -62,7 +62,7 @@ export function App() {
     <div className="app-container">
       <header className="app-header">
         <div className="header-left">
-          <h1>MCP Edge Demo</h1>
+          <h1>MCP-FE Demo</h1>
           <nav className="header-nav">
             <ul>
               <li>
