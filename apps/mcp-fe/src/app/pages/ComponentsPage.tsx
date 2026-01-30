@@ -30,8 +30,8 @@ export const ComponentsPage = () => {
       <h2>Interactive Components Demo</h2>
       <p>
         This page showcases various interactive UI components. Every interaction
-        is tracked and stored locally, demonstrating the comprehensive event
-        tracking capabilities.
+        is tracked and stored locally in IndexedDB, demonstrating the
+        comprehensive event tracking capabilities of MCP-FE.
       </p>
 
       <div className="components-grid">

@@ -140,13 +140,13 @@ export const HomePage = () => (
       </p>
       <div className="demo-grid">
         <div className="demo-card">
-          <h4>📊 Dashboard</h4>
+          <h4>🎛️ Interactive Components</h4>
           <p>
-            See how the system works with interactive stats and architecture
-            overview
+            Explore buttons, modals, tabs, toggles, and more UI components with
+            real-time tracking
           </p>
-          <Link to="/dashboard" className="demo-link">
-            View Dashboard →
+          <Link to="/components" className="demo-link">
+            Try Components →
           </Link>
         </div>
 
@@ -158,14 +158,6 @@ export const HomePage = () => (
           </p>
           <Link to="/forms" className="demo-link">
             Try Forms →
-          </Link>
-        </div>
-
-        <div className="demo-card">
-          <h4>🎛️ Components</h4>
-          <p>Interactive UI components: buttons, modals, tabs, toggles</p>
-          <Link to="/components" className="demo-link">
-            Try Components →
           </Link>
         </div>
 

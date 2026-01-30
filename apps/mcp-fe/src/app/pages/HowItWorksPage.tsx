@@ -280,11 +280,11 @@ export const HowItWorksPage = () => (
         ← Back to Home
       </Link>{' '}
       <Link
-        to="/dashboard"
+        to="/components"
         className="demo-link"
         style={{ fontSize: '1.1rem', padding: '0.5rem 1rem' }}
       >
-        View Dashboard →
+        Try Components →
       </Link>
     </div>
   </div>

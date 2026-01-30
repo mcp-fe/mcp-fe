@@ -2,7 +2,6 @@
 // import styles from './app.module.scss';
 import { HomePage } from './pages/HomePage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
-import { DashboardPage } from './pages/DashboardPage';
 import { FormsPage } from './pages/FormsPage';
 import { ComponentsPage } from './pages/ComponentsPage';
 import { DataTablePage } from './pages/DataTablePage';
@@ -86,10 +85,12 @@ export function App() {
               </li>
               <li>
                 <Link
-                  to="/dashboard"
-                  className={location.pathname === '/dashboard' ? 'active' : ''}
+                  to="/components"
+                  className={
+                    location.pathname === '/components' ? 'active' : ''
+                  }
                 >
-                  Dashboard
+                  Components
                 </Link>
               </li>
               <li>
@@ -98,16 +99,6 @@ export function App() {
                   className={location.pathname === '/forms' ? 'active' : ''}
                 >
                   Forms
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/components"
-                  className={
-                    location.pathname === '/components' ? 'active' : ''
-                  }
-                >
-                  Components
                 </Link>
               </li>
               <li>
@@ -166,9 +157,10 @@ export function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/how-it-works" element={<HowItWorksPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/forms" element={<FormsPage />} />
               <Route path="/components" element={<ComponentsPage />} />
+              <Route path="/dashboard" element={<ComponentsPage />} />{' '}
+              {/* Redirect old dashboard to components */}
+              <Route path="/forms" element={<FormsPage />} />
               <Route path="/data-table" element={<DataTablePage />} />
               <Route path="/navigation" element={<NavigationPage />} />
               <Route
