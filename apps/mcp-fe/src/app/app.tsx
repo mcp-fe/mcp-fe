@@ -1,6 +1,6 @@
 // Uncomment this line to use CSS modules
 // import styles from './app.module.scss';
-import { HomePage } from './homePage';
+import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { FormsPage } from './pages/FormsPage';
 import { ComponentsPage } from './pages/ComponentsPage';
@@ -172,27 +172,6 @@ export function App() {
                 }
               />
             </Routes>
-          </div>
-
-          <div className="card doc-section">
-            <h2>How it works</h2>
-            <p>
-              This demo showcases the <strong>Service Worker MCP Edge</strong>{' '}
-              pattern. Your interactions are tracked locally and stored in{' '}
-              <code>IndexedDB</code> inside a Service Worker.
-            </p>
-            <div className="architecture-image">
-              <img
-                src="/assets/mcp-architecture.png"
-                alt="MCP Architecture Diagram"
-              />
-            </div>
-            <p>
-              The Service Worker acts as an MCP Server. The data is{' '}
-              <strong>never pushed</strong> to the server automatically.
-              Instead, an AI Agent can <strong>pull</strong> it on-demand via
-              the MCP server Proxy.
-            </p>
           </div>
         </section>
 

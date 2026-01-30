@@ -64,36 +64,6 @@ export const DashboardPage = () => {
           </Link>
         </div>
       </div>
-
-      <div className="feature-highlight">
-        <h3>🔍 What's Being Tracked?</h3>
-        <ul>
-          <li>
-            <strong>Clicks</strong> - Every button, link, and interactive
-            element
-          </li>
-          <li>
-            <strong>Navigation</strong> - Route changes and page transitions
-          </li>
-          <li>
-            <strong>Form Interactions</strong> - Input changes, submissions,
-            validations
-          </li>
-          <li>
-            <strong>UI State</strong> - Modal opens/closes, dropdown selections
-          </li>
-          <li>
-            <strong>User Sessions</strong> - Authentication state and user
-            context
-          </li>
-        </ul>
-        <p>
-          <em>
-            All data stays in your browser and is only accessed by AI agents
-            on-demand via MCP protocol.
-          </em>
-        </p>
-      </div>
     </div>
   );
 };
