@@ -22,6 +22,7 @@ export function App() {
   const location = useLocation();
   const [showInstructions, setShowInstructions] = useState(false);
 
+  // Pass auth token to event tracker when it changes
   useEffect(() => {
     if (token) {
       setAuthToken(token);
