@@ -28,7 +28,7 @@ export const HomePage = () => (
       </p>
       <ul style={{ marginLeft: '1.5rem', marginBottom: '1rem' }}>
         <li>The current value of a specific input field</li>
-        <li>The state of your Redux/Zustand store</li>
+        <li>The browsing history</li>
         <li>The exact sequence of clicks that led to an error</li>
       </ul>
       <p>
@@ -135,8 +135,8 @@ export const HomePage = () => (
       <p style={{ marginBottom: '1.5rem' }}>
         Explore different pages to see how user interactions are automatically
         tracked and stored locally in IndexedDB. Watch the{' '}
-        <strong>Live Event Log</strong> in the sidebar to see events in
-        real-time!
+        <strong>Live Event Log</strong> in the sidebar to see how the events are
+        stored in real-time!
       </p>
       <div className="demo-grid">
         <div className="demo-card">

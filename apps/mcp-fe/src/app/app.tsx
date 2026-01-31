@@ -124,31 +124,6 @@ export function App() {
             </ul>
           </nav>
         </div>
-        <div
-          className="header-right"
-          style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}
-        >
-          <div className="session-info">
-            User:{' '}
-            <input
-              value={sessionUser}
-              onChange={(e) => setSessionUser(e.target.value)}
-              style={{
-                padding: '4px',
-                borderRadius: '4px',
-                border: '1px solid #ccc',
-              }}
-            />
-          </div>
-          <div
-            className={`status-badge ${isConnected ? 'connected' : 'disconnected'}`}
-          >
-            <span className="dot"></span>
-            {isConnected
-              ? 'Connected to MCP Proxy'
-              : 'Disconnected from MCP Proxy'}
-          </div>
-        </div>
       </header>
 
       <main className="main-layout">
@@ -180,7 +155,70 @@ export function App() {
         </section>
 
         <aside className="sidebar">
-          <div className="card">
+          <div
+            className="connection-panel"
+            style={{
+              marginBottom: '1rem',
+              padding: '1rem',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '6px',
+              borderBottom: '3px solid #0066cc',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+              }}
+            >
+              <div className="session-info">
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    marginBottom: '0.25rem',
+                    color: '#555',
+                  }}
+                >
+                  Session User:
+                </label>
+                <input
+                  value={sessionUser}
+                  onChange={(e) => setSessionUser(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ccc',
+                    fontSize: '0.875rem',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div
+                className={`status-badge ${isConnected ? 'connected' : 'disconnected'}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  fontSize: '0.875rem',
+                }}
+              >
+                <span className="dot"></span>
+                <span>
+                  {isConnected
+                    ? 'Connected to MCP Proxy'
+                    : 'Disconnected from MCP Proxy'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card event-log-card">
             <h2>Live Event Log (IndexedDB)</h2>
             <ul className="event-list">
               {events.length === 0 && <li>No events tracked yet.</li>}

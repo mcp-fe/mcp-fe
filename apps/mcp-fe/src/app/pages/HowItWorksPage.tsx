@@ -75,7 +75,7 @@ export const HowItWorksPage = () => (
             borderRadius: '8px',
           }}
         >
-          <h4>2. Browser Worker (MCP Worker)</h4>
+          <h4>2. MCP Worker (Browser worker)</h4>
           <p>
             A <code>SharedWorker</code> (with <code>ServiceWorker</code>{' '}
             fallback) runs in the background, provided by{' '}

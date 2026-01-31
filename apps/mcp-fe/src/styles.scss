@@ -114,8 +114,24 @@ h2 {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  overflow-y: auto;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.event-log-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+
+  h2 {
+    flex-shrink: 0;
+  }
+
+  .event-list {
+    flex: 1;
+    overflow-y: auto;
+  }
 }
 
 .card {
