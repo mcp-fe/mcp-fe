@@ -140,6 +140,14 @@ export const HomePage = () => (
       </p>
       <div className="demo-grid">
         <div className="demo-card">
+          <h4>🧭 Navigation</h4>
+          <p>Various navigation patterns and automatic route tracking</p>
+          <Link to="/navigation" className="demo-link">
+            Try Navigation →
+          </Link>
+        </div>
+
+        <div className="demo-card">
           <h4>🎛️ Interactive Components</h4>
           <p>
             Explore buttons, modals, tabs, toggles, and more UI components with
@@ -166,14 +174,6 @@ export const HomePage = () => (
           <p>Sortable, filterable data table with bulk operations</p>
           <Link to="/data-table" className="demo-link">
             Try Data Table →
-          </Link>
-        </div>
-
-        <div className="demo-card">
-          <h4>🧭 Navigation</h4>
-          <p>Various navigation patterns and automatic route tracking</p>
-          <Link to="/navigation" className="demo-link">
-            Try Navigation →
           </Link>
         </div>
       </div>
