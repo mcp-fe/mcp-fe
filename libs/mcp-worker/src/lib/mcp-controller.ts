@@ -22,8 +22,13 @@ export class MCPController {
   private authToken: string | null = null;
   private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
   private requireAuth: boolean;
+  private isReconnectingForToken = false;
 
-  constructor(private backendUrl: string, private broadcastFn: BroadcastFn, requireAuth = true) {
+  constructor(
+    private backendUrl: string,
+    private broadcastFn: BroadcastFn,
+    requireAuth = true,
+  ) {
     this.requireAuth = requireAuth;
   }
 
@@ -53,11 +58,16 @@ export class MCPController {
   public async connectWebSocket(): Promise<void> {
     // If we require auth and don't have a token yet, do not attempt connection
     if (this.requireAuth && !this.authToken) {
-      console.log('[MCPController] Skipping WebSocket connect: auth token not set and requireAuth=true');
+      console.log(
+        '[MCPController] Skipping WebSocket connect: auth token not set and requireAuth=true',
+      );
       return;
     }
 
-    if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) {
+    if (
+      this.socket?.readyState === WebSocket.OPEN ||
+      this.socket?.readyState === WebSocket.CONNECTING
+    ) {
       return;
     }
 
@@ -75,19 +85,25 @@ export class MCPController {
       this.socket.onopen = null;
       this.socket.onclose = null;
       this.socket.onerror = null;
-      if (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING) {
+      if (
+        this.socket.readyState === WebSocket.OPEN ||
+        this.socket.readyState === WebSocket.CONNECTING
+      ) {
         this.socket.close();
       }
       this.socket = null;
     }
 
     return new Promise((resolve) => {
-      const url = this.authToken ? `${this.backendUrl}?token=${this.authToken}` : this.backendUrl;
+      const url = this.authToken
+        ? `${this.backendUrl}?token=${this.authToken}`
+        : this.backendUrl;
       this.socket = new WebSocket(url);
 
       this.socket.onopen = async () => {
         console.log('[MCPController] Connected to backend MCP server');
         this.reconnectAttempts = 0;
+        this.isReconnectingForToken = false;
 
         try {
           if (this.socket) {
@@ -103,7 +119,9 @@ export class MCPController {
             }
 
             await mcpServer.connect(this.transport);
-            console.log('[MCPController] MCP Server connected to WebSocket transport');
+            console.log(
+              '[MCPController] MCP Server connected to WebSocket transport',
+            );
 
             this.startKeepAlive();
             this.broadcastFn({ type: 'CONNECTION_STATUS', connected: true });
@@ -111,6 +129,7 @@ export class MCPController {
           }
         } catch (error) {
           console.error('[MCPController] Error setting up MCP server:', error);
+          this.isReconnectingForToken = false;
           this.broadcastFn({ type: 'CONNECTION_STATUS', connected: false });
           if (this.socket) {
             this.socket.close();
@@ -120,8 +139,16 @@ export class MCPController {
       };
 
       this.socket.onclose = async (event: CloseEvent) => {
-        console.log('[MCPController] Disconnected from backend MCP server', event?.code, event?.reason);
-        this.broadcastFn({ type: 'CONNECTION_STATUS', connected: false });
+        console.log(
+          '[MCPController] Disconnected from backend MCP server',
+          event?.code,
+          event?.reason,
+        );
+
+        // Only broadcast disconnect if not reconnecting for token
+        if (!this.isReconnectingForToken) {
+          this.broadcastFn({ type: 'CONNECTION_STATUS', connected: false });
+        }
 
         if (this.transport) {
           try {
@@ -135,7 +162,8 @@ export class MCPController {
         this.socket = null;
         this.stopKeepAlive();
 
-        if (event?.code !== 1000) {
+        // Don't auto-reconnect if it's a token reconnect (we handle it in setAuthToken)
+        if (!this.isReconnectingForToken && event?.code !== 1000) {
           const delay = Math.min(
             INITIAL_RECONNECT_DELAY * Math.pow(2, this.reconnectAttempts),
             MAX_RECONNECT_DELAY,
@@ -160,15 +188,29 @@ export class MCPController {
     this.authToken = token;
 
     if (tokenChanged) {
-      console.log('[MCPController] Auth token changed, reconnecting WebSocket...');
-      if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      console.log(
+        '[MCPController] Auth token changed, reconnecting WebSocket...',
+      );
+      this.isReconnectingForToken = true;
+
+      if (
+        this.socket &&
+        (this.socket.readyState === WebSocket.OPEN ||
+          this.socket.readyState === WebSocket.CONNECTING)
+      ) {
         // Close with normal closure to prevent auto-reconnect in some environments
         this.socket.close(1000, 'Reconnecting with new auth token');
       }
 
       // small delay before reconnecting
       setTimeout(() => {
-        this.connectWebSocket().catch((error) => console.error('[MCPController] Failed to reconnect with new token:', error));
+        this.connectWebSocket().catch((error) => {
+          console.error(
+            '[MCPController] Failed to reconnect with new token:',
+            error,
+          );
+          this.isReconnectingForToken = false;
+        });
       }, 100);
     }
   }
@@ -201,7 +243,11 @@ export class MCPController {
    * Factory helper to create an MCPController instance. Use this instead of
    * replicating controller creation logic in callers.
    */
-  public static create(backendUrl: string, broadcastFn: BroadcastFn, requireAuth = true): MCPController {
+  public static create(
+    backendUrl: string,
+    broadcastFn: BroadcastFn,
+    requireAuth = true,
+  ): MCPController {
     return new MCPController(backendUrl, broadcastFn, requireAuth);
   }
 }
