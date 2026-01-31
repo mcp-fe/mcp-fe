@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getConnectionStatus, onConnectionStatus, offConnectionStatus } from '@mcp-fe/event-tracker';
+import {
+  getConnectionStatus,
+  onConnectionStatus,
+  offConnectionStatus,
+} from '@mcp-fe/event-tracker';
 
 export function useConnectionStatus() {
   const [isConnected, setIsConnected] = useState(false);
