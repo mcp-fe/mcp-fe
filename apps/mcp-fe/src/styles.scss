@@ -440,12 +440,13 @@ h2 {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 2rem;
+    box-sizing: border-box;
   }
 
   .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 2rem;
 
     @media (max-width: 768px) {
       grid-template-columns: 1fr;
@@ -469,6 +470,7 @@ h2 {
       border-radius: 4px;
       font-size: 1rem;
       transition: border-color 0.2s ease;
+      box-sizing: border-box;
 
       &:focus {
         outline: none;
