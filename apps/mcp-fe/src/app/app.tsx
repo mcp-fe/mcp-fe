@@ -6,6 +6,8 @@ import { FormsPage } from './pages/FormsPage';
 import { ComponentsPage } from './pages/ComponentsPage';
 import { DataTablePage } from './pages/DataTablePage';
 import { NavigationPage } from './pages/NavigationPage';
+import { Modal } from './components/Modal';
+import { AIAgentInstructions } from './components/AIAgentInstructions';
 import { Routes, Link, Route, useLocation } from 'react-router-dom';
 import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 import { useStoredEvents } from './hooks/useStoredEvents';
@@ -38,11 +40,15 @@ export function App() {
   const { events } = useStoredEvents(1000);
   const location = useLocation();
   const isConnected = useConnectionStatus();
+  const [showInstructions, setShowInstructions] = useState(false);
   const [sessionUser, setSessionUser] = useState<string>(() => {
     return (
       localStorage.getItem('mcp_session_user') ||
       'user_' + Math.random().toString(36).substring(7)
     );
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('jwtTokenMock');
   });
 
   useEffect(() => {
@@ -51,6 +57,7 @@ export function App() {
     createMockJWT(sessionUser)
       .then((mockJwt) => {
         localStorage.setItem('jwtTokenMock', mockJwt);
+        setToken(mockJwt);
         setAuthToken(mockJwt);
       })
       .catch((err) => {
@@ -215,6 +222,29 @@ export function App() {
                     : 'Disconnected from MCP Proxy'}
                 </span>
               </div>
+              <button
+                onClick={() => setShowInstructions(true)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  backgroundColor: '#0066cc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.875rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = '#0052a3')
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = '#0066cc')
+                }
+              >
+                🤖 Connect AI Agent
+              </button>
             </div>
           </div>
 
@@ -241,6 +271,24 @@ export function App() {
           </div>
         </aside>
       </main>
+
+      {/* AI Agent Instructions Modal */}
+      <Modal
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
+        title="🤖 Connect AI Agent to MCP-FE Server"
+        maxWidth="700px"
+        footerContent={
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowInstructions(false)}
+          >
+            Got it!
+          </button>
+        }
+      >
+        <AIAgentInstructions token={token} />
+      </Modal>
     </div>
   );
 }
