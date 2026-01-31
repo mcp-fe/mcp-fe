@@ -1087,7 +1087,11 @@ h2 {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    position: relative;
+    position: sticky;
+    top: 1rem;
+    align-self: flex-start;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
     transition: width 0.3s ease;
 
     &.closed {

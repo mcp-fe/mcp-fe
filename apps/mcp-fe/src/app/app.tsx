@@ -85,6 +85,16 @@ export function App() {
               </li>
               <li>
                 <Link
+                  to="/navigation"
+                  className={
+                    location.pathname.startsWith('/navigation') ? 'active' : ''
+                  }
+                >
+                  Navigation
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/components"
                   className={
                     location.pathname === '/components' ? 'active' : ''
@@ -111,16 +121,6 @@ export function App() {
                   Data Table
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/navigation"
-                  className={
-                    location.pathname === '/navigation' ? 'active' : ''
-                  }
-                >
-                  Navigation
-                </Link>
-              </li>
             </ul>
           </nav>
         </div>
@@ -137,7 +137,7 @@ export function App() {
               {/* Redirect old dashboard to components */}
               <Route path="/forms" element={<FormsPage />} />
               <Route path="/data-table" element={<DataTablePage />} />
-              <Route path="/navigation" element={<NavigationPage />} />
+              <Route path="/navigation/*" element={<NavigationPage />} />
               <Route
                 path="/page-2"
                 element={

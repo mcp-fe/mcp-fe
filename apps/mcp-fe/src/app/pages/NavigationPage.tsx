@@ -1,206 +1,357 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Routes, Route, useLocation } from 'react-router-dom';
 
-export const NavigationPage = () => {
-  const [breadcrumbs, setBreadcrumbs] = useState(['Home', 'Navigation Demo']);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentSection, setCurrentSection] = useState('overview');
+const navigationItems = [
+  { id: 'overview', label: 'Overview', icon: '📋', path: '/navigation' },
+  {
+    id: 'integration',
+    label: 'Integration',
+    icon: '🔧',
+    path: '/navigation/integration',
+  },
+  {
+    id: 'examples',
+    label: 'Examples',
+    icon: '📚',
+    path: '/navigation/examples',
+  },
+  {
+    id: 'troubleshooting',
+    label: 'Troubleshooting',
+    icon: '🔍',
+    path: '/navigation/troubleshooting',
+  },
+];
 
-  const navigationItems = [
-    { id: 'overview', label: 'Overview', icon: '📋' },
-    { id: 'features', label: 'Features', icon: '⭐' },
-    { id: 'integration', label: 'Integration', icon: '🔧' },
-    { id: 'examples', label: 'Examples', icon: '📚' },
-    { id: 'troubleshooting', label: 'Troubleshooting', icon: '🔍' },
-  ];
+// Overview Section Component (combined with Features)
+const OverviewSection = () => (
+  <div>
+    <h3>Automatic Navigation Tracking</h3>
+    <p>
+      MCP-FE automatically tracks all navigation events from{' '}
+      <strong>React Router</strong> and <strong>Tanstack Router</strong> without
+      any manual instrumentation. Simply integrate the tracking hook and every
+      route change is captured and stored locally, ready for AI agents to
+      analyze.
+    </p>
 
-  const quickActions = [
-    { label: 'Go to Dashboard', path: '/dashboard', icon: '🏠' },
-    { label: 'Try Forms', path: '/forms', icon: '📝' },
-    { label: 'Components Demo', path: '/components', icon: '🎛️' },
-    { label: 'Data Table', path: '/data-table', icon: '📊' },
-    { label: 'Back to Home', path: '/', icon: '🏡' },
-  ];
+    <h4 style={{ marginTop: '2rem', marginBottom: '1rem' }}>How It Works:</h4>
+    <ul>
+      <li>
+        <strong>Zero Configuration Tracking:</strong> Use{' '}
+        <code>useReactRouterEventTracker()</code> or{' '}
+        <code>useTanstackRouterEventTracker()</code> hook in your app - all
+        navigation is automatically tracked
+      </li>
+      <li>
+        <strong>Router Integration:</strong> Hooks into React Router's or
+        Tanstack Router's navigation events using their built-in APIs
+      </li>
+      <li>
+        <strong>Rich Event Data:</strong> Captures from/to paths, timestamps,
+        user session, and navigation metadata automatically
+      </li>
+      <li>
+        <strong>Local Storage:</strong> Events are stored in IndexedDB via
+        Worker, persisting across tabs and page reloads
+      </li>
+      <li>
+        <strong>AI Agent Access:</strong> MCP Proxy Server exposes events to AI
+        agents through the Model Context Protocol
+      </li>
+    </ul>
 
-  const handleSectionChange = (sectionId: string, sectionLabel: string) => {
-    setCurrentSection(sectionId);
-    // Simulate adding to breadcrumb navigation
-    setBreadcrumbs(['Home', 'Navigation Demo', sectionLabel]);
-  };
+    <div
+      style={{
+        background: '#f0f7ff',
+        padding: '1rem',
+        borderRadius: '6px',
+        marginTop: '1.5rem',
+        borderLeft: '4px solid var(--primary-color)',
+      }}
+    >
+      <p style={{ margin: 0, fontWeight: 500 }}>
+        💡 <strong>Try it now:</strong> Click through the sections in the left
+        sidebar and watch the <strong>Live Event Log</strong> in the right
+        sidebar. Every navigation is automatically tracked - no extra code
+        needed!
+      </p>
+    </div>
 
-  const renderSectionContent = () => {
-    switch (currentSection) {
-      case 'overview':
-        return (
-          <div>
-            <h3>Navigation Tracking Overview</h3>
-            <p>
-              This page demonstrates various navigation patterns and how they
-              are tracked by the MCP-FE system. Every navigation event, whether
-              it's page routing, section changes, or breadcrumb clicks, is
-              captured and stored locally.
-            </p>
-            <ul>
-              <li>
-                <strong>Route Changes:</strong> Traditional React Router
-                navigation
-              </li>
-              <li>
-                <strong>Section Navigation:</strong> In-page section switching
-              </li>
-              <li>
-                <strong>Breadcrumb Navigation:</strong> Hierarchical navigation
-                tracking
-              </li>
-              <li>
-                <strong>Sidebar Navigation:</strong> Secondary navigation
-                patterns
-              </li>
-              <li>
-                <strong>Quick Actions:</strong> Contextual navigation shortcuts
-              </li>
-            </ul>
-          </div>
-        );
-      case 'features':
-        return (
-          <div>
-            <h3>Navigation Features</h3>
-            <div className="feature-grid">
-              <div className="feature-item">
-                <h4>🚀 Real-time Tracking</h4>
-                <p>
-                  All navigation events are captured instantly and stored in
-                  IndexedDB.
-                </p>
-              </div>
-              <div className="feature-item">
-                <h4>🔄 Route History</h4>
-                <p>
-                  Complete history of user navigation patterns and route
-                  transitions.
-                </p>
-              </div>
-              <div className="feature-item">
-                <h4>📍 Context Preservation</h4>
-                <p>
-                  Maintains context about user journey and interaction
-                  sequences.
-                </p>
-              </div>
-              <div className="feature-item">
-                <h4>🎯 Intent Analysis</h4>
-                <p>
-                  AI agents can analyze navigation patterns to understand user
-                  intent.
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      case 'integration':
-        return (
-          <div>
-            <h3>Integration Guide</h3>
-            <p>Integrating MCP-FE navigation tracking into your application:</p>
-            <div className="code-example">
-              <h4>1. Install the packages:</h4>
-              <pre>{`npm install @mcp-fe/react-event-tracker @mcp-fe/mcp-worker`}</pre>
+    <h4 style={{ marginTop: '2rem', marginBottom: '1rem' }}>Key Benefits:</h4>
+    <div className="feature-grid">
+      <div className="feature-item">
+        <h4>🚀 No Manual Tracking</h4>
+        <p>
+          Just add one hook to your app. No need to manually track{' '}
+          <code>&lt;Link&gt;</code> clicks, <code>navigate()</code> calls, or
+          route changes - it's all automatic.
+        </p>
+      </div>
+      <div className="feature-item">
+        <h4>🔄 Works with Any Router</h4>
+        <p>
+          Support for both <strong>React Router v6+</strong> and{' '}
+          <strong>Tanstack Router</strong>. Uses official APIs for reliable
+          tracking.
+        </p>
+      </div>
+      <div className="feature-item">
+        <h4>📍 Complete Context</h4>
+        <p>
+          Every navigation event includes full context: previous path, new path,
+          timestamp, user session - everything AI agents need to understand user
+          behavior.
+        </p>
+      </div>
+      <div className="feature-item">
+        <h4>🤖 AI-Ready Data</h4>
+        <p>
+          Events are immediately available to AI agents via MCP protocol,
+          enabling contextual assistance, debugging help, and behavioral
+          insights.
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
-              <h4>2. Set up the hook in your main App component:</h4>
-              <pre>{`import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
+// Integration Section Component
+const IntegrationSection = () => (
+  <div>
+    <h3>Integration Guide</h3>
+    <p>
+      Getting started with MCP-FE navigation tracking in your React application:
+    </p>
+    <div className="code-example">
+      <h4>1. Install the required packages:</h4>
+      <pre>{`npm install @mcp-fe/react-event-tracker @mcp-fe/mcp-worker`}</pre>
+
+      <h4>2. Make sure the MCP worker files are publicly acessible:</h4>
+      <pre>{`// vite.config.ts
+
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  // ... other config
+  publicDir: 'public',
+  build: {
+    rollupOptions: {
+      // Copy worker files during build
+      external: ['@mcp-fe/mcp-worker/mcp-*.js']
+    }
+  }
+});
+`}</pre>
+
+      <h4>3. Initialize MCP worker client:</h4>
+      <pre>
+        {`import from '@mcp-fe/mcp-worker';
+
+// Initialize MCP Worker Client - Automatically connects to MCP workers
+// Do it at the root of your app
+`}
+      </pre>
+
+      <h4>4. Use the hook in your React Router app:</h4>
+      <pre>{`import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 
 function App() {
   const { setAuthToken } = useReactRouterEventTracker();
-  // Your app logic here
+
+  useEffect(() => {
+    setAuthToken('your-jwt-token');
+  }, []);
+
+  return <Routes>...</Routes>;
 }`}</pre>
 
-              <h4>3. Navigation events are automatically tracked!</h4>
-            </div>
-          </div>
-        );
-      case 'examples':
-        return (
-          <div>
-            <h3>Example Scenarios</h3>
-            <div className="example-scenarios">
-              <div className="scenario">
-                <h4>Scenario 1: User Journey Analysis</h4>
-                <p>
-                  An AI agent can ask: "Show me the user's navigation path in
-                  the last 10 minutes"
-                </p>
-                <p>
-                  <em>
-                    Response includes: Home → Dashboard → Forms → Navigation
-                    Demo → Features
-                  </em>
-                </p>
-              </div>
+      <h4>5. Start the MCP Proxy Server:</h4>
+      <pre>{`docker run -p 3001:3001 ghcr.io/mcp-fe/mcp-fe/mcp-server:main`}</pre>
 
-              <div className="scenario">
-                <h4>Scenario 2: Feature Discovery</h4>
-                <p>
-                  Agent query: "Which sections has the user spent most time on?"
-                </p>
-                <p>
-                  <em>
-                    Analytics reveal user preferences and engagement patterns
-                  </em>
-                </p>
-              </div>
+      <p>
+        That's it! Navigation events are now automatically tracked and available
+        to AI agents through the MCP protocol.
+      </p>
+    </div>
+  </div>
+);
 
-              <div className="scenario">
-                <h4>Scenario 3: Error Context</h4>
-                <p>
-                  When an error occurs, agents can see: "What pages did the user
-                  visit before the error?"
-                </p>
-                <p>
-                  <em>
-                    Provides crucial debugging context for development teams
-                  </em>
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      case 'troubleshooting':
-        return (
-          <div>
-            <h3>Troubleshooting Navigation Tracking</h3>
-            <div className="troubleshooting-steps">
-              <div className="step">
-                <h4>✅ Check Connection Status</h4>
-                <p>
-                  Ensure the connection indicator shows "Connected to MCP Proxy"
-                </p>
-              </div>
-              <div className="step">
-                <h4>🔍 Verify Event Logging</h4>
-                <p>
-                  Check the sidebar event log to confirm navigation events are
-                  being captured
-                </p>
-              </div>
-              <div className="step">
-                <h4>🔧 Worker Registration</h4>
-                <p>
-                  Ensure the SharedWorker or ServiceWorker is properly
-                  registered
-                </p>
-              </div>
-              <div className="step">
-                <h4>🌐 MCP Proxy Server</h4>
-                <p>Confirm the MCP proxy server is running and accessible</p>
-              </div>
-            </div>
-          </div>
-        );
-      default:
-        return <div>Select a section from the navigation menu.</div>;
+// Examples Section Component
+const ExamplesSection = () => (
+  <div>
+    <h3>Real-World Use Cases</h3>
+    <p>
+      Here are practical examples of how AI agents can leverage navigation
+      tracking data:
+    </p>
+    <div className="example-scenarios">
+      <div className="scenario">
+        <h4>💬 User Journey Analysis</h4>
+        <p>
+          <strong>Agent Query:</strong> "Show me where the user has navigated in
+          the last 10 minutes"
+        </p>
+        <p>
+          <strong>Response:</strong> "The user started on the Home page, went to
+          How It Works, then explored Components, filled out Forms, and is now
+          on the Navigation Demo page viewing the Examples section."
+        </p>
+        <p>
+          <em>
+            This helps agents understand context and provide relevant
+            suggestions
+          </em>
+        </p>
+      </div>
+
+      <div className="scenario">
+        <h4>🎯 Feature Discovery</h4>
+        <p>
+          <strong>Agent Query:</strong> "Which features has the user explored?"
+        </p>
+        <p>
+          <strong>Response:</strong> "User visited Forms (3 times), Components
+          (2 times), Data Table (1 time). They spent most time on the Forms
+          page."
+        </p>
+        <p>
+          <em>
+            Reveals user interests and can guide personalized recommendations
+          </em>
+        </p>
+      </div>
+
+      <div className="scenario">
+        <h4>🐛 Debugging & Support</h4>
+        <p>
+          <strong>Agent Query:</strong> "What did the user do before
+          encountering the error?"
+        </p>
+        <p>
+          <strong>Response:</strong> "User navigated: Home → Forms → submitted
+          contact form → navigated to Data Table → error occurred"
+        </p>
+        <p>
+          <em>
+            Provides crucial debugging context without manual error reports
+          </em>
+        </p>
+      </div>
+
+      <div className="scenario">
+        <h4>📊 Behavioral Insights</h4>
+        <p>
+          <strong>Agent Query:</strong> "Is the user having trouble finding
+          something?"
+        </p>
+        <p>
+          <strong>Response:</strong> "User navigated back and forth between Home
+          and Components 4 times in 2 minutes - may be looking for specific
+          information"
+        </p>
+        <p>
+          <em>Detects patterns that indicate confusion or search behavior</em>
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+// Troubleshooting Section Component
+const TroubleshootingSection = () => (
+  <div>
+    <h3>Troubleshooting Navigation Tracking</h3>
+    <p>
+      If navigation events are not being tracked, follow these steps to diagnose
+      the issue:
+    </p>
+    <div className="troubleshooting-steps">
+      <div className="step">
+        <h4>✅ Check Connection Status</h4>
+        <p>
+          Look at the connection panel in the right sidebar. It should show
+          "Connected to MCP Proxy" with a green indicator.
+        </p>
+        <p>
+          <strong>If disconnected:</strong> Verify that the MCP Proxy Server is
+          running on <code>ws://localhost:3001</code>
+        </p>
+      </div>
+
+      <div className="step">
+        <h4>🔍 Verify Event Logging</h4>
+        <p>
+          Check the "Live Event Log" in the right sidebar. You should see
+          navigation events appearing as you click links.
+        </p>
+        <p>
+          <strong>Expected event:</strong>{' '}
+          <code>navigation - to: /navigation/features</code>
+        </p>
+      </div>
+
+      <div className="step">
+        <h4>🔧 Worker Registration</h4>
+        <p>
+          Open DevTools → Application → Service Workers (or Shared Workers). You
+          should see the MCP worker registered.
+        </p>
+        <p>
+          <strong>Common issue:</strong> Workers may be blocked by browser
+          security settings. Try accessing via <code>http://localhost</code>{' '}
+          instead of <code>file://</code>
+        </p>
+      </div>
+
+      <div className="step">
+        <h4>🌐 MCP Proxy Server</h4>
+        <p>
+          Ensure the MCP proxy server is running:
+          <pre>{`docker run -p 3001:3001 ghcr.io/mcp-fe/mcp-fe/mcp-server:main`}</pre>
+        </p>
+        <p>
+          Check server logs for connection attempts and errors. The server
+          should accept WebSocket connections on port 3001.
+        </p>
+      </div>
+
+      <div className="step">
+        <h4>🔐 Authentication</h4>
+        <p>
+          Make sure you have set a valid JWT token using{' '}
+          <code>setAuthToken()</code>. Check the Session User field in the
+          connection panel.
+        </p>
+        <p>
+          <strong>Note:</strong> This demo uses mock JWT tokens for
+          demonstration purposes.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+export const NavigationPage = () => {
+  const location = useLocation();
+
+  // Generate breadcrumbs based on current location
+  const getBreadcrumbs = () => {
+    const breadcrumbs = [
+      { label: 'Home', path: '/' },
+      { label: 'Navigation Demo', path: '/navigation' },
+    ];
+
+    const currentItem = navigationItems.find(
+      (item) => item.path === location.pathname,
+    );
+    if (currentItem && currentItem.path !== '/navigation') {
+      breadcrumbs.push({ label: currentItem.label, path: currentItem.path });
     }
+
+    return breadcrumbs;
   };
+
+  const breadcrumbs = getBreadcrumbs();
 
   return (
     <div className="navigation-page">
@@ -212,16 +363,9 @@ function App() {
           {breadcrumbs.map((crumb, index) => (
             <span key={index}>
               {index > 0 && <span className="separator"> / </span>}
-              <button
-                className="breadcrumb-item"
-                onClick={() => {
-                  // Simulate breadcrumb navigation
-                  setBreadcrumbs(breadcrumbs.slice(0, index + 1));
-                  if (index === 0) setCurrentSection('overview');
-                }}
-              >
-                {crumb}
-              </button>
+              <Link to={crumb.path} className="breadcrumb-item">
+                {crumb.label}
+              </Link>
             </span>
           ))}
         </nav>
@@ -229,87 +373,38 @@ function App() {
 
       <div className="navigation-layout">
         {/* Sidebar Navigation */}
-        <aside
-          className={`navigation-sidebar ${sidebarOpen ? 'open' : 'closed'}`}
-        >
-          <button
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? '◄' : '►'}
-          </button>
-
-          {sidebarOpen && (
-            <nav className="sidebar-nav">
-              <h3>Sections</h3>
-              <ul>
-                {navigationItems.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      className={`nav-item ${currentSection === item.id ? 'active' : ''}`}
-                      onClick={() => handleSectionChange(item.id, item.label)}
-                    >
-                      <span className="nav-icon">{item.icon}</span>
-                      <span className="nav-label">{item.label}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              <h3>Quick Actions</h3>
-              <ul>
-                {quickActions.map((action, index) => (
-                  <li key={index}>
-                    <Link to={action.path} className="nav-item">
-                      <span className="nav-icon">{action.icon}</span>
-                      <span className="nav-label">{action.label}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )}
+        <aside className="navigation-sidebar">
+          <nav className="sidebar-nav">
+            <h3>Sections</h3>
+            <ul>
+              {navigationItems.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    to={item.path}
+                    className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </aside>
 
         {/* Main Content */}
         <main className="navigation-content">
-          {renderSectionContent()}
-
-          <div className="content-actions">
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                // Simulate a complex navigation action
-                setCurrentSection('features');
-                setBreadcrumbs(['Home', 'Navigation Demo', 'Features']);
-                setTimeout(() => {
-                  alert(
-                    'Navigation action completed! This interaction was tracked.',
-                  );
-                }, 100);
-              }}
-            >
-              Trigger Complex Navigation
-            </button>
-
-            <Link to="/dashboard" className="btn btn-secondary">
-              Back to Dashboard
-            </Link>
-          </div>
+          <Routes>
+            <Route path="/" element={<OverviewSection />} />
+            <Route path="/integration" element={<IntegrationSection />} />
+            <Route path="/examples" element={<ExamplesSection />} />
+            <Route
+              path="/troubleshooting"
+              element={<TroubleshootingSection />}
+            />
+          </Routes>
         </main>
       </div>
-
-      {/* Footer Navigation */}
-      <footer className="page-footer">
-        <div className="footer-nav">
-          <Link to="/components" className="footer-nav-item">
-            ← Previous: Components Demo
-          </Link>
-          <Link to="/forms" className="footer-nav-item">
-            Next: Forms Demo →
-          </Link>
-        </div>
-      </footer>
     </div>
   );
 };
