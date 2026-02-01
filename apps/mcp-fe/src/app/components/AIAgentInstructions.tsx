@@ -75,7 +75,6 @@ nx run mcp-server:serve`}
       <p>Ask your AI agent questions like:</p>
       <ul>
         <li>"What pages have I visited in the last 10 minutes?"</li>
-        <li>"Show me my recent form submissions"</li>
         <li>"What buttons did I click on the Components page?"</li>
         <li>"Analyze my navigation patterns"</li>
       </ul>
@@ -84,13 +83,14 @@ nx run mcp-server:serve`}
       <p>The AI agent can use these tools to access your data:</p>
       <ul>
         <li>
-          <code>get_events</code> - Retrieve tracked events with filtering
+          <code>get_user_events</code> - Retrieve tracked events with filtering
         </li>
         <li>
-          <code>get_user_context</code> - Get current user session context
+          <code>get_click_events</code> - Retrieve tracked click events with
+          filtering
         </li>
         <li>
-          <code>analyze_behavior</code> - AI-powered behavior analysis
+          <code>get_navigation_history</code> - Get user navigation history
         </li>
       </ul>
 
