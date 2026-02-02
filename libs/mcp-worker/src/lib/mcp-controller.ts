@@ -11,6 +11,7 @@ import { storeEvent, queryEvents, UserEvent } from './database';
 import { mcpServer } from './mcp-server';
 import { WebSocketTransport } from './websocket-transport';
 import { logger } from './logger';
+import { toolRegistry } from './tool-registry';
 
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -290,8 +291,6 @@ export class MCPController {
   private async handleRegisterToolInternal(
     toolData: Record<string, unknown>,
   ): Promise<void> {
-    const { toolRegistry } = await import('./mcp-server');
-
     const name = toolData['name'] as string;
     const description = toolData['description'] as string;
     const inputSchema = toolData['inputSchema'] as Record<string, unknown>;
@@ -402,7 +401,6 @@ export class MCPController {
   }
 
   public async handleUnregisterTool(toolName: string): Promise<boolean> {
-    const { toolRegistry } = await import('./mcp-server');
     const success = toolRegistry.unregister(toolName);
 
     if (success) {

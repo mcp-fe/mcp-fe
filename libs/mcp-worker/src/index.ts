@@ -21,11 +21,7 @@ export {
   type WorkerClientInitOptions,
 } from './lib/worker-client';
 export { queryEvents, type UserEvent } from './lib/database';
-export {
-  type ToolDefinition,
-  type ToolHandler,
-  toolRegistry,
-} from './lib/mcp-server';
+export { type ToolHandler, type ToolDefinition } from './lib/tool-registry';
 export { logger } from './lib/logger';
 
 // WorkerClient global singleton
