@@ -2,7 +2,7 @@
  * Helper hooks for common MCP tool patterns
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useMCPTool, type UseMCPToolOptions } from './useMCPTool';
 
 /**
@@ -159,72 +159,6 @@ export function useMCPQuery<TArgs = unknown, TResult = unknown>(
   },
 ) {
   return useMCPAction(name, description, properties, query, options);
-}
-
-/**
- * Hook that ensures worker client is initialized before registering tool
- *
- * @example
- * ```tsx
- * function MyComponent() {
- *   const { isReady, tool } = useMCPToolWithInit(
- *     {
- *       name: 'my_tool',
- *       description: 'My tool',
- *       inputSchema: { type: 'object', properties: {} },
- *       handler: async () => ({ content: [{ type: 'text', text: 'OK' }] })
- *     },
- *     { backendWsUrl: 'ws://localhost:3001' }
- *   );
- *
- *   if (!isReady) return <div>Initializing...</div>;
- *
- *   return <div>Tool registered!</div>;
- * }
- * ```
- */
-export function useMCPToolWithInit(
-  toolOptions: UseMCPToolOptions,
-  initOptions?: { backendWsUrl?: string },
-) {
-  const [isReady, setIsReady] = useState(false);
-
-  // Initialize worker client first
-  useEffect(() => {
-    let mounted = true;
-
-    const init = async () => {
-      try {
-        const { workerClient } = await import('@mcp-fe/mcp-worker');
-        await workerClient.init(
-          initOptions || { backendWsUrl: 'ws://localhost:3001' },
-        );
-
-        if (mounted) {
-          setIsReady(true);
-        }
-      } catch (error) {
-        console.error('[useMCPToolWithInit] Initialization failed:', error);
-      }
-    };
-
-    init();
-
-    return () => {
-      mounted = false;
-    };
-  }, [initOptions]);
-
-  // Register tool after initialization
-  const tool = useMCPTool({
-    ...toolOptions,
-    autoRegister: isReady && (toolOptions.autoRegister ?? true),
-  });
-
-  return {
-    isReady,
-    tool,
-  };
 }
 
 // Re-export for convenience

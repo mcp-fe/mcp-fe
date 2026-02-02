@@ -158,28 +158,6 @@ useMCPQuery(
 );
 ```
 
-#### `useMCPToolWithInit(toolOptions, initOptions)`
-
-Hook that ensures worker client is initialized before registering tool.
-
-```tsx
-function MyComponent() {
-  const { isReady, tool } = useMCPToolWithInit(
-    {
-      name: 'my_tool',
-      description: 'My tool',
-      inputSchema: { type: 'object', properties: {} },
-      handler: async () => ({ content: [{ type: 'text', text: 'OK' }] })
-    },
-    { backendWsUrl: 'ws://localhost:3001' }
-  );
-
-  if (!isReady) return <div>Initializing...</div>;
-
-  return <div>Tool registered!</div>;
-}
-```
-
 
 ### Utility Functions
 
