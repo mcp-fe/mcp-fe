@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useMCPTool } from '@mcp-fe/react-event-tracker';
 
 interface User {
   id: number;
@@ -91,9 +92,190 @@ export const DataTablePage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
 
+  // Register MCP tools for AI agents to query table data
+  useMCPTool({
+    name: 'get_users_table_data',
+    description:
+      'Get all users from the data table with their current filters and sorting applied',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        includeFilters: {
+          type: 'boolean',
+          description: 'Include current filter information',
+          default: false,
+        },
+      },
+    },
+    handler: async (args: unknown) => {
+      const typedArgs = args as { includeFilters?: boolean };
+      const tableData = {
+        users: filteredAndSortedUsers,
+        totalCount: filteredAndSortedUsers.length,
+        currentPage,
+        itemsPerPage,
+        totalPages: Math.ceil(filteredAndSortedUsers.length / itemsPerPage),
+        selectedUsers: selectedUsers.length,
+        ...(typedArgs.includeFilters && {
+          filters: {
+            searchTerm,
+            role: filterRole || 'all',
+            status: filterStatus || 'all',
+            sortField,
+            sortDirection,
+          },
+        }),
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(tableData, null, 2),
+          },
+        ],
+      };
+    },
+  });
+
+  useMCPTool({
+    name: 'get_users_table_stats',
+    description:
+      'Get statistics about users in the data table (counts by role, status, etc.)',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    handler: async () => {
+      const stats = {
+        total: users.length,
+        filtered: filteredAndSortedUsers.length,
+        selected: selectedUsers.length,
+        byRole: {
+          admin: users.filter((u) => u.role === 'Admin').length,
+          user: users.filter((u) => u.role === 'User').length,
+          editor: users.filter((u) => u.role === 'Editor').length,
+        },
+        byStatus: {
+          active: users.filter((u) => u.status === 'active').length,
+          inactive: users.filter((u) => u.status === 'inactive').length,
+          pending: users.filter((u) => u.status === 'pending').length,
+        },
+        currentFilters: {
+          search: searchTerm || 'none',
+          role: filterRole || 'all',
+          status: filterStatus || 'all',
+          sortBy: `${sortField} (${sortDirection})`,
+        },
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(stats, null, 2),
+          },
+        ],
+      };
+    },
+  });
+
+  useMCPTool({
+    name: 'search_users_table',
+    description: 'Search users in the data table by name or email',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query to filter users by name or email',
+        },
+        role: {
+          type: 'string',
+          description: 'Filter by role (Admin, User, Editor)',
+          enum: ['Admin', 'User', 'Editor'],
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by status',
+          enum: ['active', 'inactive', 'pending'],
+        },
+      },
+      required: ['query'],
+    },
+    handler: async (args: unknown) => {
+      const typedArgs = args as {
+        query: string;
+        role?: string;
+        status?: string;
+      };
+      const query = typedArgs.query.toLowerCase();
+      const roleFilter = typedArgs.role;
+      const statusFilter = typedArgs.status;
+
+      const results = users.filter((user) => {
+        const matchesSearch =
+          user.name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query);
+        const matchesRole = !roleFilter || user.role === roleFilter;
+        const matchesStatus = !statusFilter || user.status === statusFilter;
+        return matchesSearch && matchesRole && matchesStatus;
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                query: typedArgs.query,
+                filters: {
+                  role: roleFilter || 'all',
+                  status: statusFilter || 'all',
+                },
+                resultsCount: results.length,
+                results,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  });
+
+  useMCPTool({
+    name: 'get_selected_users',
+    description: 'Get the list of currently selected users in the data table',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    handler: async () => {
+      const selected = users.filter((u) => selectedUsers.includes(u.id));
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                count: selected.length,
+                users: selected,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    },
+  });
+
   // Filter and sort logic
   const filteredAndSortedUsers = useMemo(() => {
-    let filtered = users.filter((user) => {
+    const filtered = users.filter((user) => {
       const matchesSearch =
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -201,6 +383,39 @@ export const DataTablePage = () => {
         including sorting, filtering, pagination, row selection, and bulk
         actions. All interactions are captured for analysis.
       </p>
+
+      <div
+        className="mcp-tools-info"
+        style={{
+          background: '#e3f2fd',
+          border: '1px solid #2196f3',
+          borderRadius: '4px',
+          padding: '12px 16px',
+          marginBottom: '20px',
+        }}
+      >
+        <strong>
+          <span role="img" aria-label="robot">
+            🤖
+          </span>{' '}
+          MCP Tools Available:
+        </strong>
+        <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+          <li>
+            <code>get_users_table_data</code> - Get all users with filters
+          </li>
+          <li>
+            <code>get_users_table_stats</code> - Get statistics (counts by
+            role/status)
+          </li>
+          <li>
+            <code>search_users_table</code> - Search users by name/email
+          </li>
+          <li>
+            <code>get_selected_users</code> - Get currently selected users
+          </li>
+        </ul>
+      </div>
 
       <div className="table-controls">
         <div className="controls-row">
