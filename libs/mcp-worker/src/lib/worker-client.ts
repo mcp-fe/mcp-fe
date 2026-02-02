@@ -94,6 +94,23 @@ export class WorkerClient {
     ) => Promise<{ content: Array<{ type: string; text: string }> }>
   >();
 
+  // Tool registry for tracking registrations and reference counting
+  private toolRegistry = new Map<
+    string,
+    {
+      refCount: number;
+      description: string;
+      inputSchema: Record<string, unknown>;
+      isRegistered: boolean;
+    }
+  >();
+
+  // Subscribers for tool changes (for React hooks reactivity)
+  private toolChangeListeners = new Map<
+    string,
+    Set<(info: { refCount: number; isRegistered: boolean } | null) => void>
+  >();
+
   // Initialize and choose worker implementation (prefer SharedWorker)
   // Accept either a ServiceWorkerRegistration OR WorkerInitOptions to configure URLs
   public async init(
@@ -826,6 +843,24 @@ export class WorkerClient {
       args: unknown,
     ) => Promise<{ content: Array<{ type: string; text: string }> }>,
   ): Promise<void> {
+    // Check if tool already exists (for reference counting)
+    const existing = this.toolRegistry.get(name);
+
+    if (existing) {
+      // Increment ref count
+      existing.refCount++;
+      logger.log(
+        `[WorkerClient] Incremented ref count for '${name}': ${existing.refCount}`,
+      );
+
+      // Update handler to latest version
+      this.toolHandlers.set(name, handler);
+
+      // Notify listeners
+      this.notifyToolChange(name);
+      return;
+    }
+
     // Store handler in main thread
     this.toolHandlers.set(name, handler);
 
@@ -837,9 +872,20 @@ export class WorkerClient {
       handlerType: 'proxy', // Tell worker this is a proxy handler
     });
 
+    // Add to registry
+    this.toolRegistry.set(name, {
+      refCount: 1,
+      description,
+      inputSchema,
+      isRegistered: true,
+    });
+
     logger.log(
       `[WorkerClient] Registered tool '${name}' with main-thread handler`,
     );
+
+    // Notify listeners
+    this.notifyToolChange(name);
   }
 
   /**
@@ -848,15 +894,136 @@ export class WorkerClient {
    * @returns Promise that resolves to true if tool was found and removed
    */
   public async unregisterTool(name: string): Promise<boolean> {
-    // Remove from local handlers
-    this.toolHandlers.delete(name);
+    const existing = this.toolRegistry.get(name);
+    if (!existing) {
+      logger.warn(`[WorkerClient] Cannot unregister '${name}': not found`);
+      return false;
+    }
 
-    // Unregister from worker
-    const result = await this.request<{ success?: boolean }>(
-      'UNREGISTER_TOOL',
-      { name },
+    // Decrement ref count
+    existing.refCount--;
+    logger.log(
+      `[WorkerClient] Decremented ref count for '${name}': ${existing.refCount}`,
     );
-    return result?.success ?? false;
+
+    if (existing.refCount <= 0) {
+      // Last reference - actually unregister
+      // Remove from local handlers
+      this.toolHandlers.delete(name);
+
+      // Unregister from worker
+      const result = await this.request<{ success?: boolean }>(
+        'UNREGISTER_TOOL',
+        { name },
+      );
+
+      // Remove from registry
+      this.toolRegistry.delete(name);
+
+      logger.log(`[WorkerClient] Unregistered tool '${name}'`);
+
+      // Notify listeners (with null = tool removed)
+      this.notifyToolChange(name);
+
+      return result?.success ?? false;
+    }
+
+    // Still has references - just notify count change
+    this.notifyToolChange(name);
+    return true;
+  }
+
+  /**
+   * Subscribe to tool changes for a specific tool
+   * Returns unsubscribe function
+   */
+  public onToolChange(
+    toolName: string,
+    callback: (
+      info: { refCount: number; isRegistered: boolean } | null,
+    ) => void,
+  ): () => void {
+    if (!this.toolChangeListeners.has(toolName)) {
+      this.toolChangeListeners.set(toolName, new Set());
+    }
+
+    const listeners = this.toolChangeListeners.get(toolName)!;
+    listeners.add(callback);
+
+    // Immediately call with current value
+    const current = this.toolRegistry.get(toolName);
+    if (current) {
+      callback({
+        refCount: current.refCount,
+        isRegistered: current.isRegistered,
+      });
+    } else {
+      callback(null);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      listeners.delete(callback);
+      if (listeners.size === 0) {
+        this.toolChangeListeners.delete(toolName);
+      }
+    };
+  }
+
+  /**
+   * Notify all listeners about tool changes
+   * @private
+   */
+  private notifyToolChange(toolName: string): void {
+    const listeners = this.toolChangeListeners.get(toolName);
+    if (!listeners || listeners.size === 0) return;
+
+    const info = this.toolRegistry.get(toolName);
+    const payload = info
+      ? {
+          refCount: info.refCount,
+          isRegistered: info.isRegistered,
+        }
+      : null;
+
+    listeners.forEach((callback) => {
+      try {
+        callback(payload);
+      } catch (error) {
+        logger.error('[WorkerClient] Error in tool change listener:', error);
+      }
+    });
+  }
+
+  /**
+   * Get tool info from registry
+   */
+  public getToolInfo(
+    toolName: string,
+  ): { refCount: number; isRegistered: boolean } | null {
+    const info = this.toolRegistry.get(toolName);
+    if (!info) return null;
+
+    return {
+      refCount: info.refCount,
+      isRegistered: info.isRegistered,
+    };
+  }
+
+  /**
+   * Get all registered tool names
+   */
+  public getRegisteredTools(): string[] {
+    return Array.from(this.toolRegistry.keys()).filter(
+      (name) => this.toolRegistry.get(name)?.isRegistered,
+    );
+  }
+
+  /**
+   * Check if a tool is registered
+   */
+  public isToolRegistered(toolName: string): boolean {
+    return this.toolRegistry.get(toolName)?.isRegistered ?? false;
   }
 
   /**

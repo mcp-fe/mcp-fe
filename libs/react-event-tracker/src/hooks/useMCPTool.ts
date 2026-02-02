@@ -3,31 +3,15 @@
  *
  * Features:
  * - Automatic registration on mount
- * - Reference counting for shared tools
+ * - Reference counting for shared tools (managed by WorkerClient)
  * - Automatic cleanup on unmount
  * - Re-render safe (uses refs)
+ * - Reactive updates via WorkerClient subscribers
  * - Works with or without Context
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { workerClient, type ToolHandler } from '@mcp-fe/mcp-worker';
-
-// Global registry to track tool usage across components
-const toolRegistry = new Map<
-  string,
-  {
-    refCount: number;
-    handler: ToolHandler;
-    schema: {
-      description: string;
-      inputSchema: Record<string, unknown>;
-    };
-    isRegistered: boolean;
-  }
->();
-
-// Queue for pending registrations (to avoid race conditions)
-const registrationQueue = new Map<string, Promise<void>>();
 
 export interface UseMCPToolOptions {
   /**
@@ -154,15 +138,27 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     autoUnregister = true,
   } = options;
 
+  // State for reactive updates from WorkerClient
+  const [toolInfo, setToolInfo] = useState<{
+    refCount: number;
+    isRegistered: boolean;
+  } | null>(null);
+
   // Use refs to store values that shouldn't trigger re-renders
   const handlerRef = useRef(handler);
+  const nameRef = useRef(name);
+  const descriptionRef = useRef(description);
+  const inputSchemaRef = useRef(inputSchema);
   const isMountedRef = useRef(true);
   const hasRegisteredRef = useRef(false);
 
-  // Update handler ref when it changes (to capture latest closure)
+  // Update refs when values change
   useEffect(() => {
     handlerRef.current = handler;
-  }, [handler]);
+    nameRef.current = name;
+    descriptionRef.current = description;
+    inputSchemaRef.current = inputSchema;
+  }, [handler, name, description, inputSchema]);
 
   // Stable wrapper that always calls the latest handler
   const stableHandler = useCallback<ToolHandler>(async (args: unknown) => {
@@ -170,103 +166,60 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
   }, []);
 
   /**
-   * Register the tool with reference counting
+   * Register the tool
    */
   const register = useCallback(async () => {
-    // Check if registration is already in progress
-    const pendingRegistration = registrationQueue.get(name);
-    if (pendingRegistration) {
-      await pendingRegistration;
-      return;
+    const currentName = nameRef.current;
+    const currentDescription = descriptionRef.current;
+    const currentInputSchema = inputSchemaRef.current;
+
+    try {
+      await workerClient.registerTool(
+        currentName,
+        currentDescription,
+        currentInputSchema,
+        stableHandler,
+      );
+
+      hasRegisteredRef.current = true;
+      console.log(`[useMCPTool] Registered tool '${currentName}'`);
+    } catch (error) {
+      console.error(
+        `[useMCPTool] Failed to register tool '${currentName}':`,
+        error,
+      );
+      throw error;
     }
-
-    const registrationPromise = (async () => {
-      try {
-        // Wait for worker initialization before registering
-        if (!workerClient.initialized) {
-          console.log(
-            `[useMCPTool] Waiting for worker initialization before registering '${name}'`,
-          );
-          await workerClient.waitForInit();
-        }
-
-        const existing = toolRegistry.get(name);
-
-        if (existing) {
-          // Tool already registered - increment ref count
-          existing.refCount++;
-
-          // Update handler to latest version
-          existing.handler = stableHandler;
-
-          console.log(
-            `[useMCPTool] Incremented ref count for '${name}': ${existing.refCount}`,
-          );
-        } else {
-          // First registration - register with worker
-          await workerClient.registerTool(
-            name,
-            description,
-            inputSchema,
-            stableHandler,
-          );
-
-          toolRegistry.set(name, {
-            refCount: 1,
-            handler: stableHandler,
-            schema: { description, inputSchema },
-            isRegistered: true,
-          });
-
-          console.log(`[useMCPTool] Registered tool '${name}'`);
-        }
-
-        hasRegisteredRef.current = true;
-      } catch (error) {
-        console.error(`[useMCPTool] Failed to register tool '${name}':`, error);
-        throw error;
-      } finally {
-        registrationQueue.delete(name);
-      }
-    })();
-
-    registrationQueue.set(name, registrationPromise);
-    await registrationPromise;
-  }, [name, description, inputSchema, stableHandler]);
+  }, [stableHandler]);
 
   /**
-   * Unregister the tool with reference counting
+   * Unregister the tool
    */
   const unregister = useCallback(async () => {
-    const existing = toolRegistry.get(name);
-    if (!existing) {
-      console.warn(`[useMCPTool] Cannot unregister '${name}': not found`);
-      return;
+    const currentName = nameRef.current;
+
+    try {
+      await workerClient.unregisterTool(currentName);
+      hasRegisteredRef.current = false;
+      console.log(`[useMCPTool] Unregistered tool '${currentName}'`);
+    } catch (error) {
+      console.error(
+        `[useMCPTool] Failed to unregister tool '${currentName}':`,
+        error,
+      );
     }
+  }, []);
 
-    existing.refCount--;
-    console.log(
-      `[useMCPTool] Decremented ref count for '${name}': ${existing.refCount}`,
-    );
+  // Subscribe to tool changes from WorkerClient
+  useEffect(() => {
+    const unsubscribe = workerClient.onToolChange(name, (info) => {
+      setToolInfo(info);
+    });
 
-    if (existing.refCount <= 0) {
-      // Last reference - actually unregister
-      try {
-        await workerClient.unregisterTool(name);
-        toolRegistry.delete(name);
-        console.log(`[useMCPTool] Unregistered tool '${name}'`);
-      } catch (error) {
-        console.error(
-          `[useMCPTool] Failed to unregister tool '${name}':`,
-          error,
-        );
-      }
-    }
-
-    hasRegisteredRef.current = false;
+    return unsubscribe;
   }, [name]);
 
-  // Auto-register on mount
+  // Auto-register on mount (only once!)
   useEffect(() => {
     if (autoRegister) {
       register().catch((error) => {
@@ -280,7 +233,7 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     return () => {
       isMountedRef.current = false;
 
-      // Auto-unregister on unmount
+      // Auto-unregister on unmount (only once!)
       if (autoUnregister && hasRegisteredRef.current) {
         unregister().catch((error) => {
           console.error(
@@ -290,18 +243,14 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
         });
       }
     };
-  }, [name, autoRegister, autoUnregister, register, unregister]);
-
-  // Get current state
-  const toolInfo = toolRegistry.get(name);
-  const isRegistered = toolInfo?.isRegistered ?? false;
-  const refCount = toolInfo?.refCount ?? 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name]); // Only re-run if name changes!
 
   return {
-    isRegistered,
+    isRegistered: toolInfo?.isRegistered ?? false,
+    refCount: toolInfo?.refCount ?? 0,
     register,
     unregister,
-    refCount,
   };
 }
 
@@ -309,19 +258,21 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
  * Utility function to check if a tool is registered
  */
 export function isToolRegistered(name: string): boolean {
-  return toolRegistry.has(name);
+  return workerClient.isToolRegistered(name);
 }
 
 /**
  * Utility function to get all registered tools
  */
 export function getRegisteredTools(): string[] {
-  return Array.from(toolRegistry.keys());
+  return workerClient.getRegisteredTools();
 }
 
 /**
  * Utility function to get tool info
  */
-export function getToolInfo(name: string) {
-  return toolRegistry.get(name);
+export function getToolInfo(
+  name: string,
+): { refCount: number; isRegistered: boolean } | null {
+  return workerClient.getToolInfo(name);
 }
