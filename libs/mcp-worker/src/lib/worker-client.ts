@@ -233,6 +233,16 @@ export class WorkerClient {
                   /* ignore callback errors */
                 }
               });
+            } else if (data && data.type === 'CALL_TOOL') {
+              // Worker is asking us to execute a tool handler
+              this.handleToolCall(data.toolName, data.args, data.callId).catch(
+                (error) => {
+                  logger.error(
+                    '[WorkerClient] Failed to handle tool call:',
+                    error,
+                  );
+                },
+              );
             }
           } catch {
             // ignore
@@ -269,6 +279,37 @@ export class WorkerClient {
           this.serviceWorkerUrl,
         );
         this.workerType = 'service';
+
+        // Setup message listener for ServiceWorker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.addEventListener(
+            'message',
+            (ev: MessageEvent) => {
+              try {
+                const data = ev.data;
+                if (data && data.type === 'CALL_TOOL') {
+                  // Worker is asking us to execute a tool handler
+                  this.handleToolCall(
+                    data.toolName,
+                    data.args,
+                    data.callId,
+                  ).catch((error) => {
+                    logger.error(
+                      '[WorkerClient] Failed to handle tool call:',
+                      error,
+                    );
+                  });
+                }
+              } catch (error) {
+                logger.error(
+                  '[WorkerClient] Error processing ServiceWorker message:',
+                  error,
+                );
+              }
+            },
+          );
+        }
+
         logger.info('[WorkerClient] Using MCP ServiceWorker (fallback)');
         // Send INIT (backend URL + optional token) to service worker (best-effort)
         try {
@@ -603,13 +644,61 @@ export class WorkerClient {
     }
   }
 
+  // Map to store tool handlers in main thread
+  private toolHandlers = new Map<
+    string,
+    (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>
+  >();
+
   /**
    * Register a custom MCP tool dynamically
+   *
+   * The handler function runs in the MAIN THREAD (browser context), not in the worker.
+   * This means you have full access to:
+   * - React context, hooks, Redux store
+   * - DOM API, window, localStorage
+   * - All your imports and dependencies
+   * - Closures and external variables
+   *
+   * The worker acts as a proxy - it receives MCP tool calls and forwards them
+   * to your handler via MessageChannel.
+   *
    * @param name - Tool name
    * @param description - Tool description
    * @param inputSchema - JSON Schema for tool inputs
-   * @param handler - Async function that handles the tool execution
+   * @param handler - Async function that handles the tool execution (runs in main thread)
    * @returns Promise that resolves when tool is registered
+   *
+   * @example With full access to imports and context:
+   * ```typescript
+   * import { z } from 'zod';
+   * import { useMyStore } from './store';
+   *
+   * const store = useMyStore();
+   *
+   * await client.registerTool(
+   *   'validate_user',
+   *   'Validate user data',
+   *   { type: 'object', properties: { username: { type: 'string' } } },
+   *   async (args: any) => {
+   *     // Full access to everything!
+   *     const schema = z.object({ username: z.string().min(3) });
+   *     const validated = schema.parse(args);
+   *
+   *     // Can access store, context, etc.
+   *     const currentUser = store.getState().user;
+   *
+   *     return {
+   *       content: [{
+   *         type: 'text',
+   *         text: JSON.stringify({ validated, currentUser })
+   *       }]
+   *     };
+   *   }
+   * );
+   * ```
    */
   public async registerTool(
     name: string,
@@ -619,15 +708,20 @@ export class WorkerClient {
       args: unknown,
     ) => Promise<{ content: Array<{ type: string; text: string }> }>,
   ): Promise<void> {
-    // Convert handler to string that can be sent to worker
-    const handlerCode = handler.toString();
+    // Store handler in main thread
+    this.toolHandlers.set(name, handler);
 
+    // Register tool in worker with proxy handler
     await this.request('REGISTER_TOOL', {
       name,
       description,
       inputSchema,
-      handler: handlerCode,
+      handlerType: 'proxy', // Tell worker this is a proxy handler
     });
+
+    logger.log(
+      `[WorkerClient] Registered tool '${name}' with main-thread handler`,
+    );
   }
 
   /**
@@ -636,10 +730,91 @@ export class WorkerClient {
    * @returns Promise that resolves to true if tool was found and removed
    */
   public async unregisterTool(name: string): Promise<boolean> {
+    // Remove from local handlers
+    this.toolHandlers.delete(name);
+
+    // Unregister from worker
     const result = await this.request<{ success?: boolean }>(
       'UNREGISTER_TOOL',
       { name },
     );
     return result?.success ?? false;
+  }
+
+  /**
+   * Handle tool call from worker - execute handler in main thread and return result
+   * @private
+   */
+  private async handleToolCall(
+    toolName: string,
+    args: unknown,
+    callId: string,
+  ): Promise<void> {
+    logger.log(`[WorkerClient] Handling tool call: ${toolName}`, {
+      callId,
+      args,
+    });
+
+    try {
+      const handler = this.toolHandlers.get(toolName);
+
+      if (!handler) {
+        throw new Error(`Tool handler not found: ${toolName}`);
+      }
+
+      // Execute handler in main thread (with full access to everything!)
+      const result = await handler(args);
+
+      // Send result back to worker
+      this.sendToolCallResult(callId, { success: true, result });
+    } catch (error) {
+      logger.error(`[WorkerClient] Tool call failed: ${toolName}`, error);
+
+      // Send error back to worker
+      this.sendToolCallResult(callId, {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Send tool call result back to worker
+   * @private
+   */
+  private sendToolCallResult(
+    callId: string,
+    result: { success: boolean; result?: unknown; error?: string },
+  ): void {
+    const message = {
+      type: 'TOOL_CALL_RESULT',
+      callId,
+      success: result.success,
+      result: result.result,
+      error: result.error,
+    };
+
+    if (this.workerType === 'shared' && this.sharedWorkerPort) {
+      try {
+        this.sharedWorkerPort.postMessage(message);
+      } catch (error) {
+        logger.error(
+          '[WorkerClient] Failed to send result to SharedWorker:',
+          error,
+        );
+      }
+    } else if (
+      this.workerType === 'service' &&
+      this.serviceWorkerRegistration?.active
+    ) {
+      try {
+        this.serviceWorkerRegistration.active.postMessage(message);
+      } catch (error) {
+        logger.error(
+          '[WorkerClient] Failed to send result to ServiceWorker:',
+          error,
+        );
+      }
+    }
   }
 }

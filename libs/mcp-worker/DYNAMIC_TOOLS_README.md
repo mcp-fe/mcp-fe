@@ -1,46 +1,69 @@
 # Dynamická registrace MCP toolů
 
-## Přehled
-
-MCP Worker nyní podporuje **dynamickou registraci vlastních toolů** přímo z klientské aplikace. Nemusíte modifikovat kód workeru - stačí použít `WorkerClient` API.
-
-## Rychlý start
+## 🚀 Rychlý start
 
 ```typescript
 import { WorkerClient } from '@mcp-fe/mcp-worker';
+import { z } from 'zod';
 
 // 1. Inicializace
 const client = new WorkerClient();
-await client.init({
-  backendWsUrl: 'ws://localhost:3001'
-});
+await client.init({ backendWsUrl: 'ws://localhost:3001' });
 
 // 2. Registrace vlastního toolu
 await client.registerTool(
-  'my_custom_tool',
-  'Description of what this tool does',
+  'validate_user',
+  'Validate user data with Zod',
   {
     type: 'object',
     properties: {
-      param1: { type: 'string', description: 'First parameter' }
-    },
-    required: ['param1']
+      username: { type: 'string' },
+      email: { type: 'string' }
+    }
   },
   async (args: any) => {
-    // Vaše implementace
+    // ✅ Plný přístup k importům, React, DOM, všemu!
+    const schema = z.object({
+      username: z.string().min(3),
+      email: z.string().email()
+    });
+    
+    const validated = schema.parse(args);
+    
     return {
       content: [{
         type: 'text',
-        text: JSON.stringify({ result: args.param1 })
+        text: JSON.stringify({ success: true, data: validated })
       }]
     };
   }
 );
 
-// 3. Tool je nyní dostupný přes MCP protokol!
+// 3. Tool je dostupný přes MCP protokol!
 ```
 
-## Jak to funguje
+## ⭐ Klíčové vlastnosti
+
+### Handler běží v MAIN THREADU!
+
+Na rozdíl od komplikovaných serializačních přístupů, **handler funkce běží přímo v browseru**:
+
+- ✅ **Žádná serializace** - funkce zůstává funkce
+- ✅ **Všechny importy** - `import { z } from 'zod'` prostě funguje
+- ✅ **React/Store** - plný přístup k contextu, hooks, Redux
+- ✅ **DOM API** - `document`, `window`, `localStorage`
+- ✅ **Closures** - můžete používat vnější proměnné
+- ✅ **Jednoduché testování** - handler je normální async funkce
+
+Worker pouze **přeposílá volání** mezi MCP protokolem a vaším handlerem.
+
+## 📚 Dokumentace
+
+- 📄 **[TOOL_HANDLER_GUIDE.md](./TOOL_HANDLER_GUIDE.md)** - Kompletní průvodce s příklady
+- 📄 **[FINAL_IMPLEMENTATION.md](./FINAL_IMPLEMENTATION.md)** - Technický přehled implementace
+- 💻 **[quick-start-example.ts](./src/quick-start-example.ts)** - Připravený příklad k okamžitému použití
+
+## 🎯 Příklady použití
 
 ```
 ┌─────────────────────┐

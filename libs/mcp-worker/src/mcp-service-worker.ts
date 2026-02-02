@@ -253,6 +253,27 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
     );
     return;
   }
+
+  if (msg['type'] === 'TOOL_CALL_RESULT') {
+    // Main thread is sending back the result of a tool call
+    try {
+      if (!controller) {
+        logger.warn(
+          '[ServiceWorker] Received TOOL_CALL_RESULT but no controller',
+        );
+        return;
+      }
+      const callId = msg['callId'] as string | undefined;
+      if (!callId) {
+        logger.warn('[ServiceWorker] TOOL_CALL_RESULT missing callId');
+        return;
+      }
+      getController().handleToolCallResult(callId, msg);
+    } catch (error) {
+      logger.error('[ServiceWorker] Failed to handle TOOL_CALL_RESULT:', error);
+    }
+    return;
+  }
 });
 
 // Install and activate

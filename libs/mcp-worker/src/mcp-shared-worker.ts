@@ -263,6 +263,30 @@ self.onconnect = (event: MessageEvent) => {
       return;
     }
 
+    if (messageData.type === 'TOOL_CALL_RESULT') {
+      // Main thread is sending back the result of a tool call
+      try {
+        if (!controller) {
+          logger.warn(
+            '[SharedWorker] Received TOOL_CALL_RESULT but no controller',
+          );
+          return;
+        }
+        const callId = messageData['callId'] as string | undefined;
+        if (!callId) {
+          logger.warn('[SharedWorker] TOOL_CALL_RESULT missing callId');
+          return;
+        }
+        getController().handleToolCallResult(callId, messageData);
+      } catch (error: unknown) {
+        logger.error(
+          '[SharedWorker] Failed to handle TOOL_CALL_RESULT:',
+          error,
+        );
+      }
+      return;
+    }
+
     if (messageData.type === 'GET_EVENTS') {
       // Reply via MessageChannel port if provided (for request/response pattern)
       const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;

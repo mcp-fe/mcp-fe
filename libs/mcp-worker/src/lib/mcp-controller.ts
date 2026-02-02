@@ -233,19 +233,59 @@ export class MCPController {
     const name = toolData['name'] as string;
     const description = toolData['description'] as string;
     const inputSchema = toolData['inputSchema'] as Record<string, unknown>;
-    const handlerCode = toolData['handler'] as string;
+    const handlerType = toolData['handlerType'] as string;
 
-    if (!name || !description || !inputSchema || !handlerCode) {
+    if (!name || !description || !inputSchema) {
       throw new Error(
-        'Missing required tool fields: name, description, inputSchema, handler',
+        'Missing required tool fields: name, description, inputSchema',
       );
     }
 
-    // Create a handler function from the provided code
-    // The handler code should be a string that evaluates to an async function
-    const handler = new Function('args', `return (${handlerCode})(args)`) as (
+    if (handlerType !== 'proxy') {
+      throw new Error(
+        `Unsupported handler type: ${handlerType}. Only 'proxy' handlers are supported.`,
+      );
+    }
+
+    // Create a proxy handler that sends CALL_TOOL message back to main thread
+    const handler: (
       args: unknown,
-    ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    ) => Promise<{ content: Array<{ type: string; text: string }> }> = async (
+      args: unknown,
+    ) => {
+      const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+      logger.log(`[MCPController] Proxying tool call to main thread: ${name}`, {
+        callId,
+        args,
+      });
+
+      // Send CALL_TOOL message to main thread and wait for result
+      return new Promise((resolve, reject) => {
+        // Store promise handlers for this call
+        const pendingCall = {
+          resolve,
+          reject,
+          timeout: setTimeout(() => {
+            reject(new Error(`Tool call timeout: ${name}`));
+          }, 30000), // 30 second timeout
+        };
+
+        // Store in a map (we'll need to track these)
+        if (!this.pendingToolCalls) {
+          this.pendingToolCalls = new Map();
+        }
+        this.pendingToolCalls.set(callId, pendingCall);
+
+        // Broadcast CALL_TOOL message to main thread
+        this.broadcastFn({
+          type: 'CALL_TOOL',
+          toolName: name,
+          args,
+          callId,
+        });
+      });
+    };
 
     toolRegistry.register(
       {
@@ -256,7 +296,47 @@ export class MCPController {
       handler,
     );
 
-    logger.log(`[MCPController] Registered tool: ${name}`);
+    logger.log(
+      `[MCPController] Registered proxy tool: ${name} (forwards to main thread)`,
+    );
+  }
+
+  private pendingToolCalls?: Map<
+    string,
+    {
+      resolve: (value: {
+        content: Array<{ type: string; text: string }>;
+      }) => void;
+      reject: (reason: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >;
+
+  public handleToolCallResult(callId: string, result: unknown): void {
+    if (!this.pendingToolCalls) return;
+
+    const pendingCall = this.pendingToolCalls.get(callId);
+    if (!pendingCall) {
+      logger.warn(
+        `[MCPController] Received result for unknown call: ${callId}`,
+      );
+      return;
+    }
+
+    clearTimeout(pendingCall.timeout);
+    this.pendingToolCalls.delete(callId);
+
+    const resultData = result as {
+      success?: boolean;
+      result?: { content: Array<{ type: string; text: string }> };
+      error?: string;
+    };
+
+    if (resultData.success && resultData.result) {
+      pendingCall.resolve(resultData.result);
+    } else {
+      pendingCall.reject(new Error(resultData.error || 'Tool call failed'));
+    }
   }
 
   public async handleUnregisterTool(toolName: string): Promise<boolean> {
