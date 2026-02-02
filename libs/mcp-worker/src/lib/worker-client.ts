@@ -70,6 +70,30 @@ export class WorkerClient {
   // Mutex/promise to prevent concurrent init runs
   private initPromise: Promise<void> | null = null;
 
+  // Initialization state
+  private isInitialized = false;
+  private initResolvers: Array<() => void> = [];
+
+  // Queue for operations that need to wait for initialization
+  private pendingRegistrations: Array<{
+    name: string;
+    description: string;
+    inputSchema: Record<string, unknown>;
+    handler: (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }> = [];
+
+  // Map to store tool handlers in main thread
+  private toolHandlers = new Map<
+    string,
+    (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>
+  >();
+
   // Initialize and choose worker implementation (prefer SharedWorker)
   // Accept either a ServiceWorkerRegistration OR WorkerInitOptions to configure URLs
   public async init(
@@ -144,10 +168,14 @@ export class WorkerClient {
 
         // Try SharedWorker first
         const sharedOk = await this.initSharedWorker();
-        if (sharedOk) return;
+        if (sharedOk) {
+          this.markAsInitialized();
+          return;
+        }
 
         // If SharedWorker isn't supported or failed, use service worker
         await this.initServiceWorkerFallback();
+        this.markAsInitialized();
       } finally {
         // Clear the mutex so future init calls can proceed
         this.initPromise = null;
@@ -157,9 +185,72 @@ export class WorkerClient {
     return this.initPromise;
   }
 
+  /**
+   * Mark worker as initialized and process pending registrations
+   * @private
+   */
+  private markAsInitialized(): void {
+    this.isInitialized = true;
+    logger.log(
+      '[WorkerClient] Worker initialized, processing pending operations',
+    );
+
+    // Notify all waiters
+    this.initResolvers.forEach((resolve) => resolve());
+    this.initResolvers = [];
+
+    // Process pending registrations
+    const pending = [...this.pendingRegistrations];
+    this.pendingRegistrations = [];
+
+    pending.forEach(
+      async ({ name, description, inputSchema, handler, resolve, reject }) => {
+        try {
+          await this.registerToolInternal(
+            name,
+            description,
+            inputSchema,
+            handler,
+          );
+          resolve();
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      },
+    );
+  }
+
+  /**
+   * Wait for worker initialization
+   * @returns Promise that resolves when worker is initialized
+   */
+  public async waitForInit(): Promise<void> {
+    if (this.isInitialized) {
+      return Promise.resolve();
+    }
+
+    // If init is in progress, wait for it
+    if (this.initPromise) {
+      await this.initPromise;
+      return;
+    }
+
+    // Otherwise, create a promise that will resolve when initialized
+    return new Promise<void>((resolve) => {
+      this.initResolvers.push(resolve);
+    });
+  }
+
+  /**
+   * Check if worker is initialized
+   */
+  public get initialized(): boolean {
+    return this.isInitialized;
+  }
+
   private async initSharedWorker(): Promise<boolean> {
     if (typeof SharedWorker === 'undefined') {
-      return false;
+      return Promise.resolve(false);
     }
 
     try {
@@ -170,7 +261,7 @@ export class WorkerClient {
       this.sharedWorkerPort.start();
 
       // We will send INIT (backendUrl + optional token) once the shared worker confirms availability
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<boolean>((resolve, reject) => {
         let resolved = false;
         const timeout = setTimeout(() => {
           if (!resolved) {
@@ -194,7 +285,7 @@ export class WorkerClient {
               resolved = true;
               this.workerType = 'shared';
               p.onmessage = null;
-              resolve();
+              resolve(true);
             }
           } catch {
             // ignore parse/handler errors
@@ -251,6 +342,7 @@ export class WorkerClient {
       }
 
       logger.info('[WorkerClient] Using SharedWorker');
+
       return true;
     } catch (error) {
       logger.warn(
@@ -644,14 +736,6 @@ export class WorkerClient {
     }
   }
 
-  // Map to store tool handlers in main thread
-  private toolHandlers = new Map<
-    string,
-    (
-      args: unknown,
-    ) => Promise<{ content: Array<{ type: string; text: string }> }>
-  >();
-
   /**
    * Register a custom MCP tool dynamically
    *
@@ -701,6 +785,40 @@ export class WorkerClient {
    * ```
    */
   public async registerTool(
+    name: string,
+    description: string,
+    inputSchema: Record<string, unknown>,
+    handler: (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+  ): Promise<void> {
+    // If not initialized, queue the registration
+    if (!this.isInitialized) {
+      logger.log(
+        `[WorkerClient] Queueing tool registration '${name}' (worker not initialized yet)`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        this.pendingRegistrations.push({
+          name,
+          description,
+          inputSchema,
+          handler,
+          resolve,
+          reject,
+        });
+      });
+    }
+
+    // Already initialized - register immediately
+    return this.registerToolInternal(name, description, inputSchema, handler);
+  }
+
+  /**
+   * Internal method to register tool (assumes worker is initialized)
+   * @private
+   */
+  private async registerToolInternal(
     name: string,
     description: string,
     inputSchema: Record<string, unknown>,

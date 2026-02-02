@@ -182,6 +182,14 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
 
     const registrationPromise = (async () => {
       try {
+        // Wait for worker initialization before registering
+        if (!workerClient.initialized) {
+          console.log(
+            `[useMCPTool] Waiting for worker initialization before registering '${name}'`,
+          );
+          await workerClient.waitForInit();
+        }
+
         const existing = toolRegistry.get(name);
 
         if (existing) {

@@ -26,6 +26,15 @@ export class MCPController {
   private requireAuth: boolean;
   private isReconnectingForToken = false;
 
+  // Queue for tool registrations that arrive before MCP server is ready
+  private pendingToolRegistrations: Array<{
+    toolData: Record<string, unknown>;
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }> = [];
+
+  private isMCPServerReady = false;
+
   constructor(
     private backendUrl: string,
     private broadcastFn: BroadcastFn,
@@ -124,6 +133,9 @@ export class MCPController {
             logger.log(
               '[MCPController] MCP Server connected to WebSocket transport',
             );
+
+            this.isMCPServerReady = true;
+            this.processPendingToolRegistrations();
 
             this.startKeepAlive();
             this.broadcastFn({ type: 'CONNECTION_STATUS', connected: true });
@@ -225,7 +237,57 @@ export class MCPController {
     return queryEvents({ limit: 50 });
   }
 
+  /**
+   * Process pending tool registrations after MCP server is ready
+   * @private
+   */
+  private processPendingToolRegistrations(): void {
+    if (this.pendingToolRegistrations.length === 0) return;
+
+    logger.log(
+      `[MCPController] Processing ${this.pendingToolRegistrations.length} pending tool registrations`,
+    );
+
+    const pending = [...this.pendingToolRegistrations];
+    this.pendingToolRegistrations = [];
+
+    pending.forEach(async ({ toolData, resolve, reject }) => {
+      try {
+        await this.handleRegisterToolInternal(toolData);
+        resolve();
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
   public async handleRegisterTool(
+    toolData: Record<string, unknown>,
+  ): Promise<void> {
+    // If MCP server is not ready yet, queue the registration
+    if (!this.isMCPServerReady) {
+      logger.log(
+        `[MCPController] Queueing tool registration '${toolData['name']}' (MCP server not ready yet)`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        this.pendingToolRegistrations.push({
+          toolData,
+          resolve,
+          reject,
+        });
+      });
+    }
+
+    // MCP server is ready - register immediately
+    return this.handleRegisterToolInternal(toolData);
+  }
+
+  /**
+   * Internal method to register tool (assumes MCP server is ready)
+   * @private
+   */
+  private async handleRegisterToolInternal(
     toolData: Record<string, unknown>,
   ): Promise<void> {
     const { toolRegistry } = await import('./mcp-server');
