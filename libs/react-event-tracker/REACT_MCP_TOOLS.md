@@ -1,21 +1,21 @@
-# React MCP Tools - Dokumentace
+# React MCP Tools - Documentation
 
-## 🎯 Přehled
+## 🎯 Overview
 
-React hooks pro snadnou integraci dynamických MCP toolů s automatickou správou lifecycle a reference counting.
+React hooks for seamless integration of dynamic MCP tools with automatic lifecycle management and reference counting.
 
-### Klíčové vlastnosti:
+### Key Features:
 
-- ✅ **Automatická registrace/odregistrace** - při mount/unmount
-- ✅ **Reference counting** - stejný tool může být použit vícekrát
-- ✅ **Re-render safe** - používá refs, neregistruje opakovaně
-- ✅ **Plný přístup** - handler běží v main threadu (React state, props, context)
-- ✅ **Volitelný Context** - funguje s i bez Provider
-- ✅ **TypeScript** - plná type safety
+- ✅ **Automatic registration/unregistration** - on mount/unmount
+- ✅ **Reference counting** - same tool can be used multiple times
+- ✅ **Re-render safe** - uses refs, no duplicate registrations
+- ✅ **Full access** - handler runs in main thread (React state, props, context)
+- ✅ **Optional Context** - works with or without Provider
+- ✅ **TypeScript** - full type safety
 
-## 🚀 Rychlý start
+## 🚀 Quick Start
 
-### Základní použití (bez Context)
+### Basic Usage (without Context)
 
 ```tsx
 import { useMCPTool } from '@mcp-fe/react-event-tracker';
@@ -31,7 +31,7 @@ function MyComponent() {
       properties: {}
     },
     handler: async () => {
-      // Plný přístup k React state/props/hooks!
+      // Full access to React state/props/hooks!
       return {
         content: [{
           type: 'text',
@@ -45,7 +45,7 @@ function MyComponent() {
 }
 ```
 
-### S Context Provider (doporučeno pro větší aplikace)
+### With Context Provider (recommended for larger apps)
 
 ```tsx
 import { MCPToolsProvider, useMCPTool } from '@mcp-fe/react-event-tracker';
@@ -59,7 +59,7 @@ function App() {
   );
 }
 
-// 2. Use hooks v komponentách
+// 2. Use hooks in components
 function MyComponent() {
   useMCPTool({
     name: 'my_tool',
@@ -74,35 +74,35 @@ function MyComponent() {
 
 ### `useMCPTool(options)`
 
-Hlavní hook pro registraci MCP toolů.
+Main hook for registering MCP tools.
 
 **Options:**
 ```typescript
 {
-  name: string;                // Unikátní jméno toolu
-  description: string;          // Popis pro AI
-  inputSchema: object;          // JSON Schema pro vstupy
-  handler: ToolHandler;         // Handler funkce (běží v main threadu!)
-  autoRegister?: boolean;       // Auto-registrace při mount (default: true)
-  autoUnregister?: boolean;     // Auto-odregistrace při unmount (default: true)
+  name: string;                // Unique tool name
+  description: string;          // Description for AI
+  inputSchema: object;          // JSON Schema for inputs
+  handler: ToolHandler;         // Handler function (runs in main thread!)
+  autoRegister?: boolean;       // Auto-register on mount (default: true)
+  autoUnregister?: boolean;     // Auto-unregister on unmount (default: true)
 }
 ```
 
 **Returns:**
 ```typescript
 {
-  isRegistered: boolean;        // Je tool zaregistrovaný?
-  register: () => Promise<void>; // Manuální registrace
-  unregister: () => Promise<void>; // Manuální odregistrace
-  refCount: number;             // Počet komponent používajících tento tool
+  isRegistered: boolean;        // Is tool registered?
+  register: () => Promise<void>; // Manual registration
+  unregister: () => Promise<void>; // Manual unregistration
+  refCount: number;             // Number of components using this tool
 }
 ```
 
-### Helper hooks
+### Helper Hooks
 
 #### `useMCPGetter(name, description, getter)`
 
-Pro jednoduché getter tooly (bez vstupů).
+For simple getter tools (no inputs).
 
 ```tsx
 function UserProfile() {
@@ -118,7 +118,7 @@ function UserProfile() {
 
 #### `useMCPAction(name, description, properties, action)`
 
-Pro action tooly (se vstupy).
+For action tools (with inputs).
 
 ```tsx
 function TodoList() {
@@ -141,7 +141,7 @@ function TodoList() {
 
 #### `useMCPQuery(name, description, properties, query)`
 
-Alias pro `useMCPAction` (sémanticky pro queries).
+Alias for `useMCPAction` (semantically for queries).
 
 ```tsx
 useMCPQuery(
@@ -158,11 +158,161 @@ useMCPQuery(
 );
 ```
 
-## 🔍 Pokročilé použití
+#### `useMCPToolWithInit(toolOptions, initOptions)`
 
-### Reference Counting a Multiple Instances
+Hook that ensures worker client is initialized before registering tool.
 
-Stejný tool může být použit vícekrát - automaticky se počítají reference:
+```tsx
+function MyComponent() {
+  const { isReady, tool } = useMCPToolWithInit(
+    {
+      name: 'my_tool',
+      description: 'My tool',
+      inputSchema: { type: 'object', properties: {} },
+      handler: async () => ({ content: [{ type: 'text', text: 'OK' }] })
+    },
+    { backendWsUrl: 'ws://localhost:3001' }
+  );
+
+  if (!isReady) return <div>Initializing...</div>;
+
+  return <div>Tool registered!</div>;
+}
+```
+
+#### `useMCPToolGroup(prefix, tools, options)` ⚠️ DEPRECATED
+
+**Note:** This hook is deprecated due to React hooks rules. Use individual `useMCPTool` calls instead.
+
+```tsx
+// ❌ DON'T use useMCPToolGroup (deprecated)
+useMCPToolGroup('todo_', {
+  list: { description: 'List todos', handler: async () => ({ ... }) },
+  add: { description: 'Add todo', handler: async () => ({ ... }) }
+});
+
+// ✅ DO use individual hooks instead
+useMCPTool({ name: 'todo_list', description: 'List todos', ... });
+useMCPTool({ name: 'todo_add', description: 'Add todo', ... });
+```
+
+### Utility Functions
+
+#### `isToolRegistered(name: string): boolean`
+
+Check if a tool is registered.
+
+```tsx
+import { isToolRegistered } from '@mcp-fe/react-event-tracker';
+
+if (isToolRegistered('my_tool')) {
+  console.log('Tool is registered');
+}
+```
+
+#### `getRegisteredTools(): string[]`
+
+Get list of all registered tool names.
+
+```tsx
+import { getRegisteredTools } from '@mcp-fe/react-event-tracker';
+
+const tools = getRegisteredTools();
+console.log('Registered tools:', tools);
+```
+
+#### `getToolInfo(name: string): { refCount: number; isRegistered: boolean } | null`
+
+Get info about a specific tool.
+
+```tsx
+import { getToolInfo } from '@mcp-fe/react-event-tracker';
+
+const info = getToolInfo('my_tool');
+console.log('Tool info:', info);
+```
+
+### Context API
+
+#### `MCPToolsProvider`
+
+Optional provider for centralized management and monitoring of MCP tools.
+
+**Props:**
+```typescript
+{
+  children: React.ReactNode;
+  autoInit?: boolean;              // Auto-initialize on mount (default: true)
+  backendWsUrl?: string;           // Backend WebSocket URL
+  initOptions?: WorkerClientInitOptions;
+  onInitialized?: () => void;      // Callback when initialization completes
+  onInitError?: (error: Error) => void; // Callback when initialization fails
+}
+```
+
+**Example:**
+```tsx
+function App() {
+  return (
+    <MCPToolsProvider 
+      backendWsUrl="ws://localhost:3001"
+      onInitialized={() => console.log('MCP Tools ready!')}
+      onInitError={(err) => console.error('Init failed:', err)}
+    >
+      <YourApp />
+    </MCPToolsProvider>
+  );
+}
+```
+
+#### `useMCPToolsContext(strict?: boolean)`
+
+Hook to access MCP Tools context.
+
+**Returns:**
+```typescript
+{
+  isInitialized: boolean;      // Whether the worker client is initialized
+  isConnected: boolean;        // Whether connected to MCP server
+  registeredTools: string[];   // List of currently registered tool names
+  initialize: (options?: WorkerClientInitOptions) => Promise<void>;
+  getConnectionStatus: () => Promise<boolean>;
+}
+```
+
+**Example:**
+```tsx
+function StatusBar() {
+  const { isConnected, registeredTools } = useMCPToolsContext();
+  
+  return (
+    <div>
+      <p>Connected: {isConnected ? 'Yes' : 'No'}</p>
+      <p>Tools: {registeredTools.length}</p>
+    </div>
+  );
+}
+```
+
+#### `useHasMCPProvider(): boolean`
+
+Hook to check if `MCPToolsProvider` is being used.
+
+```tsx
+function MyComponent() {
+  const hasProvider = useHasMCPProvider();
+  
+  if (!hasProvider) {
+    console.log('Running without MCPToolsProvider');
+  }
+}
+```
+
+## 🔍 Advanced Usage
+
+### Reference Counting and Multiple Instances
+
+The same tool can be used multiple times - references are automatically counted:
 
 ```tsx
 // Component A
@@ -176,10 +326,10 @@ function ComponentA() {
   console.log('Ref count:', refCount); // 1
 }
 
-// Component B - STEJNÝ tool!
+// Component B - SAME tool!
 function ComponentB() {
   const { refCount } = useMCPTool({
-    name: 'shared_tool',  // <- stejné jméno
+    name: 'shared_tool',  // <- same name
     description: 'Shared tool',
     inputSchema: { type: 'object', properties: {} },
     handler: async () => ({ content: [{ type: 'text', text: 'B' }] })
@@ -187,13 +337,13 @@ function ComponentB() {
   console.log('Ref count:', refCount); // 2
 }
 
-// Když se ComponentA unmountne, tool zůstane zaregistrovaný
-// (protože ComponentB ho stále používá)
+// When ComponentA unmounts, tool remains registered
+// (because ComponentB is still using it)
 
-// Když se unmountne i ComponentB, tool se odregistruje
+// When ComponentB also unmounts, tool is unregistered
 ```
 
-### Manuální kontrola registrace
+### Manual Registration Control
 
 ```tsx
 function AdminPanel() {
@@ -204,7 +354,7 @@ function AdminPanel() {
     description: 'Admin-only action',
     inputSchema: { type: 'object', properties: {} },
     handler: async () => ({ content: [{ type: 'text', text: 'Done' }] }),
-    autoRegister: false  // ← neregistrovat automaticky
+    autoRegister: false  // ← don't auto-register
   });
   
   useEffect(() => {
@@ -225,9 +375,9 @@ function AdminPanel() {
 }
 ```
 
-### Handler s plným přístupem k React
+### Handler with Full React Access
 
-Handler funkce běží v **main threadu**, takže má plný přístup:
+Handler function runs in **main thread**, so it has full access:
 
 ```tsx
 function ShoppingCart() {
@@ -243,7 +393,7 @@ function ShoppingCart() {
       quantity: { type: 'number' }
     },
     async (args: { productId: string; quantity: number }) => {
-      // ✅ Přístup k React state
+      // ✅ Access to React state
       const newItem = {
         productId: args.productId,
         quantity: args.quantity,
@@ -251,14 +401,14 @@ function ShoppingCart() {
       };
       setItems([...items, newItem]);
       
-      // ✅ Přístup k React context
+      // ✅ Access to React context
       console.log('Current user:', user.name);
       console.log('Theme:', theme.mode);
       
-      // ✅ Přístup k localStorage
+      // ✅ Access to localStorage
       localStorage.setItem('lastAdded', args.productId);
       
-      // ✅ Přístup k DOM
+      // ✅ Access to DOM
       document.title = `Cart (${items.length + 1})`;
       
       return {
@@ -271,7 +421,7 @@ function ShoppingCart() {
 }
 ```
 
-### Persistent tools (neodregistrovat při unmount)
+### Persistent Tools (don't unregister on unmount)
 
 ```tsx
 function GlobalSettings() {
@@ -285,12 +435,12 @@ function GlobalSettings() {
         text: JSON.stringify({ version: '1.0.0' })
       }]
     }),
-    autoUnregister: false  // ← zůstane i po unmount!
+    autoUnregister: false  // ← persists even after unmount!
   });
 }
 ```
 
-### S Zod validací
+### With Zod Validation
 
 ```tsx
 import { z } from 'zod';
@@ -305,7 +455,7 @@ function UserForm() {
       age: { type: 'number' }
     },
     async (args: unknown) => {
-      // Validace pomocí Zod
+      // Validation with Zod
       const schema = z.object({
         username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/),
         email: z.string().email(),
@@ -315,7 +465,7 @@ function UserForm() {
       try {
         const validated = schema.parse(args);
         
-        // Vytvoření uživatele
+        // Create user
         const user = await createUser(validated);
         
         return { success: true, user };
@@ -336,7 +486,7 @@ function UserForm() {
 }
 ```
 
-## 🏗️ Architektura
+## 🏗️ Architecture
 
 ### Reference Counting Flow
 
@@ -353,7 +503,7 @@ toolRegistry.set('my_tool', { refCount: 1 })
 
 ---
 
-Component B mounts (STEJNÝ tool!)
+Component B mounts (SAME tool!)
   ↓
 useMCPTool('my_tool')
   ↓
@@ -361,7 +511,7 @@ toolRegistry.get('my_tool') === { refCount: 1 }
   ↓
 Increment: toolRegistry.set('my_tool', { refCount: 2 })
   ↓
-SKIP workerClient.registerTool() (už je zaregistrovaný)
+SKIP workerClient.registerTool() (already registered)
 
 ---
 
@@ -389,16 +539,16 @@ Component renders with new handler
   ↓
 useMCPTool({ handler: newHandler })
   ↓
-handlerRef.current = newHandler  ← aktualizace ref
+handlerRef.current = newHandler  ← update ref
   ↓
-stableHandler zůstává stabilní
+stableHandler remains stable
   ↓
-Na další CALL_TOOL se použije newHandler
+Next CALL_TOOL uses newHandler
 ```
 
-Handler je automaticky aktualizován bez re-registrace!
+Handler is automatically updated without re-registration!
 
-## 🎨 Příklady use-cases
+## 🎨 Use Cases Examples
 
 ### 1. Todo List Manager
 
@@ -497,53 +647,53 @@ function DataFetcher() {
 
 ## 🐛 Troubleshooting
 
-### Tool se registruje vícekrát
+### Tool registers multiple times
 
-**Problém:** Handler se volá při každém re-renderu
+**Problem:** Handler is called on every re-render
 
-**Řešení:** Hook automaticky používá refs - to by se nemělo stát. Zkontrolujte console pro `[useMCPTool]` logy.
+**Solution:** Hook automatically uses refs - this shouldn't happen. Check console for `[useMCPTool]` logs.
 
-### Handler nemá aktuální state
+### Handler doesn't have current state
 
-**Problém:** Handler používá starý state
+**Problem:** Handler uses stale state
 
-**Řešení:** Hook automaticky aktualizuje handler ref. Ujistěte se, že používáte nejnovější verzi.
+**Solution:** Hook automatically updates handler ref. Make sure you're using the latest version.
 
-### Tool se neodregistruje
+### Tool doesn't unregister
 
-**Problém:** Tool zůstává i po unmount všech komponent
+**Problem:** Tool remains even after all components unmount
 
-**Řešení:** Zkontrolujte `autoUnregister: true` (default). Nebo explicitně volejte `unregister()`.
+**Solution:** Check `autoUnregister: true` (default). Or explicitly call `unregister()`.
 
-### Context chyba
+### Context error
 
-**Chyba:** `useMCPToolsContext must be used within MCPToolsProvider`
+**Error:** `useMCPToolsContext must be used within MCPToolsProvider`
 
-**Řešení:** Buď přidejte `<MCPToolsProvider>` nebo použijte `useMCPToolsContext(false)` (non-strict mode).
+**Solution:** Either add `<MCPToolsProvider>` or use `useMCPToolsContext(false)` (non-strict mode).
 
 ## 📝 Best Practices
 
-1. **Pojmenování toolů:** Používejte snake_case (`get_user_profile`, ne `getUserProfile`)
-2. **Descriptions:** Buďte konkrétní - AI používá popis k rozhodování
-3. **Validation:** Vždy validujte vstupy (Zod, JSON Schema)
-4. **Error handling:** Vracej užitečné error messages
-5. **Reference counting:** Nechejte hook spravovat lifecycle automaticky
-6. **Context:** Používejte Provider pro větší aplikace, není nutný pro malé
+1. **Tool naming:** Use snake_case (`get_user_profile`, not `getUserProfile`)
+2. **Descriptions:** Be specific - AI uses description to make decisions
+3. **Validation:** Always validate inputs (Zod, JSON Schema)
+4. **Error handling:** Return useful error messages
+5. **Reference counting:** Let the hook manage lifecycle automatically
+6. **Context:** Use Provider for larger apps, not needed for small ones
 
-## 🚀 Migration z WorkerClient
+## 🚀 Migration from WorkerClient
 
-**Před (manuální):**
+**Before (manual):**
 ```tsx
 const client = new WorkerClient();
 await client.init();
 await client.registerTool(/* ... */);
-// Manuální cleanup
+// Manual cleanup
 useEffect(() => {
   return () => client.unregisterTool('my_tool');
 }, []);
 ```
 
-**Po (s hookem):**
+**After (with hook):**
 ```tsx
 useMCPTool({
   name: 'my_tool',
@@ -551,5 +701,5 @@ useMCPTool({
   inputSchema: {},
   handler: async () => ({ content: [{ type: 'text', text: 'OK' }] })
 });
-// Automatický cleanup! 🎉
+// Automatic cleanup! 🎉
 ```
