@@ -1,6 +1,7 @@
 const { NxAppRspackPlugin } = require('@nx/rspack/app-plugin');
 const { NxReactRspackPlugin } = require('@nx/rspack/react-plugin');
 const { join } = require('path');
+const rspack = require('@rspack/core');
 
 module.exports = {
   output: {
@@ -20,6 +21,12 @@ module.exports = {
     },
   },
   plugins: [
+    new rspack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(
+        process.env.NODE_ENV || 'development',
+      ),
+      'process.env.MCP_DEBUG': JSON.stringify(process.env.MCP_DEBUG || ''),
+    }),
     new NxAppRspackPlugin({
       tsConfig: './tsconfig.app.json',
       main: './src/main.tsx',

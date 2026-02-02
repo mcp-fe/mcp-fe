@@ -9,25 +9,38 @@ import {
   type WorkerClientInitOptions,
 } from '@mcp-fe/event-tracker';
 
-export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOptions): { setAuthToken: (token: string) => void } {
+export function useTanstackRouterEventTracker(
+  initOptions?: WorkerClientInitOptions,
+): { setAuthToken: (token: string) => void } {
   const location = useLocation();
   const [isInitialized, setIsInitialized] = useState(false);
+  const hasInitialized = useRef(false);
 
   const currentPathRef = useRef(location.pathname);
   const prevPathRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (currentPathRef.current !== location.pathname) {
-      prevPathRef.current = currentPathRef.current;
-      currentPathRef.current = location.pathname;
-    }
+    prevPathRef.current = currentPathRef.current;
+    currentPathRef.current = location.pathname;
   }, [location.pathname]);
 
   useEffect(() => {
+    // Protect against double-invocation
+    if (hasInitialized.current) {
+      return;
+    }
+
+    hasInitialized.current = true;
+
     initEventTracker(initOptions)
-      .then(() => setIsInitialized(true))
+      .then(() => {
+        setIsInitialized(true);
+      })
       .catch((error) => {
-        console.error('Worker initialization failed:', error);
+        console.error(
+          '[TanstackEventTracker] Worker initialization failed:',
+          error,
+        );
       });
   }, [initOptions]);
 
@@ -39,7 +52,10 @@ export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOpti
 
     if (prevPath && prevPath !== currentPath) {
       trackNavigation(prevPath, currentPath, currentPath).catch((error) => {
-        console.error('Failed to track navigation:', error);
+        console.error(
+          '[TanstackEventTracker] Failed to track navigation:',
+          error,
+        );
       });
     }
   }, [location.pathname, isInitialized]);
@@ -59,7 +75,7 @@ export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOpti
 
       if (!isInteractive) {
         trackClick(target, currentPathRef.current).catch((error) => {
-          console.error('Failed to track click:', error);
+          console.error('[TanstackEventTracker] Failed to track click:', error);
         });
       }
     };
@@ -83,10 +99,13 @@ export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOpti
         timeoutId = setTimeout(() => {
           trackInput(target, target.value, currentPathRef.current).catch(
             (error) => {
-              console.error('Failed to track input:', error);
+              console.error(
+                '[TanstackEventTracker] Failed to track input:',
+                error,
+              );
             },
           );
-        }, 1000);
+        }, 1000); // Debounce by 1 second
       }
     };
 
@@ -99,5 +118,5 @@ export function useTanstackRouterEventTracker(initOptions?: WorkerClientInitOpti
 
   return {
     setAuthToken,
-  }
+  };
 }

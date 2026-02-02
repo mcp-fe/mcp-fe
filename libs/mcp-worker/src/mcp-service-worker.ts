@@ -9,6 +9,7 @@ declare const self: ServiceWorkerGlobalScope;
 
 import type { UserEvent } from './lib/database';
 import { MCPController } from './lib/mcp-controller';
+import { logger } from './lib/logger';
 
 // Controller is only created after INIT with backendUrl. Client must send INIT.
 let controller: MCPController | null = null;
@@ -28,11 +29,11 @@ const setBackendUrl = (url: string) => {
         try {
           client.postMessage(message);
         } catch (e) {
-          console.error('[ServiceWorker] Failed to post message to client:', e);
+          logger.error('[ServiceWorker] Failed to post message to client:', e);
         }
       });
     }).catch((err) => {
-      console.error('[ServiceWorker] Failed to match clients for broadcast:', err);
+      logger.error('[ServiceWorker] Failed to match clients for broadcast:', err);
     });
   });
   return controller;
@@ -47,7 +48,7 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
   if (msg['type'] === 'INIT') {
     const url = msg['backendUrl'] as string | undefined;
     if (!url) {
-      console.error('[ServiceWorker] INIT missing backendUrl');
+      logger.error('[ServiceWorker] INIT missing backendUrl');
       return;
     }
     try {
@@ -61,7 +62,7 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
         pendingToken = null;
       }
     } catch (e) {
-      console.error('[ServiceWorker] Failed to apply INIT:', e);
+      logger.error('[ServiceWorker] Failed to apply INIT:', e);
     }
     return;
   }
@@ -77,7 +78,7 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
         pendingToken = token;
       }
     } catch (e) {
-      console.error('[ServiceWorker] Failed to set auth token:', e);
+      logger.error('[ServiceWorker] Failed to set auth token:', e);
     }
     return;
   }
