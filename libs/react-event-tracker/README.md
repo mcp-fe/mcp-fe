@@ -1,18 +1,26 @@
 # @mcp-fe/react-event-tracker
 
-React integration for the MCP-FE (Model Context Protocol - Frontend Edge) ecosystem. This library provides React hooks that automatically track user interactions and navigation events, making them available to AI agents through the MCP protocol.
+React hooks for automatic tracking of user interactions and navigation events in React Router and TanStack Router applications.
 
-## Overview
+## 📦 Overview
 
-`@mcp-fe/react-event-tracker` is a React-specific integration layer that simplifies the process of tracking user interactions in React applications. It works in conjunction with [`@mcp-fe/mcp-worker`](../mcp-worker/README.md) to provide a complete MCP-FE solution for React apps.
+`@mcp-fe/react-event-tracker` provides specialized React hooks that automatically track navigation events in React applications. It works in conjunction with [`@mcp-fe/mcp-worker`](../mcp-worker/README.md) to provide a complete MCP-FE solution.
+
+> **Note**: For MCP Tools integration (dynamic tool registration, handlers, etc.), please use [`@mcp-fe/react`](../react/README.md) instead. This package is specifically focused on event tracking.
 
 ### Key Features
 
-- **Automatic Navigation Tracking**: Tracks route changes in React Router and TanStack Router applications
+- **Automatic Navigation Tracking**: Tracks route changes in React Router and TanStack Router
 - **User Interaction Tracking**: Automatically tracks clicks, input changes, and other user interactions
 - **Zero Configuration**: Works out-of-the-box with minimal setup
 - **Authentication Support**: Built-in support for setting authentication tokens
 - **Framework Agnostic Core**: Built on top of [`@mcp-fe/event-tracker`](../event-tracker/README.md)
+
+## 📚 Related Packages
+
+- **[`@mcp-fe/react`](../react/README.md)** - MCP Tools hooks and components for React (useMCPTool, MCPToolsProvider, etc.)
+- **[`@mcp-fe/event-tracker`](../event-tracker/README.md)** - Core event tracking functionality
+- **[`@mcp-fe/mcp-worker`](../mcp-worker/README.md)** - Worker-based MCP client implementation
 
 ## Installation
 

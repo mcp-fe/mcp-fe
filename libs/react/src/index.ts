@@ -13,7 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-// Event tracking hooks
-export * from './hooks/useTanstackRouterEventTracker';
-export * from './hooks/useReactRouterEventTracker';
+// MCP Tools hooks
+export {
+  useMCPTool,
+  isToolRegistered,
+  getRegisteredTools,
+  getToolInfo,
+} from './hooks/useMCPTool';
+export type { UseMCPToolOptions, UseMCPToolResult } from './hooks/useMCPTool';
+// MCP Tool helper hooks
+export {
+  useMCPGetter,
+  useMCPAction,
+  useMCPQuery,
+} from './hooks/useMCPToolHelpers';
+// MCP Tools Context (optional)
+export {
+  MCPToolsProvider,
+  useMCPToolsContext,
+  useHasMCPProvider,
+} from './context/MCPToolsContext';
+export type { MCPToolsProviderProps } from './context/MCPToolsContext';

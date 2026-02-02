@@ -1,4 +1,4 @@
-import { useMCPTool } from '@mcp-fe/react-event-tracker';
+import { useMCPTool } from '@mcp-fe/react';
 import { User } from '../types';
 
 interface UseTableStatsTool {
