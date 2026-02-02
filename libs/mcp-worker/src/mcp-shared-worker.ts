@@ -155,7 +155,115 @@ self.onconnect = (event: MessageEvent) => {
       return;
     }
 
-    if (messageData.type === 'STORE_EVENT') {
+    if (messageData.type === 'REGISTER_TOOL') {
+      const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
+      try {
+        if (!backendUrl || !controller) {
+          try {
+            replyPort.postMessage({
+              success: false,
+              error: 'Worker not initialized',
+            });
+          } catch (e: unknown) {
+            logger.debug(
+              '[SharedWorker] Failed to post uninitialized error for REGISTER_TOOL:',
+              e,
+            );
+          }
+          return;
+        }
+        const toolData = messageData as Record<string, unknown>;
+        await getController().handleRegisterTool(toolData);
+        try {
+          replyPort.postMessage({ success: true });
+        } catch (e: unknown) {
+          logger.debug(
+            '[SharedWorker] Failed to post REGISTER_TOOL success to port:',
+            e,
+          );
+        }
+      } catch (error: unknown) {
+        try {
+          replyPort.postMessage({
+            success: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to register tool',
+          });
+        } catch (e: unknown) {
+          logger.error(
+            '[SharedWorker] Failed to post REGISTER_TOOL failure to port:',
+            e,
+          );
+        }
+      }
+      return;
+    }
+
+    if (messageData.type === 'UNREGISTER_TOOL') {
+      const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
+      try {
+        if (!backendUrl || !controller) {
+          try {
+            replyPort.postMessage({
+              success: false,
+              error: 'Worker not initialized',
+            });
+          } catch (e: unknown) {
+            logger.debug(
+              '[SharedWorker] Failed to post uninitialized error for UNREGISTER_TOOL:',
+              e,
+            );
+          }
+          return;
+        }
+        const toolName = (messageData as Record<string, unknown>)['name'] as
+          | string
+          | undefined;
+        if (!toolName) {
+          try {
+            replyPort.postMessage({
+              success: false,
+              error: 'Tool name is required',
+            });
+          } catch (e: unknown) {
+            logger.debug(
+              '[SharedWorker] Failed to post missing name error for UNREGISTER_TOOL:',
+              e,
+            );
+          }
+          return;
+        }
+        const success = await getController().handleUnregisterTool(toolName);
+        try {
+          replyPort.postMessage({ success });
+        } catch (e: unknown) {
+          logger.debug(
+            '[SharedWorker] Failed to post UNREGISTER_TOOL result to port:',
+            e,
+          );
+        }
+      } catch (error: unknown) {
+        try {
+          replyPort.postMessage({
+            success: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to unregister tool',
+          });
+        } catch (e: unknown) {
+          logger.error(
+            '[SharedWorker] Failed to post UNREGISTER_TOOL failure to port:',
+            e,
+          );
+        }
+      }
+      return;
+    }
+
+    if (messageData.type === 'GET_EVENTS') {
       // Reply via MessageChannel port if provided (for request/response pattern)
       const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
       try {

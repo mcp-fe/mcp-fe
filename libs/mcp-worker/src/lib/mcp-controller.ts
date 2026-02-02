@@ -1,9 +1,10 @@
-/* eslint-disable no-restricted-globals */
 /**
  * MCP Controller
  *
  * Encapsulates the shared WebSocket / MCP server / storage logic used by
  * both SharedWorker and ServiceWorker implementations.
+ *
+ * Supports dynamic tool registration via handleRegisterTool and handleUnregisterTool.
  */
 
 import { storeEvent, queryEvents, UserEvent } from './database';
@@ -222,6 +223,53 @@ export class MCPController {
 
   public async handleGetEvents(): Promise<ReturnType<typeof queryEvents>> {
     return queryEvents({ limit: 50 });
+  }
+
+  public async handleRegisterTool(
+    toolData: Record<string, unknown>,
+  ): Promise<void> {
+    const { toolRegistry } = await import('./mcp-server');
+
+    const name = toolData['name'] as string;
+    const description = toolData['description'] as string;
+    const inputSchema = toolData['inputSchema'] as Record<string, unknown>;
+    const handlerCode = toolData['handler'] as string;
+
+    if (!name || !description || !inputSchema || !handlerCode) {
+      throw new Error(
+        'Missing required tool fields: name, description, inputSchema, handler',
+      );
+    }
+
+    // Create a handler function from the provided code
+    // The handler code should be a string that evaluates to an async function
+    const handler = new Function('args', `return (${handlerCode})(args)`) as (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+
+    toolRegistry.register(
+      {
+        name,
+        description,
+        inputSchema,
+      },
+      handler,
+    );
+
+    logger.log(`[MCPController] Registered tool: ${name}`);
+  }
+
+  public async handleUnregisterTool(toolName: string): Promise<boolean> {
+    const { toolRegistry } = await import('./mcp-server');
+    const success = toolRegistry.unregister(toolName);
+
+    if (success) {
+      logger.log(`[MCPController] Unregistered tool: ${toolName}`);
+    } else {
+      logger.log(`[MCPController] Tool not found: ${toolName}`);
+    }
+
+    return success;
   }
 
   public getConnectionStatus(): boolean {

@@ -24,17 +24,26 @@ const setBackendUrl = (url: string) => {
   backendUrl = url;
   controller = null;
   controller = MCPController.create(url, (message: unknown) => {
-    self.clients.matchAll().then((clients) => {
-      clients.forEach((client) => {
-        try {
-          client.postMessage(message);
-        } catch (e) {
-          logger.error('[ServiceWorker] Failed to post message to client:', e);
-        }
+    self.clients
+      .matchAll()
+      .then((clients) => {
+        clients.forEach((client) => {
+          try {
+            client.postMessage(message);
+          } catch (e) {
+            logger.error(
+              '[ServiceWorker] Failed to post message to client:',
+              e,
+            );
+          }
+        });
+      })
+      .catch((err) => {
+        logger.error(
+          '[ServiceWorker] Failed to match clients for broadcast:',
+          err,
+        );
       });
-    }).catch((err) => {
-      logger.error('[ServiceWorker] Failed to match clients for broadcast:', err);
-    });
   });
   return controller;
 };
@@ -84,59 +93,164 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
   }
 
   if (msg['type'] === 'STORE_EVENT') {
-    event.waitUntil((async () => {
-      try {
-        if (!backendUrl || !controller) {
-          if (event.ports && event.ports[0]) {
-            event.ports[0].postMessage({ success: false, error: 'Worker not initialized' });
+    event.waitUntil(
+      (async () => {
+        try {
+          if (!backendUrl || !controller) {
+            if (event.ports && event.ports[0]) {
+              event.ports[0].postMessage({
+                success: false,
+                error: 'Worker not initialized',
+              });
+            }
+            return;
           }
-          return;
-        }
-        const userEvent = event.data.event as UserEvent;
-        await getController().handleStoreEvent(userEvent);
+          const userEvent = event.data.event as UserEvent;
+          await getController().handleStoreEvent(userEvent);
 
-        if (event.ports && event.ports[0]) {
-          event.ports[0].postMessage({ success: true });
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success: true });
+          }
+        } catch (error) {
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Worker not initialized',
+            });
+          }
         }
-      } catch (error) {
-        if (event.ports && event.ports[0]) {
-          event.ports[0].postMessage({ success: false, error: error instanceof Error ? error.message : 'Worker not initialized' });
-        }
-      }
-    })());
+      })(),
+    );
     return;
   }
 
   if (msg['type'] === 'GET_EVENTS') {
-    event.waitUntil((async () => {
-      try {
-        if (!backendUrl || !controller) {
-          if (event.ports && event.ports[0]) {
-            event.ports[0].postMessage({ success: false, error: 'Worker not initialized' });
+    event.waitUntil(
+      (async () => {
+        try {
+          if (!backendUrl || !controller) {
+            if (event.ports && event.ports[0]) {
+              event.ports[0].postMessage({
+                success: false,
+                error: 'Worker not initialized',
+              });
+            }
+            return;
           }
-          return;
+          const events = await getController().handleGetEvents();
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success: true, events });
+          }
+        } catch (error) {
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Worker not initialized',
+            });
+          }
         }
-        const events = await getController().handleGetEvents();
-        if (event.ports && event.ports[0]) {
-          event.ports[0].postMessage({ success: true, events });
-        }
-      } catch (error) {
-        if (event.ports && event.ports[0]) {
-          event.ports[0].postMessage({ success: false, error: error instanceof Error ? error.message : 'Worker not initialized' });
-        }
-      }
-    })());
+      })(),
+    );
     return;
   }
 
   if (msg['type'] === 'GET_CONNECTION_STATUS') {
     if (event.ports && event.ports[0]) {
       if (!backendUrl || !controller) {
-        event.ports[0].postMessage({ success: false, error: 'Worker not initialized' });
+        event.ports[0].postMessage({
+          success: false,
+          error: 'Worker not initialized',
+        });
       } else {
-        event.ports[0].postMessage({ success: true, connected: getController().getConnectionStatus() });
+        event.ports[0].postMessage({
+          success: true,
+          connected: getController().getConnectionStatus(),
+        });
       }
     }
+    return;
+  }
+
+  if (msg['type'] === 'REGISTER_TOOL') {
+    event.waitUntil(
+      (async () => {
+        try {
+          if (!backendUrl || !controller) {
+            if (event.ports && event.ports[0]) {
+              event.ports[0].postMessage({
+                success: false,
+                error: 'Worker not initialized',
+              });
+            }
+            return;
+          }
+          const toolData = msg as Record<string, unknown>;
+          await getController().handleRegisterTool(toolData);
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success: true });
+          }
+        } catch (error) {
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to register tool',
+            });
+          }
+        }
+      })(),
+    );
+    return;
+  }
+
+  if (msg['type'] === 'UNREGISTER_TOOL') {
+    event.waitUntil(
+      (async () => {
+        try {
+          if (!backendUrl || !controller) {
+            if (event.ports && event.ports[0]) {
+              event.ports[0].postMessage({
+                success: false,
+                error: 'Worker not initialized',
+              });
+            }
+            return;
+          }
+          const toolName = msg['name'] as string | undefined;
+          if (!toolName) {
+            if (event.ports && event.ports[0]) {
+              event.ports[0].postMessage({
+                success: false,
+                error: 'Tool name is required',
+              });
+            }
+            return;
+          }
+          const success = await getController().handleUnregisterTool(toolName);
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success });
+          }
+        } catch (error) {
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to unregister tool',
+            });
+          }
+        }
+      })(),
+    );
     return;
   }
 });
@@ -150,7 +264,5 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
   // Do not automatically start the WebSocket connection here.
   // If a client intends to use the service worker it will send messages
   // (e.g. SET_AUTH_TOKEN) and the controller will connect on demand.
-  event.waitUntil(
-    Promise.resolve(self.clients.claim())
-  );
+  event.waitUntil(Promise.resolve(self.clients.claim()));
 });

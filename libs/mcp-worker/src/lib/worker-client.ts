@@ -532,7 +532,7 @@ export class WorkerClient {
           token,
         });
       } catch (e) {
-        logger.error(
+        console.error(
           '[WorkerClient] Failed to send auth token to ServiceWorker:',
           e,
         );
@@ -547,7 +547,7 @@ export class WorkerClient {
           token,
         });
       } catch (e) {
-        logger.error(
+        console.error(
           '[WorkerClient] Failed to send auth token to ServiceWorker.controller:',
           e,
         );
@@ -601,5 +601,45 @@ export class WorkerClient {
     } else {
       // queued and will be sent when init finishes
     }
+  }
+
+  /**
+   * Register a custom MCP tool dynamically
+   * @param name - Tool name
+   * @param description - Tool description
+   * @param inputSchema - JSON Schema for tool inputs
+   * @param handler - Async function that handles the tool execution
+   * @returns Promise that resolves when tool is registered
+   */
+  public async registerTool(
+    name: string,
+    description: string,
+    inputSchema: Record<string, unknown>,
+    handler: (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+  ): Promise<void> {
+    // Convert handler to string that can be sent to worker
+    const handlerCode = handler.toString();
+
+    await this.request('REGISTER_TOOL', {
+      name,
+      description,
+      inputSchema,
+      handler: handlerCode,
+    });
+  }
+
+  /**
+   * Unregister a previously registered MCP tool
+   * @param name - Tool name to unregister
+   * @returns Promise that resolves to true if tool was found and removed
+   */
+  public async unregisterTool(name: string): Promise<boolean> {
+    const result = await this.request<{ success?: boolean }>(
+      'UNREGISTER_TOOL',
+      { name },
+    );
+    return result?.success ?? false;
   }
 }

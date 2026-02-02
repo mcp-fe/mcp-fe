@@ -16,8 +16,16 @@
 
 import { WorkerClient } from './lib/worker-client';
 
-export { type WorkerClientInitOptions } from './lib/worker-client';
+export {
+  WorkerClient,
+  type WorkerClientInitOptions,
+} from './lib/worker-client';
 export { queryEvents, type UserEvent } from './lib/database';
+export {
+  type ToolDefinition,
+  type ToolHandler,
+  toolRegistry,
+} from './lib/mcp-server';
 export { logger } from './lib/logger';
 
 // WorkerClient global singleton
