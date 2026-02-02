@@ -287,7 +287,7 @@ self.onconnect = (event: MessageEvent) => {
       return;
     }
 
-    if (messageData.type === 'GET_EVENTS') {
+    if (messageData.type === 'STORE_EVENT') {
       // Reply via MessageChannel port if provided (for request/response pattern)
       const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
       try {
