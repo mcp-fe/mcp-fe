@@ -32,7 +32,6 @@ export {
   useMCPGetter,
   useMCPAction,
   useMCPQuery,
-  useMCPToolGroup,
   useMCPToolWithInit,
 } from './hooks/useMCPToolHelpers';
 

@@ -162,36 +162,6 @@ export function useMCPQuery<TArgs = unknown, TResult = unknown>(
 }
 
 /**
- * Hook for creating multiple related tools at once
- *
- * NOTE: This is a placeholder. Due to React hooks rules, we can't dynamically
- * create hooks in a loop. Use individual useMCPTool calls instead.
- *
- * @deprecated Use individual useMCPTool calls for each tool
- */
-export function useMCPToolGroup(
-  _prefix: string,
-  _tools: Record<
-    string,
-    {
-      description: string;
-      properties?: Record<string, unknown>;
-      required?: string[];
-      handler: (args: unknown) => unknown | Promise<unknown>;
-    }
-  >,
-  _options?: Partial<
-    Omit<UseMCPToolOptions, 'name' | 'description' | 'handler' | 'inputSchema'>
-  >,
-): Record<string, never> {
-  // Can't implement this properly due to hooks rules
-  console.warn(
-    '[useMCPToolGroup] This hook is deprecated. Use individual useMCPTool calls instead.',
-  );
-  return {};
-}
-
-/**
  * Hook that ensures worker client is initialized before registering tool
  *
  * @example

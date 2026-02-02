@@ -180,21 +180,6 @@ function MyComponent() {
 }
 ```
 
-#### `useMCPToolGroup(prefix, tools, options)` ⚠️ DEPRECATED
-
-**Note:** This hook is deprecated due to React hooks rules. Use individual `useMCPTool` calls instead.
-
-```tsx
-// ❌ DON'T use useMCPToolGroup (deprecated)
-useMCPToolGroup('todo_', {
-  list: { description: 'List todos', handler: async () => ({ ... }) },
-  add: { description: 'Add todo', handler: async () => ({ ... }) }
-});
-
-// ✅ DO use individual hooks instead
-useMCPTool({ name: 'todo_list', description: 'List todos', ... });
-useMCPTool({ name: 'todo_add', description: 'Add todo', ... });
-```
 
 ### Utility Functions
 
