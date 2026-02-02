@@ -1,13 +1,37 @@
 /**
- * Příklad použití dynamické registrace MCP toolů
+ * Dynamic MCP Tool Registration Examples
  *
- * Tento soubor demonstruje, jak registrovat vlastní MCP tooly
- * z klientské aplikace bez modifikace worker kódu.
+ * This file demonstrates advanced patterns for registering custom MCP tools
+ * from your client application without modifying worker code.
+ *
+ * Examples included:
+ * 1. Simple tool without parameters (get_current_time)
+ * 2. Tool with parameters and validation (calculate)
+ * 3. Tool with async operations (get_weather with fetch)
+ * 4. Tool with inline validation (create_user)
+ *
+ * Key Features Demonstrated:
+ * - Full access to browser APIs (fetch, Date, etc.)
+ * - Parameter validation and error handling
+ * - Async operations and external API calls
+ * - Custom validation logic
+ * - Proper error responses
+ *
+ * Related Files:
+ * - quick-start-example.ts - Simpler ready-to-use examples
+ * - ../docs/guide.md - Complete documentation
+ * - ../docs/architecture.md - Architecture details
+ *
+ * @see {@link https://github.com/your-org/mcp-fe/blob/main/libs/mcp-worker/docs/guide.md}
  */
 
-import { WorkerClient } from '@mcp-fe/mcp-worker';
+// Note: When using in your app, import from the package:
+// import { workerClient } from '@mcp-fe/mcp-worker';
+//
+// This example uses direct import for demonstration:
+import { WorkerClient } from '../src/lib/worker-client';
 
-// Inicializace worker clienta
+// Initialize the worker client
 async function initializeWorkerClient() {
   const client = new WorkerClient();
 
@@ -18,7 +42,8 @@ async function initializeWorkerClient() {
   return client;
 }
 
-// Příklad 1: Jednoduchý tool bez parametrů
+// Example 1: Simple tool without parameters
+// Demonstrates basic tool structure and JSON response
 async function registerSimpleTool(client: WorkerClient) {
   await client.registerTool(
     'get_current_time',
@@ -49,7 +74,8 @@ async function registerSimpleTool(client: WorkerClient) {
   console.log('✓ Registered tool: get_current_time');
 }
 
-// Příklad 2: Tool s parametry
+// Example 2: Tool with parameters
+// Demonstrates input validation and error handling
 async function registerCalculatorTool(client: WorkerClient) {
   await client.registerTool(
     'calculate',
@@ -134,7 +160,8 @@ async function registerCalculatorTool(client: WorkerClient) {
   console.log('✓ Registered tool: calculate');
 }
 
-// Příklad 3: Tool s async operací (fetch)
+// Example 3: Tool with async operations (fetch)
+// Demonstrates HTTP requests and external API integration
 async function registerWeatherTool(client: WorkerClient) {
   await client.registerTool(
     'get_weather',
@@ -153,7 +180,7 @@ async function registerWeatherTool(client: WorkerClient) {
       const { city } = args;
 
       try {
-        // Poznámka: V reálném použití byste použili správné API
+        // Note: In real usage, you would use a proper API key
         const response = await fetch(
           `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=YOUR_API_KEY`,
         );
@@ -206,7 +233,8 @@ async function registerWeatherTool(client: WorkerClient) {
   console.log('✓ Registered tool: get_weather');
 }
 
-// Příklad 4: Tool s validací pomocí inline validace
+// Example 4: Tool with inline validation
+// Demonstrates custom validation logic and error accumulation
 async function registerUserTool(client: WorkerClient) {
   await client.registerTool(
     'create_user',
@@ -237,7 +265,7 @@ async function registerUserTool(client: WorkerClient) {
     async (args: any) => {
       const { username, email, age } = args;
 
-      // Dodatečná validace
+      // Additional custom validation
       const errors: string[] = [];
 
       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
@@ -272,7 +300,7 @@ async function registerUserTool(client: WorkerClient) {
         };
       }
 
-      // Simulace vytvoření uživatele
+      // Simulate user creation
       const userId = Math.random().toString(36).substring(7);
 
       return {
@@ -302,7 +330,7 @@ async function registerUserTool(client: WorkerClient) {
   console.log('✓ Registered tool: create_user');
 }
 
-// Odregistrace toolu
+// Unregister a tool
 async function unregisterTool(client: WorkerClient, toolName: string) {
   const success = await client.unregisterTool(toolName);
 
@@ -315,15 +343,15 @@ async function unregisterTool(client: WorkerClient, toolName: string) {
   return success;
 }
 
-// Hlavní funkce pro demonstraci
+// Main function for demonstration
 async function main() {
   console.log('🚀 Starting MCP Dynamic Tools Example...\n');
 
-  // 1. Inicializace
+  // 1. Initialize
   const client = await initializeWorkerClient();
   console.log('✓ Worker client initialized\n');
 
-  // 2. Registrace toolů
+  // 2. Register tools
   console.log('Registering tools...');
   await registerSimpleTool(client);
   await registerCalculatorTool(client);
@@ -331,15 +359,15 @@ async function main() {
   await registerUserTool(client);
   console.log('\n✓ All tools registered successfully!\n');
 
-  // 3. Čekání (tooly jsou nyní dostupné přes MCP protokol)
+  // 3. Tools are now available via MCP protocol
   console.log('Tools are now available via MCP protocol.');
   console.log('You can test them using an MCP client.\n');
 
-  // 4. Demonstrace odregistrace (volitelné)
+  // 4. Optional: Demonstrate unregistration
   // await unregisterTool(client, 'get_current_time');
 }
 
-// Export pro použití v aplikaci
+// Export for use in your application
 export {
   initializeWorkerClient,
   registerSimpleTool,
@@ -349,7 +377,7 @@ export {
   unregisterTool,
 };
 
-// Spuštění ukázky (pokud je soubor spuštěn přímo)
+// Run demo if executed directly
 if (typeof window !== 'undefined') {
   main().catch(console.error);
 }

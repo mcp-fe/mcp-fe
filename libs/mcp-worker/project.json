@@ -16,7 +16,7 @@
         "outputPath": "dist/libs/mcp-worker",
         "main": "libs/mcp-worker/src/index.ts",
         "tsConfig": "libs/mcp-worker/tsconfig.lib.json",
-        "assets": ["libs/mcp-worker/*.md"],
+        "assets": ["libs/mcp-worker/*.md", "libs/mcp-worker/docs/**/*"],
         "format": ["esm"],
         "bundle": true,
         "platform": "browser",

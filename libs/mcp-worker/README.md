@@ -1,479 +1,314 @@
 # @mcp-fe/mcp-worker
 
-The core package of the MCP-FE (Model Context Protocol - Frontend Edge) ecosystem. This library provides a browser-based MCP server implementation using Web Workers, enabling AI agents to query real-time frontend application state and user interaction data.
+Browser-based MCP server running in Web Workers. Connect AI agents directly to your frontend application state.
 
-## Overview
+## What is MCP-FE Worker?
 
-`@mcp-fe/mcp-worker` turns your browser into an active, queryable MCP node by running MCP server endpoints in a Web Worker. It bridges the gap between AI agents and the live state of your frontend application, making runtime data accessible through standard MCP tools.
+`@mcp-fe/mcp-worker` turns your browser into a queryable MCP server. It allows AI agents (like Claude) to:
 
-### Key Features
+- 🔍 Query user interactions in real-time
+- 📊 Access application state directly
+- 🎯 Register custom tools dynamically
+- 💾 Store and retrieve events from IndexedDB
 
-- **Browser-based MCP Server**: Full MCP server implementation running in Web Workers
-- **Dual Worker Support**: Uses SharedWorker (preferred) with ServiceWorker fallback
-- **IndexedDB Storage**: Persistent storage for user events and application state
-- **WebSocket Transport**: Real-time connection to MCP proxy servers
-- **Zero Backend Dependencies**: Runs entirely in the browser
-- **Authentication Support**: Built-in token-based authentication
-- **Connection Management**: Automatic reconnection and status monitoring
+The MCP server runs in a Web Worker in your browser, requiring an MCP proxy server to bridge communication with AI agents.
+
+## Key Concepts
+
+### MCP Server in Browser
+
+This library runs an **MCP server in your browser** using Web Workers, exposing frontend application context to AI agents. This enables AI agents to query live browser state (DOM, localStorage, React state, etc.) through the standard MCP protocol.
+
+The key advantage is **making frontend context accessible** to AI agents without custom backend code for each use case.
+
+### Dual Worker Strategy
+
+The library uses **SharedWorker** (preferred) or **ServiceWorker** (fallback):
+
+- **SharedWorker**: Single instance shared across tabs, persistent connection
+- **ServiceWorker**: Universal browser support, automatic fallback
+
+### Dynamic Tool Registration
+
+Register custom MCP tools at runtime with **handlers running in the main thread**:
+
+```typescript
+await workerClient.registerTool(
+  'get_user_data',
+  'Get current user information',
+  { type: 'object', properties: {} },
+  async () => {
+    const user = getCurrentUser(); // Full browser access!
+    return {
+      content: [{ type: 'text', text: JSON.stringify(user) }]
+    };
+  }
+);
+```
+
+Handlers have full access to:
+- ✅ React context, hooks, state
+- ✅ DOM API, localStorage
+- ✅ All imports and dependencies
+- ✅ Closures and external variables
 
 ## Architecture
 
-The package implements a **Worker-as-MCP-Edge-Server** pattern:
-
 ```
-Frontend App ←→ WorkerClient ←→ Web Worker (MCP Server) ←→ WebSocket ←→ MCP Proxy ←→ AI Agent
+Frontend App ←→ WorkerClient ←→ Web Worker ←→ WebSocket ←→ MCP Proxy ←→ AI Agent
+                                    ↓
+                                IndexedDB
 ```
 
-1. **Frontend App**: Uses `workerClient` to send events and queries
-2. **WorkerClient**: Manages worker lifecycle and provides clean API
-3. **Web Worker**: Implements MCP server endpoints, stores data in IndexedDB
-4. **WebSocket**: Maintains persistent connection to MCP proxy server
-5. **MCP Proxy**: Bridges browser worker with external AI agents
-6. **AI Agent**: Queries frontend state using standard MCP tools
+1. **Frontend App** - Your application
+2. **WorkerClient** - Simple API for worker communication
+3. **Web Worker** - MCP server running in background
+4. **WebSocket** - Real-time connection to proxy
+5. **MCP Proxy** - Bridges browser with AI agents
+6. **AI Agent** - Queries your app via MCP protocol
 
-## Installation
+## Quick Start
+
+### Installation
 
 ```bash
 npm install @mcp-fe/mcp-worker
 # or
 pnpm add @mcp-fe/mcp-worker
-# or
-yarn add @mcp-fe/mcp-worker
 ```
 
-## Quick Start
+### 1. Setup Worker Files
 
-### 1. Copy Worker Files to Public Directory
-
-The package exports pre-built worker scripts that must be accessible from your web server:
+Copy worker scripts to your public directory:
 
 ```bash
-# Copy worker files to your public directory
 cp node_modules/@mcp-fe/mcp-worker/mcp-shared-worker.js public/
 cp node_modules/@mcp-fe/mcp-worker/mcp-service-worker.js public/
 ```
 
-For build tools like Vite, Webpack, or Nx, you can configure them to copy these files automatically:
-
-**Vite example:**
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite';
-
-export default defineConfig({
-  // ... other config
-  publicDir: 'public',
-  build: {
-    rollupOptions: {
-      // Copy worker files during build
-      external: ['@mcp-fe/mcp-worker/mcp-*.js']
-    }
-  }
-});
-```
-
-### 2. Initialize in Your Application
+### 2. Initialize
 
 ```typescript
 import { workerClient } from '@mcp-fe/mcp-worker';
 
-// Initialize the worker client
-async function initMCP() {
-  try {
-    await workerClient.init({
-      sharedWorkerUrl: '/mcp-shared-worker.js',    // optional, default value
-      serviceWorkerUrl: '/mcp-service-worker.js',  // optional, default value  
-      backendWsUrl: 'ws://localhost:3001'          // your MCP proxy server
-    });
-    
-    console.log('MCP Worker initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize MCP Worker:', error);
-  }
-}
-
-// Call during app startup
-initMCP();
-```
-
-### 3. Set Authentication Token (Optional)
-
-```typescript
-// Set authentication token for user-specific data
-workerClient.setAuthToken('Bearer your-jwt-token-here');
-
-// Or queue the token before initialization
-workerClient.setAuthToken('Bearer token');
-await workerClient.init(/* options */);
-```
-
-## API Reference
-
-### WorkerClient
-
-The main singleton instance for communicating with the MCP worker.
-
-#### `workerClient.init(options?)`
-
-Initializes the worker client with optional configuration.
-
-**Parameters:**
-- `options?: WorkerClientInitOptions | ServiceWorkerRegistration`
-
-**WorkerClientInitOptions:**
-```typescript
-interface WorkerClientInitOptions {
-  sharedWorkerUrl?: string;    // Default: '/mcp-shared-worker.js'
-  serviceWorkerUrl?: string;   // Default: '/mcp-service-worker.js'  
-  backendWsUrl?: string;       // Default: 'ws://localhost:3001'
-}
-```
-
-**Examples:**
-```typescript
-// Basic initialization with defaults
-await workerClient.init();
-
-// Custom configuration
 await workerClient.init({
-  backendWsUrl: 'wss://my-mcp-proxy.com/ws',
-  sharedWorkerUrl: '/workers/mcp-shared-worker.js'
+  backendWsUrl: 'ws://localhost:3001' // Your MCP proxy URL
 });
-
-// Use existing ServiceWorker registration
-const registration = await navigator.serviceWorker.register('/mcp-service-worker.js');
-await workerClient.init(registration);
 ```
 
-#### `workerClient.post(type, payload?)`
+### 3. Store Events
 
-Send a fire-and-forget message to the worker.
-
-**Parameters:**
-- `type: string` - Message type
-- `payload?: Record<string, unknown>` - Message payload
-
-**Example:**
 ```typescript
-// Store a user event
 await workerClient.post('STORE_EVENT', {
   event: {
     type: 'click',
     element: 'button',
-    elementText: 'Submit Form',
-    path: '/checkout',
+    elementText: 'Submit',
     timestamp: Date.now()
   }
 });
 ```
 
-#### `workerClient.request(type, payload?, timeoutMs?)`
+### 4. Register Custom Tools
 
-Send a request expecting a response via MessageChannel.
-
-**Parameters:**
-- `type: string` - Request type  
-- `payload?: Record<string, unknown>` - Request payload
-- `timeoutMs?: number` - Timeout in milliseconds (default: 5000)
-
-**Returns:** `Promise<T>` - Response data
-
-**Example:**
 ```typescript
-// Get stored events
-const response = await workerClient.request('GET_EVENTS', {
-  type: 'click',
-  limit: 10
-});
-
-console.log('Recent clicks:', response.events);
+await workerClient.registerTool(
+  'get_todos',
+  'Get all todos',
+  { type: 'object', properties: {} },
+  async () => ({
+    content: [{ type: 'text', text: JSON.stringify(todos) }]
+  })
+);
 ```
 
-#### `workerClient.setAuthToken(token)`
+**That's it!** AI agents can now query your app via MCP protocol.
 
-Set authentication token for the current session.
+## Documentation
 
-**Parameters:**
-- `token: string` - Authentication token (e.g., JWT)
+### Core Documentation
 
-**Example:**
-```typescript
-// Set token after user login
-workerClient.setAuthToken('Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...');
+- **[Quick Start Guide](./docs/guide.md)** - Complete guide to dynamic tool registration
+- **[API Reference](./docs/api.md)** - Full API documentation
+- **[Worker Details](./docs/worker-details.md)** - Implementation details
+- **[Architecture](./docs/architecture.md)** - How the proxy pattern works
+- **[Initialization](./docs/initialization.md)** - Init queue handling
 
-// Clear token on logout  
-workerClient.setAuthToken('');
-```
+### Examples
 
-#### `workerClient.getConnectionStatus()`
+- **[Quick Start Examples](./examples/quick-start.ts)** - 4 simple examples
+- **[Advanced Examples](./examples/dynamic-tools.ts)** - Validation, async, error handling
+- **[Examples Guide](./examples/README.md)** - How to use examples
 
-Get current connection status to the MCP proxy server.
+### React Integration
 
-**Returns:** `Promise<boolean>` - Connection status
+- **[React Hooks Guide](../react-event-tracker/REACT_MCP_TOOLS.md)** - React integration
+- **[React Examples](../react-event-tracker/src/examples/ReactMCPToolsExamples.tsx)** - Component examples
 
-**Example:**
-```typescript
-const isConnected = await workerClient.getConnectionStatus();
-console.log('MCP connection:', isConnected ? 'Connected' : 'Disconnected');
-```
+## Common Use Cases
 
-#### Connection Status Events
-
-Subscribe to connection status changes:
+### Track User Interactions
 
 ```typescript
-// Listen for connection changes
-const handleConnectionChange = (connected: boolean) => {
-  console.log('Connection status changed:', connected);
-};
-
-workerClient.onConnectionStatus(handleConnectionChange);
-
-// Stop listening
-workerClient.offConnectionStatus(handleConnectionChange);
-```
-
-## Worker Implementation Details
-
-### SharedWorker vs ServiceWorker
-
-**SharedWorker (Preferred):**
-- Single instance shared across all browser windows/tabs on the same origin
-- Maintains persistent WebSocket connection even when tabs are closed
-- Better for multi-tab applications
-- Supported in Chrome, Firefox, and Safari
-
-**ServiceWorker (Fallback):**
-- Runs in background with browser-managed lifecycle
-- Automatic fallback when SharedWorker is unavailable
-- Handles offline scenarios and background sync
-- Universal browser support
-
-The `WorkerClient` automatically chooses the best available option.
-
-### Data Storage
-
-Events are stored in IndexedDB with the following schema:
-
-```typescript
-interface UserEvent {
-  id: string;
-  type: 'navigation' | 'click' | 'input' | 'custom';
-  timestamp: number;
-  path?: string;
-  from?: string;          // navigation: previous route
-  to?: string;            // navigation: current route  
-  element?: string;       // interaction: element tag
-  elementId?: string;     // interaction: element ID
-  elementClass?: string;  // interaction: element classes
-  elementText?: string;   // interaction: element text content
-  metadata?: Record<string, unknown>;
-}
-```
-
-### MCP Tools Exposed
-
-The worker exposes these MCP tools to AI agents:
-
-- `get_user_events` - Query stored user interaction events
-- `get_connection_status` - Check WebSocket connection status
-- `get_session_info` - Get current session information
-
-## Advanced Usage
-
-### Custom Event Storage
-
-```typescript
-// Store custom business events
+// Clicks, navigation, form inputs
 await workerClient.post('STORE_EVENT', {
-  event: {
-    type: 'custom',
-    timestamp: Date.now(),
-    metadata: {
-      eventName: 'purchase_completed',
-      orderId: '12345',
-      amount: 99.99,
-      currency: 'USD'
-    }
-  }
+  event: { type: 'click', element: 'button', ... }
 });
 ```
 
-### Querying Specific Events
+### Expose Application State
 
 ```typescript
-// Get navigation events from the last hour
-const response = await workerClient.request('GET_EVENTS', {
+await workerClient.registerTool('get_cart', 'Get shopping cart', ..., 
+  async () => ({ content: [{ type: 'text', text: JSON.stringify(cart) }] })
+);
+```
+
+### Query Stored Events
+
+```typescript
+const events = await workerClient.request('GET_EVENTS', {
   type: 'navigation',
-  startTime: Date.now() - (60 * 60 * 1000),
   limit: 50
 });
-
-// Get clicks on specific elements
-const clicks = await workerClient.request('GET_EVENTS', {
-  type: 'click',
-  path: '/checkout',
-  limit: 20
-});
 ```
 
-### Error Handling
+### Monitor Connection Status
 
 ```typescript
-try {
-  await workerClient.init();
-} catch (error) {
-  if (error.message.includes('SharedWorker')) {
-    console.log('SharedWorker not supported, falling back to ServiceWorker');
-  } else {
-    console.error('Worker initialization failed:', error);
-  }
-}
-
-// Handle request timeouts
-try {
-  const data = await workerClient.request('GET_EVENTS', {}, 2000); // 2s timeout
-} catch (error) {
-  if (error.message.includes('timeout')) {
-    console.log('Request timed out, worker may be busy');
-  }
-}
-```
-
-## Integration with Higher-Level Libraries
-
-This package is designed to be used with higher-level integration libraries:
-
-- **[@mcp-fe/event-tracker](../event-tracker/README.md)**: Framework-agnostic event tracking
-- **[@mcp-fe/react-event-tracker](../react-event-tracker/README.md)**: React-specific hooks and components
-
-**Example with event-tracker:**
-```typescript
-import { initEventTracker, trackEvent } from '@mcp-fe/event-tracker';
-
-// Initialize (uses @mcp-fe/mcp-worker internally)
-await initEventTracker({
-  backendWsUrl: 'ws://localhost:3001'
-});
-
-// Track events (stored via mcp-worker)
-await trackEvent({
-  type: 'click',
-  element: 'button',
-  elementText: 'Save Changes'
+const connected = await workerClient.getConnectionStatus();
+workerClient.onConnectionStatus((connected) => {
+  console.log('MCP connection:', connected);
 });
 ```
 
-## Setting Up MCP Proxy Server
+## MCP Proxy Server
 
-The worker connects to an MCP proxy server that bridges browser workers with AI agents. You need a Node.js MCP proxy running to use this package effectively.
+The worker connects to an MCP proxy server that bridges browser with AI agents.
 
-### Using the Official Docker Image
-
-The easiest way to run the MCP proxy server is using the official Docker image:
+### Using Docker (Recommended)
 
 ```bash
-# Pull and run the MCP proxy server
 docker pull ghcr.io/mcp-fe/mcp-fe/mcp-server:main
 docker run -p 3001:3001 ghcr.io/mcp-fe/mcp-fe/mcp-server:main
 ```
 
-The server will be available at `ws://localhost:3001` for your frontend applications.
+Server available at `ws://localhost:3001`
 
-
-**With Environment Variables:**
-```bash
-docker run -p 3001:3001 \
-  -e NODE_ENV=production \
-  -e PORT=3001 \
-  ghcr.io/mcp-fe/mcp-fe/mcp-server:main
-```
-
-### Development Setup
-
-For development, you can run the proxy server from source:
+### Development
 
 ```bash
-# Clone the MCP-FE repository
 git clone https://github.com/mcp-fe/mcp-fe.git
 cd mcp-fe
-
-# Install dependencies
 pnpm install
-
-# Start the MCP proxy server
 nx serve mcp-server
 ```
 
-The proxy server handles:
-- WebSocket connections from browser workers
-- MCP protocol message routing
-- Tool call forwarding between AI agents and frontend applications
-- Connection management and error handling
+See [mcp-server docs](../../apps/mcp-server/README.md) for complete setup.
 
-See the [mcp-server documentation](../../apps/mcp-server/README.md) and main [MCP-FE documentation](../../README.md) for complete proxy server setup and configuration options.
+## Features
 
-## Browser Compatibility
+### Dynamic Tool Registration
 
-- **Chrome/Chromium**: Full support (SharedWorker + ServiceWorker)
-- **Firefox**: Full support (SharedWorker + ServiceWorker) 
-- **Safari**: SharedWorker support, ServiceWorker fallback
-- **Edge**: Full support (Chromium-based)
-
-**Minimum Requirements:**
-- ES2020+ support
-- WebWorker support
-- IndexedDB support
-- WebSocket support (for MCP proxy connection)
-
-## Troubleshooting
-
-### Worker Files Not Found (404)
-
-**Problem**: `Failed to load worker script` errors
-
-**Solution**: 
-1. Ensure worker files are copied to your public directory
-2. Verify the URLs match your server configuration
-3. Check browser Network tab for 404 errors
+Register custom MCP tools at runtime:
 
 ```typescript
-// Custom paths if needed
-await workerClient.init({
-  sharedWorkerUrl: '/assets/workers/mcp-shared-worker.js',
-  serviceWorkerUrl: '/assets/workers/mcp-service-worker.js'
+await workerClient.registerTool(
+  'get_user_data',
+  'Get current user information',
+  { type: 'object', properties: {} },
+  async () => {
+    const user = getCurrentUser(); // Full browser access!
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify(user)
+      }]
+    };
+  }
+);
+```
+
+**Learn more:**
+- [Guide](./docs/guide.md) - Complete step-by-step guide
+- [Quick Start Examples](./examples/quick-start.ts) - Ready-to-use examples
+- [Advanced Examples](./examples/dynamic-tools.ts) - Validation, async, error handling
+- [React Integration](../react-event-tracker/REACT_MCP_TOOLS.md) - React hooks
+
+### Event Storage
+
+Store and query user interactions:
+
+```typescript
+// Store event
+await workerClient.post('STORE_EVENT', {
+  event: { type: 'click', element: 'button', ... }
+});
+
+// Query events
+const events = await workerClient.request('GET_EVENTS', {
+  type: 'click',
+  limit: 10
 });
 ```
 
-### Connection Issues
+### Connection Management
 
-**Problem**: `getConnectionStatus()` returns `false`
+Monitor MCP proxy connection:
 
-**Solution**:
-1. Verify MCP proxy server is running on the specified URL
-2. Check WebSocket connection in browser Developer Tools
-3. Verify CORS settings if proxy is on different origin
+```typescript
+const connected = await workerClient.getConnectionStatus();
+workerClient.onConnectionStatus((connected) => {
+  console.log('Status:', connected);
+});
+```
 
-### SharedWorker Not Working
+## Browser Compatibility
 
-**Problem**: Falls back to ServiceWorker unexpectedly
+- ✅ **Chrome/Chromium 80+** - Full support
+- ✅ **Firefox 78+** - Full support
+- ✅ **Safari 16.4+** - Full support
+- ✅ **Edge 80+** - Full support (Chromium-based)
 
-**Solution**:
-1. SharedWorker requires HTTPS in production
-2. Some browsers disable SharedWorker in private/incognito mode
-3. Enterprise browser policies may block SharedWorker
+**Requirements:** ES2020+, WebWorker, IndexedDB, WebSocket
 
+See [Worker Details](./docs/worker-details.md) for more information.
+
+## Troubleshooting
+
+### Worker files not found (404)
+
+Ensure worker files are in your public directory and paths match:
+
+```typescript
+await workerClient.init({
+  sharedWorkerUrl: '/path/to/mcp-shared-worker.js',
+  serviceWorkerUrl: '/path/to/mcp-service-worker.js'
+});
+```
+
+### Connection issues
+
+1. Verify MCP proxy server is running
+2. Check WebSocket connection in DevTools Network tab
+3. Verify CORS settings if on different origin
+
+### SharedWorker not available
+
+SharedWorker requires HTTPS in production and may be blocked in incognito mode. The library automatically falls back to ServiceWorker.
+
+**For more help:** See [Worker Details](./docs/worker-details.md#troubleshooting)
 
 ## Related Packages
 
-- **[Main MCP-FE Project](../../README.md)**: Complete documentation and examples
-- **[@mcp-fe/event-tracker](../event-tracker/README.md)**: Framework-agnostic event tracking API
-- **[@mcp-fe/react-event-tracker](../react-event-tracker/README.md)**: React integration hooks
+- [Main MCP-FE Project](../../README.md) - Complete documentation
+- [@mcp-fe/event-tracker](../event-tracker/README.md) - Framework-agnostic event tracking
+- [@mcp-fe/react-event-tracker](../react-event-tracker/README.md) - React integration hooks
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See the [LICENSE](../../LICENSE) file for details.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for details.
 
 ---
 
-**Note**: This package is the foundational layer of the MCP-FE ecosystem. For most applications, consider using the higher-level integration packages like `@mcp-fe/react-event-tracker` which provide a more convenient API.
+**For most applications, consider using [@mcp-fe/react-event-tracker](../react-event-tracker/README.md) for a more convenient React-focused API.**

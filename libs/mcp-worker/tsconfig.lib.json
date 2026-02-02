@@ -10,6 +10,7 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": [
+    "examples/**/*",
     "jest.config.ts",
     "jest.config.cts",
     "src/**/*.spec.ts",

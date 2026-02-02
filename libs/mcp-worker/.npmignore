@@ -1,0 +1,14 @@
+# Exclude examples from npm package (only for development)
+examples/
+
+# Exclude test files
+*.spec.ts
+*.spec.js
+*.test.ts
+*.test.js
+
+# Exclude development files
+tsconfig*.json
+.eslintrc*
+jest.config*
+project.json
