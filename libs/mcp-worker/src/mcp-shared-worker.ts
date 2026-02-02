@@ -288,42 +288,60 @@ self.onconnect = (event: MessageEvent) => {
     }
 
     if (messageData.type === 'STORE_EVENT') {
-      // Reply via MessageChannel port if provided (for request/response pattern)
-      const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
+      // Reply via MessageChannel port if provided, otherwise fire-and-forget
+      const hasReplyPort = ev.ports && ev.ports.length > 0;
+      const replyPort = hasReplyPort ? ev.ports[0] : null;
+
       try {
         if (!backendUrl || !controller) {
-          try {
-            replyPort.postMessage({
-              success: false,
-              error: 'Worker not initialized',
-            });
-          } catch (e: unknown) {
-            logger.debug(
-              '[SharedWorker] Failed to post uninitialized error for STORE_EVENT:',
-              e,
-            );
+          // Only send error if client expects a response
+          if (replyPort) {
+            try {
+              replyPort.postMessage({
+                success: false,
+                error: 'Worker not initialized',
+              });
+            } catch (e: unknown) {
+              logger.debug(
+                '[SharedWorker] Failed to post uninitialized error for STORE_EVENT:',
+                e,
+              );
+            }
+          } else {
+            logger.warn('[SharedWorker] STORE_EVENT before INIT, ignoring');
           }
           return;
         }
+
         const userEvent = messageData.event as UserEvent;
         await getController().handleStoreEvent(userEvent);
-        try {
-          replyPort.postMessage({ success: true });
-        } catch (e: unknown) {
-          logger.debug(
-            '[SharedWorker] Failed to post STORE_EVENT success to port:',
-            e,
-          );
+
+        // Only send response if client expects it
+        if (replyPort) {
+          try {
+            replyPort.postMessage({ success: true });
+          } catch (e: unknown) {
+            logger.debug(
+              '[SharedWorker] Failed to post STORE_EVENT success to port:',
+              e,
+            );
+          }
         }
       } catch (error: unknown) {
-        try {
-          replyPort.postMessage({
-            success: false,
-            error:
-              error instanceof Error ? error.message : 'Worker not initialized',
-          });
-        } catch (e: unknown) {
-          logger.error('[SharedWorker] Failed to post failure to port:', e);
+        logger.error('[SharedWorker] Failed to store event:', error);
+        // Only send error if client expects a response
+        if (replyPort) {
+          try {
+            replyPort.postMessage({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to store event',
+            });
+          } catch (e: unknown) {
+            logger.error('[SharedWorker] Failed to post failure to port:', e);
+          }
         }
       }
 

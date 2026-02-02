@@ -97,28 +97,34 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
       (async () => {
         try {
           if (!backendUrl || !controller) {
+            // Only send error if client expects a response (via MessageChannel)
             if (event.ports && event.ports[0]) {
               event.ports[0].postMessage({
                 success: false,
                 error: 'Worker not initialized',
               });
+            } else {
+              logger.warn('[ServiceWorker] STORE_EVENT before INIT, ignoring');
             }
             return;
           }
           const userEvent = event.data.event as UserEvent;
           await getController().handleStoreEvent(userEvent);
 
+          // Only send response if client expects it (via MessageChannel)
           if (event.ports && event.ports[0]) {
             event.ports[0].postMessage({ success: true });
           }
         } catch (error) {
+          logger.error('[ServiceWorker] Failed to store event:', error);
+          // Only send error if client expects a response
           if (event.ports && event.ports[0]) {
             event.ports[0].postMessage({
               success: false,
               error:
                 error instanceof Error
                   ? error.message
-                  : 'Worker not initialized',
+                  : 'Failed to store event',
             });
           }
         }
