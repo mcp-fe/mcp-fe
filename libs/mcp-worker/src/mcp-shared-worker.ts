@@ -10,6 +10,7 @@ declare const self: SharedWorkerGlobalScope;
 
 import type { UserEvent } from './lib/database';
 import { MCPController } from './lib/mcp-controller';
+import { logger } from './lib/logger';
 
 // Track all connected ports
 const connectedPorts: MessagePort[] = [];
@@ -33,7 +34,7 @@ const setBackendUrl = (url: string) => {
       } catch (error) {
         const idx = connectedPorts.indexOf(port);
         if (idx > -1) connectedPorts.splice(idx, 1);
-        console.debug(
+        logger.debug(
           '[SharedWorker] Failed to broadcast to a port (removed):',
           error,
         );
@@ -55,7 +56,7 @@ self.onconnect = (event: MessageEvent) => {
       : false;
     port.postMessage({ type: 'CONNECTION_STATUS', connected });
   } catch (err: unknown) {
-    console.error('[SharedWorker] Failed to post initial status to port:', err);
+    logger.error('[SharedWorker] Failed to post initial status to port:', err);
   }
 
   port.onmessage = async (ev: MessageEvent) => {
@@ -73,7 +74,7 @@ self.onconnect = (event: MessageEvent) => {
             error: 'INIT missing backendUrl',
           });
         } catch (e: unknown) {
-          console.debug(
+          logger.debug(
             '[SharedWorker] Failed to reply to INIT with missing backendUrl:',
             e,
           );
@@ -94,7 +95,7 @@ self.onconnect = (event: MessageEvent) => {
         try {
           port.postMessage({ success: true });
         } catch (e: unknown) {
-          console.debug(
+          logger.debug(
             '[SharedWorker] Failed to post INIT success to port:',
             e,
           );
@@ -103,7 +104,7 @@ self.onconnect = (event: MessageEvent) => {
         try {
           port.postMessage({ success: false, error: String(e) });
         } catch (er: unknown) {
-          console.debug(
+          logger.debug(
             '[SharedWorker] Failed to post INIT failure to port:',
             er,
           );
@@ -121,7 +122,7 @@ self.onconnect = (event: MessageEvent) => {
         try {
           getController().setAuthToken(newToken);
         } catch (e: unknown) {
-          console.error('[SharedWorker] Failed to set auth token:', e);
+          logger.error('[SharedWorker] Failed to set auth token:', e);
         }
       } else {
         // store until INIT arrives
@@ -142,14 +143,14 @@ self.onconnect = (event: MessageEvent) => {
             getController().setAuthToken(pendingToken);
             pendingToken = null;
           } catch (e: unknown) {
-            console.error(
+            logger.error(
               '[SharedWorker] Failed to set pending auth token after SET_BACKEND_URL:',
               e,
             );
           }
         }
       } catch (e: unknown) {
-        console.error('[SharedWorker] Failed to set backend URL:', e);
+        logger.error('[SharedWorker] Failed to set backend URL:', e);
       }
       return;
     }
@@ -165,7 +166,7 @@ self.onconnect = (event: MessageEvent) => {
               error: 'Worker not initialized',
             });
           } catch (e: unknown) {
-            console.debug(
+            logger.debug(
               '[SharedWorker] Failed to post uninitialized error for STORE_EVENT:',
               e,
             );
@@ -177,7 +178,7 @@ self.onconnect = (event: MessageEvent) => {
         try {
           replyPort.postMessage({ success: true });
         } catch (e: unknown) {
-          console.debug(
+          logger.debug(
             '[SharedWorker] Failed to post STORE_EVENT success to port:',
             e,
           );
@@ -190,7 +191,7 @@ self.onconnect = (event: MessageEvent) => {
               error instanceof Error ? error.message : 'Worker not initialized',
           });
         } catch (e: unknown) {
-          console.error('[SharedWorker] Failed to post failure to port:', e);
+          logger.error('[SharedWorker] Failed to post failure to port:', e);
         }
       }
 
@@ -208,7 +209,7 @@ self.onconnect = (event: MessageEvent) => {
               error: 'Worker not initialized',
             });
           } catch (e: unknown) {
-            console.debug(
+            logger.debug(
               '[SharedWorker] Failed to post uninitialized error for GET_EVENTS:',
               e,
             );
@@ -219,7 +220,7 @@ self.onconnect = (event: MessageEvent) => {
         try {
           replyPort.postMessage({ success: true, events });
         } catch (error) {
-          console.error('[SharedWorker] Failed to post events to port:', error);
+          logger.error('[SharedWorker] Failed to post events to port:', error);
         }
       } catch (error: unknown) {
         try {
@@ -229,7 +230,7 @@ self.onconnect = (event: MessageEvent) => {
               error instanceof Error ? error.message : 'Worker not initialized',
           });
         } catch (e: unknown) {
-          console.error('[SharedWorker] Failed to post failure to port:', e);
+          logger.error('[SharedWorker] Failed to post failure to port:', e);
         }
       }
       return;
@@ -246,7 +247,7 @@ self.onconnect = (event: MessageEvent) => {
               error: 'Worker not initialized',
             });
           } catch (e: unknown) {
-            console.debug(
+            logger.debug(
               '[SharedWorker] Failed to post uninitialized error for GET_CONNECTION_STATUS:',
               e,
             );
@@ -258,14 +259,14 @@ self.onconnect = (event: MessageEvent) => {
           connected: getController().getConnectionStatus(),
         });
       } catch (error: unknown) {
-        console.debug('[SharedWorker] GET_CONNECTION_STATUS failed:', error);
+        logger.debug('[SharedWorker] GET_CONNECTION_STATUS failed:', error);
         try {
           replyPort.postMessage({
             success: false,
             error: 'Worker not initialized',
           });
         } catch (e: unknown) {
-          console.debug(
+          logger.debug(
             '[SharedWorker] Failed to post GET_CONNECTION_STATUS failure:',
             e,
           );

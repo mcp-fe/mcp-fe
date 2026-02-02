@@ -9,6 +9,7 @@
 import { storeEvent, queryEvents, UserEvent } from './database';
 import { mcpServer } from './mcp-server';
 import { WebSocketTransport } from './websocket-transport';
+import { logger } from './logger';
 
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -58,7 +59,7 @@ export class MCPController {
   public async connectWebSocket(): Promise<void> {
     // If we require auth and don't have a token yet, do not attempt connection
     if (this.requireAuth && !this.authToken) {
-      console.log(
+      logger.log(
         '[MCPController] Skipping WebSocket connect: auth token not set and requireAuth=true',
       );
       return;
@@ -76,7 +77,7 @@ export class MCPController {
       try {
         await mcpServer.close();
       } catch (error) {
-        console.error('[MCPController] Error closing MCP server:', error);
+        logger.error('[MCPController] Error closing MCP server:', error);
       }
       this.transport = null;
     }
@@ -101,7 +102,7 @@ export class MCPController {
       this.socket = new WebSocket(url);
 
       this.socket.onopen = async () => {
-        console.log('[MCPController] Connected to backend MCP server');
+        logger.log('[MCPController] Connected to backend MCP server');
         this.reconnectAttempts = 0;
         this.isReconnectingForToken = false;
 
@@ -119,7 +120,7 @@ export class MCPController {
             }
 
             await mcpServer.connect(this.transport);
-            console.log(
+            logger.log(
               '[MCPController] MCP Server connected to WebSocket transport',
             );
 
@@ -128,7 +129,7 @@ export class MCPController {
             resolve();
           }
         } catch (error) {
-          console.error('[MCPController] Error setting up MCP server:', error);
+          logger.error('[MCPController] Error setting up MCP server:', error);
           this.isReconnectingForToken = false;
           this.broadcastFn({ type: 'CONNECTION_STATUS', connected: false });
           if (this.socket) {
@@ -139,7 +140,7 @@ export class MCPController {
       };
 
       this.socket.onclose = async (event: CloseEvent) => {
-        console.log(
+        logger.log(
           '[MCPController] Disconnected from backend MCP server',
           event?.code,
           event?.reason,
@@ -154,7 +155,7 @@ export class MCPController {
           try {
             await mcpServer.close();
           } catch (error) {
-            console.error('[MCPController] Error closing MCP server:', error);
+            logger.error('[MCPController] Error closing MCP server:', error);
           }
           this.transport = null;
         }
@@ -169,7 +170,7 @@ export class MCPController {
             MAX_RECONNECT_DELAY,
           );
           this.reconnectAttempts++;
-          console.log(`[MCPController] Retrying in ${delay}ms...`);
+          logger.log(`[MCPController] Retrying in ${delay}ms...`);
           setTimeout(() => this.connectWebSocket(), delay);
         }
 
@@ -177,7 +178,7 @@ export class MCPController {
       };
 
       this.socket.onerror = (event) => {
-        console.error('[MCPController] WebSocket error:', event);
+        logger.error('[MCPController] WebSocket error:', event);
         this.broadcastFn({ type: 'CONNECTION_STATUS', connected: false });
       };
     });
@@ -188,7 +189,7 @@ export class MCPController {
     this.authToken = token;
 
     if (tokenChanged) {
-      console.log(
+      logger.log(
         '[MCPController] Auth token changed, reconnecting WebSocket...',
       );
       this.isReconnectingForToken = true;
@@ -205,7 +206,7 @@ export class MCPController {
       // small delay before reconnecting
       setTimeout(() => {
         this.connectWebSocket().catch((error) => {
-          console.error(
+          logger.error(
             '[MCPController] Failed to reconnect with new token:',
             error,
           );

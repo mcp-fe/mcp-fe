@@ -37,6 +37,8 @@
  *
  */
 
+import { logger } from './logger';
+
 type WorkerKind = 'shared' | 'service';
 
 // New options shape for init: allow consumer to pass worker script URLs instead of registration
@@ -73,7 +75,7 @@ export class WorkerClient {
   public async init(
     registrationOrOptions?: ServiceWorkerRegistration | WorkerClientInitOptions,
   ): Promise<void> {
-    console.log('[WorkerClient] init() called', {
+    logger.log('[WorkerClient] init() called', {
       hasOptions: !!registrationOrOptions,
       currentWorkerType: this.workerType,
       initInProgress: !!this.initPromise,
@@ -88,10 +90,10 @@ export class WorkerClient {
       | undefined;
     if (maybeReg && typeof maybeReg.scope === 'string') {
       explicitRegistration = registrationOrOptions as ServiceWorkerRegistration;
-      console.log('[WorkerClient] Using explicit ServiceWorker registration');
+      logger.log('[WorkerClient] Using explicit ServiceWorker registration');
     } else if (registrationOrOptions) {
       const opts = registrationOrOptions as WorkerClientInitOptions;
-      console.log('[WorkerClient] Using WorkerClientInitOptions:', opts);
+      logger.log('[WorkerClient] Using WorkerClientInitOptions:', opts);
       if (opts.sharedWorkerUrl) this.sharedWorkerUrl = opts.sharedWorkerUrl;
       if (opts.serviceWorkerUrl) this.serviceWorkerUrl = opts.serviceWorkerUrl;
       if (opts.backendWsUrl) this.backendWsUrl = opts.backendWsUrl;
@@ -114,7 +116,7 @@ export class WorkerClient {
         if (explicitRegistration) {
           this.serviceWorkerRegistration = explicitRegistration;
           this.workerType = 'service';
-          console.log(
+          logger.info(
             '[WorkerClient] Using ServiceWorker (explicit registration)',
           );
           // Send INIT (backend URL + auth token if available) to the worker (best-effort)
@@ -213,7 +215,7 @@ export class WorkerClient {
           // clear pending token after sending INIT
           this.pendingAuthToken = null;
         } catch (e) {
-          console.warn(
+          logger.warn(
             '[WorkerClient] Failed to send INIT to SharedWorker port:',
             e,
           );
@@ -238,10 +240,10 @@ export class WorkerClient {
         };
       }
 
-      console.log('[WorkerClient] Using SharedWorker');
+      logger.info('[WorkerClient] Using SharedWorker');
       return true;
     } catch (error) {
-      console.warn(
+      logger.warn(
         '[WorkerClient] SharedWorker not available, falling back to ServiceWorker:',
         error,
       );
@@ -257,7 +259,7 @@ export class WorkerClient {
         if (existingRegistration) {
           this.serviceWorkerRegistration = existingRegistration;
           this.workerType = 'service';
-          console.log(
+          logger.info(
             '[WorkerClient] Using existing ServiceWorker registration',
           );
           return;
@@ -267,7 +269,7 @@ export class WorkerClient {
           this.serviceWorkerUrl,
         );
         this.workerType = 'service';
-        console.log('[WorkerClient] Using MCP ServiceWorker (fallback)');
+        logger.info('[WorkerClient] Using MCP ServiceWorker (fallback)');
         // Send INIT (backend URL + optional token) to service worker (best-effort)
         try {
           const initMsg: Record<string, unknown> = {
@@ -289,10 +291,7 @@ export class WorkerClient {
           // ignore
         }
       } catch (error) {
-        console.error(
-          '[WorkerClient] Failed to register ServiceWorker:',
-          error,
-        );
+        logger.error('[WorkerClient] Failed to register ServiceWorker:', error);
         throw error;
       }
     } else {
@@ -306,7 +305,7 @@ export class WorkerClient {
     payload?: Record<string, unknown>,
     timeoutMs = 5000,
   ): Promise<T> {
-    console.log('[WorkerClient] Request started:', {
+    logger.log('[WorkerClient] Request started:', {
       type,
       payload,
       timeoutMs,
@@ -324,7 +323,7 @@ export class WorkerClient {
 
         const timer = setTimeout(() => {
           const elapsed = Date.now() - startTime;
-          console.error('[WorkerClient] Request timeout:', {
+          logger.error('[WorkerClient] Request timeout:', {
             type,
             requestId,
             elapsed,
@@ -337,7 +336,7 @@ export class WorkerClient {
         mc.port1.onmessage = (ev: MessageEvent) => {
           try {
             const elapsed = Date.now() - startTime;
-            console.log('[WorkerClient] Request response received:', {
+            logger.log('[WorkerClient] Request response received:', {
               type,
               requestId,
               elapsed,
@@ -366,17 +365,17 @@ export class WorkerClient {
           const port = this.sharedWorkerPort;
           if (!port) {
             clearTimeout(timer);
-            console.error('[WorkerClient] SharedWorker port not available');
+            logger.error('[WorkerClient] SharedWorker port not available');
             return reject(new Error('SharedWorker port not available'));
           }
-          console.log('[WorkerClient] Posting message to SharedWorker:', {
+          logger.log('[WorkerClient] Posting message to SharedWorker:', {
             type,
             requestId,
           });
           port.postMessage({ type, ...(payload || {}) }, [mc.port2]);
         } catch (e) {
           clearTimeout(timer);
-          console.error('[WorkerClient] Failed to post message:', e);
+          logger.error('[WorkerClient] Failed to post message:', e);
           reject(e instanceof Error ? e : new Error(String(e)));
         }
       });
@@ -388,7 +387,7 @@ export class WorkerClient {
       const reg = this.serviceWorkerRegistration;
       if (!reg) throw new Error('Service worker registration missing');
       if (!reg.active) {
-        console.log('[WorkerClient] ServiceWorker not active, waiting...');
+        logger.log('[WorkerClient] ServiceWorker not active, waiting...');
         await navigator.serviceWorker.ready;
         if (!reg.active) {
           throw new Error('Service worker not active');
@@ -402,7 +401,7 @@ export class WorkerClient {
 
         const timer = setTimeout(() => {
           const elapsed = Date.now() - startTime;
-          console.error('[WorkerClient] ServiceWorker request timeout:', {
+          logger.error('[WorkerClient] ServiceWorker request timeout:', {
             type,
             requestId,
             elapsed,
@@ -415,7 +414,7 @@ export class WorkerClient {
         mc.port1.onmessage = (ev: MessageEvent) => {
           try {
             const elapsed = Date.now() - startTime;
-            console.log('[WorkerClient] ServiceWorker response received:', {
+            logger.log('[WorkerClient] ServiceWorker response received:', {
               type,
               requestId,
               elapsed,
@@ -444,21 +443,21 @@ export class WorkerClient {
           const active = reg.active;
           if (!active) {
             clearTimeout(timer);
-            console.error(
+            logger.error(
               '[WorkerClient] ServiceWorker active instance not available',
             );
             return reject(
               new Error('Service worker active instance not available'),
             );
           }
-          console.log('[WorkerClient] Posting message to ServiceWorker:', {
+          logger.log('[WorkerClient] Posting message to ServiceWorker:', {
             type,
             requestId,
           });
           active.postMessage({ type, ...(payload || {}) }, [mc.port2]);
         } catch (e) {
           clearTimeout(timer);
-          console.error(
+          logger.error(
             '[WorkerClient] Failed to post message to ServiceWorker:',
             e,
           );
@@ -480,7 +479,7 @@ export class WorkerClient {
       try {
         this.sharedWorkerPort.postMessage({ type, ...(payload || {}) });
       } catch (e) {
-        console.error('[WorkerClient] Failed to post to SharedWorker:', e);
+        logger.error('[WorkerClient] Failed to post to SharedWorker:', e);
       }
       return;
     }
@@ -495,7 +494,7 @@ export class WorkerClient {
           ...(payload || {}),
         });
       } catch (e) {
-        console.error(
+        logger.error(
           '[WorkerClient] Failed to post to ServiceWorker (active):',
           e,
         );
@@ -510,7 +509,7 @@ export class WorkerClient {
           ...(payload || {}),
         });
       } catch (e) {
-        console.error(
+        logger.error(
           '[WorkerClient] Failed to post to ServiceWorker.controller:',
           e,
         );
@@ -533,7 +532,7 @@ export class WorkerClient {
           token,
         });
       } catch (e) {
-        console.error(
+        logger.error(
           '[WorkerClient] Failed to send auth token to ServiceWorker:',
           e,
         );
@@ -548,7 +547,7 @@ export class WorkerClient {
           token,
         });
       } catch (e) {
-        console.error(
+        logger.error(
           '[WorkerClient] Failed to send auth token to ServiceWorker.controller:',
           e,
         );
@@ -591,7 +590,7 @@ export class WorkerClient {
         this.sharedWorkerPort.postMessage({ type: 'SET_AUTH_TOKEN', token });
         this.pendingAuthToken = null;
       } catch (e) {
-        console.error(
+        logger.error(
           '[WorkerClient] Failed to set auth token on SharedWorker:',
           e,
         );
