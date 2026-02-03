@@ -1,269 +1,33 @@
 # MCP-FE (Model Context Protocol - Frontend Edge)
 
-**MCP-FE** is an architectural pattern that turns the browser into an active, queryable node in the MCP ecosystem. It bridges the gap between AI Agents (like Claude or Cursor) and the real-time state of your frontend application.
+**MCP-FE** turns the browser runtime into an active, queryable node in the MCP ecosystem.
+Instead of continuously pushing analytics-style data, your frontend exposes **on-demand MCP tools** so an AI agent can ask questions about **what just happened** and **what the UI state is right now**.
+
+It bridges the gap between AI agents (e.g., Claude or Cursor) and the real-time state of your frontend application using:
+- a browser worker (SharedWorker / ServiceWorker) that stores events and routes tool calls, and
+- a Node.js proxy that exposes an MCP endpoint to remote agents.
+
 ## Why MCP-FE?
-Traditional AI agents are "runtime blind". They know your code, but they don't know the current value of a specific input, the state of a Redux store, or the exact sequence of clicks that led to an error. 
+AI agents are often **runtime-blind**: they can read your code, but they can’t see the current DOM, the state of a Redux/Zustand store, or the exact interaction sequence that led to an error.
 
-MCP-FE solves this by exposing the **Browser Runtime** as a first-class MCP Server.
-
----
-
-## Overview
-
-Traditional MCP integrations are backend-centric. Frontend applications typically push events continuously (analytics-style), regardless of whether an AI agent actually needs the data.
-
-This pattern inverts the flow:
-
-- The frontend **does not push context automatically** to the server.
-- A browser-resident worker (SharedWorker or ServiceWorker) acts as a local MCP server, collecting and storing UI events in IndexedDB.
-- A **Node.js MCP Proxy** maintains a WebSocket connection to the worker and exposes MCP tools to remote agents.
-- The MCP server **pulls context only when an agent calls a tool**.
-- AI agents interact with standard MCP tools (e.g., `get_user_events`) to retrieve what they need.
+MCP-FE exposes the **browser runtime** as a first-class MCP Server so that context is retrievable **on demand** via tool calls.
 
 ---
 
-## Architecture
-
-![Architecture](./MCP-FE-architecture-diagram.png?raw=true "MCP FE architecture diagram")
-
-1. **Frontend App**: Tracks user interactions using the `event-tracker` library and posts events to the worker client.
-2. **Browser Worker (MCP Worker)**: 
-   - Implements MCP server endpoints in web worker, stores events in IndexedDB, and maintains a WebSocket transport layer to the MCP proxy server.
-   - Using `SharedWorker` fall back to a `ServiceWorker` when `SharedWorker` is unavailable.
-3. **Node.js MCP Proxy**:
-   - Acts as a proxy between AI Agents and the browser MCP worker.
-   - Allows the client MCP tools to be registered and called remotely.
-   - Routes tool calls over a WebSocket to the worker and routes responses back to the agent.
-4. **AI Agent**: Uses standard MCP clients to discover and call tools.
+## Table of Contents
+- [Quick Start (Local Live Demo)](#quick-start-local-live-demo)
+- [How It Works](#how-it-works)
+- [Key Concepts](#key-concepts)
+- [Packages](#packages)
+- [Using MCP-FE in Your App](#using-mcp-fe-in-your-app)
+- [Architecture](#architecture)
+- [License](#license)
 
 ---
 
-## Key Concepts
+## Quick Start (Local Live Demo)
 
-
-### MCP workers: SharedWorker vs ServiceWorker
-
-- SharedWorker (preferred):
-  - One shared instance is available to all same-origin windows/iframes.
-  - Good for multi-tab apps and when you want a single MCP edge connection per browser.
-
-- ServiceWorker (fallback):
-  - Runs in background, lifecycle managed by browser.
-  - Can be used as a fallback when SharedWorker is not supported.
-
-`WorkerClient` in this repo prefers SharedWorker and automatically falls back to ServiceWorker. It also supports passing an explicit `ServiceWorkerRegistration` to use a previously registered service worker.
-
-### Worker as MCP Edge Server
-
-The Shared/Service Worker acts as a lightweight **edge node** enables you to:
-
-* **Collects** UI-level events history (navigation, interactions, errors).
-* **Queries** live application state (e.g., Redux, Zustand, or simple DOM state) in real-time.
-* **Exposes** data through MCP Tools.
-* **Maintains** a persistent WebSocket connection to the proxy.
-
-
-### Server-Driven Pull Model (MCP Tools)
-
-The MCP Worker **never sends data proactively to the backend**. Context is shared **only** when an AI agent explicitly requests it by calling a tool.
-
-Example **tool call** from the agent (via MCP Server Proxy):
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "1",
-  "method": "tools/call",
-  "params": {
-    "name": "get_user_events",
-    "arguments": {
-      "type": "click",
-      "limit": 5
-    }
-  }
-}
-```
-
-MCP Worker **response**:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "1",
-  "result": {
-    "content": [
-      {
-        "type": "text",
-        "text": "[{\"type\":\"click\",\"element\":\"button\",\"elementText\":\"Submit\",\"timestamp\":1705712400000}]"
-      }
-    ]
-  }
-}
-```
-
----
-
-## Use Cases
-
-- **Context-Aware Support**: Customer support agents can query the user's current UI state and recent interactions to provide instant help.
-- **Agentic Debugging**: Ask the agent "Why is the submit button disabled?" and it inspects the live React state to tell you.
-- **Dynamic Onboarding**: AI guides users through complex workflows based on their real-time progress and errors.
-
-
----
-
-## Using MCP-FE in Your Applications
-
-MCP-FE is available as a set of NPM packages that you can integrate into your existing applications:
-
-### Core Package: `@mcp-fe/mcp-worker`
-
-The main package that provides the MCP Worker client and ready-to-use worker scripts. This package handles the core functionality of running MCP server endpoints in the browser and maintaining connections to the backend.
-
-**Installation:**
-```bash
-npm install @mcp-fe/mcp-worker
-# or
-pnpm add @mcp-fe/mcp-worker
-```
-
-**Key Features:**
-- Browser-based MCP server implementation using SharedWorker (with ServiceWorker fallback)
-- WebSocket transport layer for connecting to MCP proxy servers
-- IndexedDB storage for UI events and application state
-- Automatic worker lifecycle management
-
-For detailed usage instructions, see the [full documentation in the package README](./libs/mcp-worker/README.md).
-
-**Quick Example:**
-```typescript
-import { workerClient } from '@mcp-fe/mcp-worker';
-
-// Initialize the worker
-await workerClient.init({
-  backendWsUrl: 'ws://localhost:3001'
-});
-
-// Send events to the worker
-await workerClient.post('STORE_EVENT', { 
-  event: { type: 'click', element: 'button' }
-});
-```
-
-### Event Tracking: `@mcp-fe/event-tracker`
-
-A framework-agnostic event tracking library that provides a simple API for collecting user interactions and sending them to the MCP worker.
-
-**Installation:**
-```bash
-npm install @mcp-fe/event-tracker
-```
-
-**Features:**
-- Simple API for tracking navigation, clicks, input changes, and custom events
-- Automatic event timestamping
-- Connection status monitoring
-- Prepared to be used with `@mcp-fe/mcp-worker`
-
-**Example:**
-```typescript
-import { initEventTracker, trackEvent } from '@mcp-fe/event-tracker';
-
-// Initialize
-await initEventTracker();
-
-// Track user interactions
-await trackEvent({
-  type: 'click',
-  element: 'button',
-  elementText: 'Submit',
-  metadata: { formId: 'login-form' }
-});
-```
-
-### React Integration: `@mcp-fe/react-event-tracker`
-
-React-specific hooks that automatically track navigation and user interactions with minimal setup.
-
-**Installation:**
-```bash
-npm install @mcp-fe/react-event-tracker
-```
-
-**Features:**
-- Automatic navigation tracking for React Router and TanStack Router
-- Automatic click and input event tracking
-- React hooks for easy integration
-- Built-in connection status management
-
-**React Router Example:**
-```typescript
-import { useEffect } from 'react';
-import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
-
-function App() {
-  const { setAuthToken } = useReactRouterEventTracker({
-    backendWsUrl: 'ws://localhost:3001'
-  });
-
-  // Set authentication token when available
-  useEffect(() => {
-    // Get token from your auth system (localStorage, context, etc.)
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      setAuthToken(token);
-    }
-  }, [setAuthToken]);
-
-  // The hook automatically tracks navigation, clicks, and input changes
-  // No additional setup required!
-  
-  return (
-    // Your app components here
-    <div>Your App</div>
-  );
-}
-```
-
-**TanStack Router Example:**
-```typescript
-import { useEffect } from 'react';
-import { useTanstackRouterEventTracker } from '@mcp-fe/react-event-tracker';
-
-function App() {
-  const { setAuthToken } = useTanstackRouterEventTracker();
-  
-  // Set authentication token when available
-  useEffect(() => {
-    // Get token from your auth system (localStorage, context, etc.)
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      setAuthToken(token);
-    }
-  }, [setAuthToken]);
-  
-  return (
-    // Your app components here  
-    <div>Your App</div>
-  );
-}
-```
-
-### Integration Steps
-
-1. **Install the packages** you need based on your framework
-2. **Copy worker files** to your public directory (from `@mcp-fe/mcp-worker`)
-3. **Initialize event tracking** in your application entry point
-4. **Set up your MCP proxy server** to connect AI agents
-5. **Configure authentication** if needed using `setAuthToken()`
-
-The packages work together to provide a complete MCP-FE integration with minimal boilerplate code.
-
-
----
-
-
-## Quick start (development)
+This monorepo includes a small demo frontend app and the MCP proxy. Run the commands below to start a **local live demo** on your machine.
 
 1) Install dependencies
 
@@ -271,30 +35,231 @@ The packages work together to provide a complete MCP-FE integration with minimal
 pnpm install
 ```
 
-### 2. Start the MCP Proxy (Server) and example MCP Frontend App
+2) Start the demo app + MCP Proxy
+
 ```bash
 pnpm start
 ```
 
-### 3. Open the Frontend App in your browser
-Navigate to `http://localhost:4200` (or the port shown in your terminal)
+3) Open the demo frontend
 
-The Worker will automatically register and connect to the proxy server.
+Navigate to `http://localhost:4200` (or the port shown in your terminal). The browser worker will automatically register and connect.
 
-### 4. Connect an AI Agent
-Connect your favorite MCP-compatible AI agent to the MCP Proxy server at `http://localhost:3001/mcp` 
+4) Connect an AI agent
+
+Point your MCP-compatible agent to:
+- **MCP endpoint (HTTP):** `http://localhost:3001/mcp`
+
+> Note: the example app connects the worker to the proxy via WebSocket (e.g., `ws://localhost:3001`).
+
+---
+
+## How It Works
+Traditional MCP integrations are backend-centric. Frontends usually push events continuously, whether anyone needs them or not.
+
+MCP-FE inverts the flow:
+- **Pull, not push:** the frontend does **not** stream context by default.
+- **Worker-based edge:** a browser `SharedWorker` (preferred) or `ServiceWorker` stores event history (IndexedDB) and coordinates tool calls.
+- **Proxy for remote agents:** a Node.js proxy maintains a WebSocket connection to the worker and exposes MCP tools to agents.
+- **Dynamic tools:** register tools from application code; handlers run in the main thread with controlled access to state/DOM/imports.
+
+```mermaid
+sequenceDiagram
+participant A as 🤖 AI Agent (Claude/Cursor)
+participant P as 🖥️ Node.js MCP Proxy
+participant W as ⚙️ Shared/Service Worker
+participant M as 🌐 Main Thread (App)
+
+    Note over A, M: The Pull Model: Context is retrieved only on demand
+
+    A->>P: Call tool (e.g., 'get_react_state')
+    P->>W: Forward call via WebSocket
+    W->>M: Request data from registered handler
+    
+    Note right of M: Handler accesses React State, <br/>DOM, or LocalStorage
+    
+    M-->>W: Return serializable state/data
+    W-->>P: Send JSON-RPC response
+    P-->>A: Tool result (JSON)
+    
+    Note over A: Agent now "sees" the UI runtime
+```
+
+---
+
+## Key Concepts
+
+### MCP Workers: SharedWorker vs ServiceWorker
+
+- **SharedWorker (preferred):**
+  - One shared instance is available to all same-origin windows/iframes.
+  - Good for multi-tab apps and when you want a single MCP edge connection per browser.
+
+- **ServiceWorker (fallback):**
+  - Runs in background, lifecycle managed by the browser.
+  - Useful when SharedWorker is not supported.
+
+`WorkerClient` in this repo prefers SharedWorker and automatically falls back to ServiceWorker. It also supports passing an explicit `ServiceWorkerRegistration` to use a previously registered service worker.
+
+### Worker as an MCP Edge Server
+
+The Shared/Service Worker acts as a lightweight **edge node** that enables you to:
+
+- **Collect** UI-level event history (navigation, interactions, errors)
+- **Store** events in IndexedDB for later retrieval
+- **Expose** data and actions via MCP tools
+- **Maintain** a persistent WebSocket connection to the proxy
+- **Register** custom tools dynamically with handlers running in the main thread (full browser API access)
+
+### Server-Driven Pull Model (Tool Calls)
+
+The MCP worker **never sends context proactively to the backend**. Context is shared **only** when an AI agent explicitly requests it by calling a tool.
+
+---
+
+## 🛡️ Security by Design
+
+Unlike traditional analytics or logging tools that stream data to third-party servers, **MCP-FE is passive and restrictive**:
+
+* **Explicit Exposure Only**: The AI agent has **zero "magic" access** to your app. It can only see data or trigger actions that you explicitly expose via `registerTool` or `useMCPTool`.
+* **Zero-Stream Policy**: No data is ever pushed automatically. Context transfer only happens when an AI agent triggers a specific tool call.
+* **Local Execution**: Tool handlers run in your application's context, allowing you to implement custom authorization, filtering, or scrubbing before returning data to the agent.
+* **Privacy First**: Sensitive fields (PII, passwords, tokens) never leave the client unless the developer intentionally includes them in a tool's return payload.
+
+---
+
+## 🏗️ Architecture
+
+The MCP-FE architecture is built on three core layers designed to keep the main application thread responsive while providing a persistent link to AI agents.
+
+### 1. The Proxy Server (Node.js)
+The Proxy acts as the gateway. It speaks the standard **MCP Protocol** towards the AI agent (via HTTP/SSE) and maintains a persistent **WebSocket** connection to the browser.
+* **Role**: It bridges the gap between the internet and the user's local browser session.
+* **Security**: Handles Bearer token authentication to ensure only authorized agents can talk to the worker.
+
+### 2. The MCP Worker (SharedWorker / ServiceWorker)
+This is the "Brain" on the Frontend Edge. It runs in its own thread, meaning it doesn't slow down your UI.
+* **Event Logging**: Automatically captures interactions and errors into **IndexedDB**.
+* **Routing**: When a tool call comes from the Agent, the Worker routes it to the correct tab or the Main Thread.
+* **Resilience**: Implements a **Ping-Pong mechanism** to keep the WebSocket alive even when the user isn't actively interacting with the page.
+
+### 3. The Main Thread (Your App)
+This is where your React/Vue/JS code lives.
+* **Dynamic Tools**: Using hooks like `useMCPTool`, your components register handlers that have direct access to the live **DOM, State, and LocalStorage**.
+* **Zero-Push**: It only executes logic and sends data when the Worker explicitly asks for it (the Pull Model).
+
+```mermaid
+graph TD
+    subgraph "AI Environment"
+        Agent["🤖 AI Agent (Claude/Cursor)"]
+    end
+
+    subgraph "Server"
+        Proxy["Node.js MCP Proxy"]
+    end
+
+    subgraph "Browser Runtime (FE Edge)"
+        subgraph "Main Thread (Frontend App)"
+            UI["React/Vue/JS App"]
+            Hooks["React Tools (useMCPTool)"]
+            State[("Live State / DOM")]
+            Tracker["Event Tracker"]
+        end
+
+        subgraph "Worker Context"
+            Worker["MCP Worker (Shared/Service)"]
+            DB[(IndexedDB)]
+        end
+    end
+
+    %% Connections
+    Agent <-->|MCP Protocol| Proxy
+    Proxy <-->|WebSockets| Worker
+    Worker <-->|Events/Tools| Hooks
+    Tracker -->|Log Events| Worker
+    Worker <-->|Persistence| DB
+    Hooks <-->|Direct Access| State
+
+    %% Styles
+    style Agent fill:#f9f,stroke:#333,stroke-width:2px
+    style Worker fill:#bbf,stroke:#333,stroke-width:2px
+    style Proxy fill:#dfd,stroke:#333,stroke-width:2px
+    style State fill:#fff4dd,stroke:#d4a017
+```
+
+---
+
+## Packages
+
+MCP-FE is delivered as a set of packages in this monorepo and can be consumed directly from your applications.
+For install instructions, APIs, and framework-specific examples, use the package READMEs:
+
+| Package                       | What it’s for | Docs |
+|-------------------------------| --- | --- |
+| `@mcp-fe/mcp-worker`          | **Core**: worker client + worker scripts + transport + dynamic tool registration | `./libs/mcp-worker/README.md` |
+| `@mcp-fe/event-tracker`       | **Core (optional)**: framework-agnostic event tracking (navigation/interactions/errors) | `./libs/event-tracker/README.md` |
+| `@mcp-fe/react-event-tracker` | **React (optional)**: drop-in hooks for automatic navigation/click/input tracking | `./libs/react-event-tracker/README.md` |
+| `@mcp-fe/react-tools`         | **React (optional)**: hooks for registering tools with component lifecycle management | `./libs/react-tools/README.md` |
+| `mcp-server` (Docker image)   | **Proxy**: Node.js MCP server that bridges remote agents ↔ browser worker | `./apps/mcp-server/README.md` |
+
+### Using MCP-FE in Your App
+
+You can adopt MCP-FE incrementally. The smallest useful setup is:
+
+1) **Run the proxy** (`mcp-server`) somewhere reachable by your users’ browsers.
+2) **Initialize the worker client** in your app and point it at the proxy.
+3) Optionally add **event tracking** and/or **custom tools**.
+
+Minimal frontend setup:
+
+```bash
+pnpm add @mcp-fe/mcp-worker
+```
+
+```ts
+import { workerClient } from '@mcp-fe/mcp-worker';
+
+await workerClient.init({
+  backendWsUrl: 'ws://YOUR_PROXY_HOST:3001',
+});
+```
+
+### Typical Integration Paths
+
+- **Minimal (custom tools only):** `@mcp-fe/mcp-worker` + your own `registerTool(...)` handlers.
+- **Observability (events + queries):** add `@mcp-fe/event-tracker` or `@mcp-fe/react-event-tracker`.
+- **React-first:** `@mcp-fe/mcp-worker` + `@mcp-fe/react-tools` + `@mcp-fe/react-event-tracker`.
+
+### Minimal Example (Worker + Tool)
+
+```ts
+import { workerClient } from '@mcp-fe/mcp-worker';
+
+await workerClient.init({
+  backendWsUrl: 'ws://localhost:3001',
+});
+
+await workerClient.registerTool(
+  'get_user_data',
+  'Get current user information',
+  { type: 'object', properties: {} },
+  async () => ({
+    content: [{ type: 'text', text: JSON.stringify(getCurrentUser()) }],
+  })
+);
+```
 
 ---
 
 ## Summary
 
-This pattern introduces a **Worker–based MCP edge server** that enables:
+MCP-FE introduces a **worker-based MCP edge server** in the browser that enables:
 
-* server-driven context access,
-* minimal frontend-to-server traffic,
-* clean separation between UI, transport, and agent logic.
+- server-driven context access (pull model),
+- minimal frontend-to-server traffic,
+- clean separation between UI, transport, and agent logic.
 
-It represents a **new architectural application of Model Context Protocol on the frontend**, not a new protocol.
+It’s a **new frontend application of the Model Context Protocol**, not a new protocol.
 
 ---
 
@@ -314,4 +279,26 @@ limitations under the License.
 
 ---
 
-*Feedback and discussion are welcome. This pattern is in early stage and not all features are fully implemented yet.*
+
+## ⚠️ Project Status: Experimental (PoC)
+
+This project is currently a **Proof of Concept**. While the architecture is stable and demonstrates the power of Frontend MCP, it is not yet intended for high-stakes production environments.
+
+**Current focus:**
+* Finalizing the SharedWorker/ServiceWorker fallback logic.
+* Refining the React hook lifecycle (auto-deregistration of tools).
+* Hardening the Proxy-to-Worker authentication flow.
+
+*Contributions and architectural discussions are welcome!*
+
+---
+
+
+## 👨‍💻 Author
+
+**Michal Kopecký** - *Frontend engineer*
+
+I created **MCP-FE** to solve the "runtime-blindness" of current AI agents. By treating the browser as an active edge-node, we can provide agents with deep, real-time context without sacrificing user privacy or network performance.
+* [GitHub](https://github.com/kopecmi8) | [LinkedIn](https://linkedin.com/in/michal-kopecký)
+
+*Feel free to reach out for architectural discussions or collaboration!*
