@@ -1,3 +1,13 @@
+## 0.1.1 (2026-02-03)
+
+### 🩹 Fixes
+
+- fix release of react-tools ([d0aac3b](https://github.com/mcp-fe/mcp-fe/commit/d0aac3b))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.1.0 (2026-02-03)
 
 ### 🚀 Features
