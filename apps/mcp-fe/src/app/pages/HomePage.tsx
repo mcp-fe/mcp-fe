@@ -138,23 +138,19 @@ export const HomePage = () => (
         <strong>Live Event Log</strong> in the sidebar to see how the events are
         stored in real-time!
       </p>
-      <div className="demo-grid">
+      <div
+        className="demo-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '1.5rem',
+        }}
+      >
         <div className="demo-card">
           <h4>🧭 Navigation</h4>
           <p>Various navigation patterns and automatic route tracking</p>
           <Link to="/navigation" className="demo-link">
             Try Navigation →
-          </Link>
-        </div>
-
-        <div className="demo-card">
-          <h4>🎛️ Interactive Components</h4>
-          <p>
-            Explore buttons, modals, tabs, toggles, and more UI components with
-            real-time tracking
-          </p>
-          <Link to="/components" className="demo-link">
-            Try Components →
           </Link>
         </div>
 
