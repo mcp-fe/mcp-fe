@@ -1,3 +1,13 @@
+## 0.1.0 (2026-02-03)
+
+### 🚀 Features
+
+- introduction of dynamic MCP tools ([051b852](https://github.com/mcp-fe/mcp-fe/commit/051b852))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.0.17 (2026-02-02)
 
 This was a version bump only, there were no code changes.
