@@ -20,7 +20,7 @@ export const MCPToolsInfo = () => {
         MCP Tools Available
       </h3>
       <p>
-        This form exposes <strong>6 MCP tools</strong> that AI assistants can
+        This form exposes <strong>7 MCP tools</strong> that AI assistants can
         use to inspect the form state in real-time:
       </p>
       <ul style={{ marginBottom: 0 }}>
@@ -44,6 +44,9 @@ export const MCPToolsInfo = () => {
         <li>
           <code>get_form_analytics</code> - Get statistics and analytics about
           form data
+        </li>
+        <li>
+          <code>fill_field</code> - Fill a specific form field with a value
         </li>
       </ul>
     </div>

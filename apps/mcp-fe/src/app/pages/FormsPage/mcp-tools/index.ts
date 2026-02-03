@@ -11,3 +11,4 @@ export { useFormCompletionTool } from './useFormCompletionTool';
 export { useFieldInfoTool } from './useFieldInfoTool';
 export { useValidateFormNowTool } from './useValidateFormNowTool';
 export { useFormAnalyticsTool } from './useFormAnalyticsTool';
+export { useFillFieldTool } from './useFillFieldTool';

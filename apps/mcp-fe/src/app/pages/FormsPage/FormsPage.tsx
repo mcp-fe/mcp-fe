@@ -10,6 +10,7 @@ import {
   useFieldInfoTool,
   useValidateFormNowTool,
   useFormAnalyticsTool,
+  useFillFieldTool,
 } from './mcp-tools';
 
 export const FormsPage = () => {
@@ -80,6 +81,7 @@ export const FormsPage = () => {
   useFieldInfoTool(formData, validationErrors, validateForm);
   useValidateFormNowTool(formData, validateForm);
   useFormAnalyticsTool(formData);
+  useFillFieldTool(setFormData);
 
   return (
     <div className="forms-page">
