@@ -85,12 +85,14 @@ export const FormsPage = () => {
 
   return (
     <div className="forms-page">
-      <h2>Forms Demo - Comprehensive Tracking</h2>
+      <h2>Forms Demo - Interactive State Management</h2>
       <p>
-        This form demonstrates various input types and validation patterns. All
-        field interactions, changes, and submissions are automatically tracked
-        by the MCP-FE system and visible in the <strong>Live Event Log</strong>{' '}
-        on the right.
+        This interactive form showcases real-time state tracking and validation
+        with <strong>7 MCP tools</strong> that AI assistants can use to inspect
+        and interact with the form. Try filling out the form below - all field
+        changes, validations, and user interactions are tracked and accessible
+        through the MCP interface. You can also view all events in the{' '}
+        <strong>Live Event Log</strong> sidebar.
       </p>
 
       <MCPToolsInfo />
