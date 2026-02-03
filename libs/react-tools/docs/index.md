@@ -13,7 +13,6 @@ Welcome to the **@mcp-fe/react-tools** documentation! This library provides Reac
 - `useMCPTool` - Main hook for registering MCP tools
 - `useMCPGetter` - Simple getter tools
 - `useMCPAction` - Action tools with inputs
-- `useMCPQuery` - Query tools
 - `MCPToolsProvider` - Context provider
 - `useMCPToolsContext` - Context hook
 - Utility Functions

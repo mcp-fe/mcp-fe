@@ -22,11 +22,7 @@ export {
 } from './hooks/useMCPTool';
 export type { UseMCPToolOptions, UseMCPToolResult } from './hooks/useMCPTool';
 // MCP Tool helper hooks
-export {
-  useMCPGetter,
-  useMCPAction,
-  useMCPQuery,
-} from './hooks/useMCPToolHelpers';
+export { useMCPGetter, useMCPAction } from './hooks/useMCPToolHelpers';
 // MCP Tools Context (optional)
 export {
   MCPToolsProvider,

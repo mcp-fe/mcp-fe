@@ -83,8 +83,6 @@ Simplified hook for getter tools (no input parameters).
 ### `useMCPAction`
 Hook for action tools that accept inputs and perform operations.
 
-### `useMCPQuery`
-Semantic alias for query-type tools.
 
 [→ See full API documentation](./docs/api-reference.md)
 

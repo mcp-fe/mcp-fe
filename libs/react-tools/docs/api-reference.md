@@ -143,32 +143,6 @@ function TodoManager() {
 
 ---
 
-### `useMCPQuery(name, description, properties, query)`
-
-Alias for `useMCPAction`, semantically used for query operations.
-
-#### Parameters
-
-Same as `useMCPAction`.
-
-#### Example
-
-```tsx
-useMCPQuery(
-  'search_users',
-  'Search users by name',
-  {
-    query: { type: 'string' },
-    limit: { type: 'number', default: 10 }
-  },
-  async (args: { query: string; limit: number }) => {
-    const results = await searchAPI(args.query, args.limit);
-    return results;
-  }
-);
-```
-
----
 
 ## Context API
 
