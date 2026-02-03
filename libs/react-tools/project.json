@@ -4,18 +4,5 @@
   "sourceRoot": "libs/react/src",
   "projectType": "library",
   "tags": [],
-  "targets": {
-    "nx-release-publish": {
-      "options": {
-        "packageRoot": "dist/{projectRoot}"
-      }
-    }
-  },
-  "release": {
-    "version": {
-      "manifestRootsToUpdate": ["dist/{projectRoot}"],
-      "currentVersionResolver": "git-tag",
-      "fallbackCurrentVersionResolver": "disk"
-    }
-  }
+  "targets": {}
 }
