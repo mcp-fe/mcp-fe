@@ -3,7 +3,7 @@ import { User, SortField, SortDirection } from './types';
 import { mockUsers } from './mockData';
 import { useTableLogic } from './hooks/useTableLogic';
 import { useDataTableMCPTools } from './mcp-tools/useDataTableMCPTools';
-import { MCPToolsBanner } from './components/MCPToolsBanner';
+import { MCPToolsInfo } from './components/MCPToolsInfo';
 import { TableControls } from './components/TableControls';
 import { DataTable } from './components/DataTable';
 import { TablePagination } from './components/TablePagination';
@@ -106,7 +106,7 @@ export const DataTablePage = () => {
         actions. All interactions are captured for analysis.
       </p>
 
-      <MCPToolsBanner />
+      <MCPToolsInfo />
 
       <TableControls
         searchTerm={searchTerm}

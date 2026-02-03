@@ -1,54 +1,50 @@
+import { MCPToolsInfoBanner } from '../../components/MCPToolsInfoBanner';
+
 /**
- * Component that displays information about available MCP tools
+ * Component that displays information about available MCP tools for the form
  */
 export const MCPToolsInfo = () => {
+  const tools = [
+    {
+      name: 'get_form_state',
+      description: 'View all current field values',
+    },
+    {
+      name: 'get_form_validation_status',
+      description: 'Check validation errors',
+    },
+    {
+      name: 'get_form_completion',
+      description: 'See progress and which fields are filled',
+    },
+    {
+      name: 'get_field_info',
+      description: 'Get detailed info about a specific field',
+    },
+    {
+      name: 'validate_form_now',
+      description: 'Run validation and see if form can be submitted',
+    },
+    {
+      name: 'get_form_analytics',
+      description: 'Get statistics and analytics about form data',
+    },
+    {
+      name: 'fill_field',
+      description: 'Fill a specific form field with a value',
+    },
+  ];
+
   return (
-    <div
-      className="mcp-tools-info"
-      style={{
-        background: '#f0f7ff',
-        border: '2px solid #0066cc',
-        borderRadius: '8px',
-        padding: '16px',
-        marginBottom: '24px',
-      }}
-    >
-      <h3 style={{ marginTop: 0, color: '#0066cc' }}>
-        <span role="img" aria-label="tools">
-          🔧
-        </span>{' '}
-        MCP Tools Available
-      </h3>
-      <p>
-        This form exposes <strong>7 MCP tools</strong> that AI assistants can
-        use to inspect the form state in real-time:
-      </p>
-      <ul style={{ marginBottom: 0 }}>
-        <li>
-          <code>get_form_state</code> - View all current field values
-        </li>
-        <li>
-          <code>get_form_validation_status</code> - Check validation errors
-        </li>
-        <li>
-          <code>get_form_completion</code> - See progress and which fields are
-          filled
-        </li>
-        <li>
-          <code>get_field_info</code> - Get detailed info about a specific field
-        </li>
-        <li>
-          <code>validate_form_now</code> - Run validation and see if form can be
-          submitted
-        </li>
-        <li>
-          <code>get_form_analytics</code> - Get statistics and analytics about
-          form data
-        </li>
-        <li>
-          <code>fill_field</code> - Fill a specific form field with a value
-        </li>
-      </ul>
-    </div>
+    <MCPToolsInfoBanner
+      title="MCP Tools Available"
+      description={
+        <>
+          This form exposes <strong>7 MCP tools</strong> that AI assistants can
+          use to inspect the form state in real-time:
+        </>
+      }
+      tools={tools}
+    />
   );
 };
