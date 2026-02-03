@@ -104,14 +104,6 @@ node_modules/@mcp-fe/mcp-worker/
 
 **Note:** Examples and full documentation are in the [GitHub repository](https://github.com/mcp-fe/mcp-fe) but not in the npm package.
 
-## 🤝 Contributing
 
-See documentation issues? Want to improve examples?
-
-1. Check [CONTRIBUTING.md](../../../CONTRIBUTING.md) for guidelines
-2. Open an issue or PR
-3. All documentation uses Markdown
-
----
 
 **Last updated:** 2026-02-02
