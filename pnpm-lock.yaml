@@ -254,18 +254,6 @@ importers:
 
   libs/mcp-worker: {}
 
-  libs/react:
-    dependencies:
-      '@mcp-fe/mcp-worker':
-        specifier: workspace:*
-        version: link:../mcp-worker
-      react:
-        specifier: '>=19.0.0'
-        version: 19.2.3
-      react-dom:
-        specifier: '>=19.0.0'
-        version: 19.2.3(react@19.2.3)
-
   libs/react-event-tracker:
     dependencies:
       '@mcp-fe/event-tracker':
@@ -283,6 +271,18 @@ importers:
       react-router-dom:
         specifier: '>=6.0.0'
         version: 6.29.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+
+  libs/react-tools:
+    dependencies:
+      '@mcp-fe/mcp-worker':
+        specifier: workspace:*
+        version: link:../mcp-worker
+      react:
+        specifier: '>=19.0.0'
+        version: 19.2.3
+      react-dom:
+        specifier: '>=19.0.0'
+        version: 19.2.3(react@19.2.3)
 
 packages:
 
@@ -5880,7 +5880,6 @@ packages:
   keygrip@1.1.0:
     resolution: {integrity: sha512-iYSchDJ+liQ8iwbSI2QqsQOvqv58eJCEanyJPJi+Khyu8smkcKSFUCbPwzFcL7YVtZ6eONjqRX/38caJ7QjRAQ==}
     engines: {node: '>= 0.6'}
-    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}

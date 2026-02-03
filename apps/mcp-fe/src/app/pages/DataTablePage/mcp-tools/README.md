@@ -101,7 +101,7 @@ Handlers run in the **main thread**, not in the worker, so they have full access
 
 ```typescript
 // mcp-tools/useMyNewTool.ts
-import { useMCPTool } from '@mcp-fe/react-event-tracker';
+import { useMCPTool } from '@mcp-fe/react-tools';
 
 export const useMyNewTool = ({ users }) => {
   useMCPTool({

@@ -1,4 +1,4 @@
-import { useMCPTool } from '@mcp-fe/react';
+import { useMCPTool } from '@mcp-fe/react-tools';
 import { User } from '../types';
 
 interface UseTableDataToolProps {

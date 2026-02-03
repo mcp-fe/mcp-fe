@@ -1,12 +1,12 @@
 {
-  "name": "@mcp-fe/react",
+  "name": "@mcp-fe/react-tools",
   "version": "0.0.1",
   "license": "Apache-2.0",
   "homepage": "https://mcp-fe.ai",
   "repository": {
     "type": "git",
     "url": "https://github.com/mcp-fe/mcp-fe.git",
-    "directory": "libs/react"
+    "directory": "libs/react-tools"
   },
   "main": "./index.js",
   "types": "./index.d.ts",

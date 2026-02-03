@@ -21,7 +21,7 @@
  * Related Files:
  * - dynamic-tools.ts - Advanced examples with validation
  * - ../docs/guide.md - Complete documentation
- * - ../../react-event-tracker/src/examples/ - React examples
+ * - ../../react-tools-event-tracker/src/examples/ - React examples
  */
 
 // Note: When using in your app, import from the package:

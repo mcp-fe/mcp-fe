@@ -10,6 +10,9 @@
       "path": "./libs/event-tracker"
     },
     {
+      "path": "./libs/react-tools"
+    },
+    {
       "path": "./libs/react-event-tracker"
     },
     {

@@ -18,7 +18,7 @@ React hooks for seamless integration of dynamic MCP tools with automatic lifecyc
 ### Basic Usage (without Context)
 
 ```tsx
-import { useMCPTool } from '@mcp-fe/react-event-tracker';
+import { useMCPTool } from '@mcp-fe/react-tools-tools';
 
 function MyComponent() {
   const user = useUser(); // React hook
@@ -48,7 +48,7 @@ function MyComponent() {
 ### With Context Provider (recommended for larger apps)
 
 ```tsx
-import { MCPToolsProvider, useMCPTool } from '@mcp-fe/react-event-tracker';
+import { MCPToolsProvider, useMCPTool } from '@mcp-fe/react-tools-tools';
 
 // 1. Wrap app with Provider
 function App() {
@@ -166,7 +166,7 @@ useMCPQuery(
 Check if a tool is registered.
 
 ```tsx
-import { isToolRegistered } from '@mcp-fe/react-event-tracker';
+import { isToolRegistered } from '@mcp-fe/react-tools-tools';
 
 if (isToolRegistered('my_tool')) {
   console.log('Tool is registered');
@@ -178,7 +178,7 @@ if (isToolRegistered('my_tool')) {
 Get list of all registered tool names.
 
 ```tsx
-import { getRegisteredTools } from '@mcp-fe/react-event-tracker';
+import { getRegisteredTools } from '@mcp-fe/react-tools-tools';
 
 const tools = getRegisteredTools();
 console.log('Registered tools:', tools);
@@ -189,7 +189,7 @@ console.log('Registered tools:', tools);
 Get info about a specific tool.
 
 ```tsx
-import { getToolInfo } from '@mcp-fe/react-event-tracker';
+import { getToolInfo } from '@mcp-fe/react-tools-tools';
 
 const info = getToolInfo('my_tool');
 console.log('Tool info:', info);

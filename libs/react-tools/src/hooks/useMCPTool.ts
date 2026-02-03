@@ -243,7 +243,7 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
         });
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-tools-hooks/exhaustive-deps
   }, [name]); // Only re-run if name changes!
 
   return {

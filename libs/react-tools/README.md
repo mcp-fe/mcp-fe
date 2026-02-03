@@ -1,4 +1,4 @@
-# @mcp-fe/react
+# @mcp-fe/react-tools
 
 React hooks and components for seamless integration with MCP (Model Context Protocol) tools.
 
@@ -14,17 +14,17 @@ React hooks and components for seamless integration with MCP (Model Context Prot
 ## 📦 Installation
 
 ```bash
-npm install @mcp-fe/react
+npm install @mcp-fe/react-tools
 # or
-pnpm add @mcp-fe/react
+pnpm add @mcp-fe/react-tools
 # or
-yarn add @mcp-fe/react
+yarn add @mcp-fe/react-tools
 ```
 
 ## 🚀 Quick Start
 
 ```tsx
-import { useMCPTool } from '@mcp-fe/react';
+import { useMCPTool } from '@mcp-fe/react-tools';
 
 function MyComponent() {
   const user = useUser();

@@ -6,7 +6,7 @@ React hooks for automatic tracking of user interactions and navigation events in
 
 `@mcp-fe/react-event-tracker` provides specialized React hooks that automatically track navigation events in React applications. It works in conjunction with [`@mcp-fe/mcp-worker`](../mcp-worker/README.md) to provide a complete MCP-FE solution.
 
-> **Note**: For MCP Tools integration (dynamic tool registration, handlers, etc.), please use [`@mcp-fe/react`](../react/README.md) instead. This package is specifically focused on event tracking.
+> **Note**: For MCP Tools integration (dynamic tool registration, handlers, etc.), please use [`@mcp-fe/react`](../react-tools/README.md) instead. This package is specifically focused on event tracking.
 
 ### Key Features
 
@@ -18,7 +18,7 @@ React hooks for automatic tracking of user interactions and navigation events in
 
 ## 📚 Related Packages
 
-- **[`@mcp-fe/react`](../react/README.md)** - MCP Tools hooks and components for React (useMCPTool, MCPToolsProvider, etc.)
+- **[`@mcp-fe/react-tools`](../react-tools/README.md)** - MCP Tools hooks and components for React (useMCPTool, MCPToolsProvider, etc.)
 - **[`@mcp-fe/event-tracker`](../event-tracker/README.md)** - Core event tracking functionality
 - **[`@mcp-fe/mcp-worker`](../mcp-worker/README.md)** - Worker-based MCP client implementation
 
