@@ -392,7 +392,7 @@ See [examples/](../examples/) for complete, runnable examples:
 For React applications, use the `useMCPTool` hook for automatic lifecycle management:
 
 ```typescript
-import { useMCPTool } from '@mcp-fe/react-tools-event-tracker';
+import { useMCPTool } from '@mcp-fe/react-event-tracker';
 
 function MyComponent() {
   useMCPTool({
