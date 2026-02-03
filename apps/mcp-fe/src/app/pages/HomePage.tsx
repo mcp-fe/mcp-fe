@@ -8,8 +8,9 @@ export const HomePage = () => (
       style={{ fontSize: '1.2rem', marginBottom: '2rem' }}
     >
       Turn your browser into an active, queryable node in the MCP ecosystem.
-      Bridge the gap between AI Agents and the real-time state of your frontend
-      application.
+      Create a <strong>bidirectional bridge</strong> between AI Agents and your
+      frontend - agents can read component state, send data to components, and
+      you can register custom tools directly from React components.
     </p>
 
     <div
@@ -24,16 +25,19 @@ export const HomePage = () => (
       <h3>🤖 Why MCP-FE?</h3>
       <p>
         Traditional AI agents are <strong>"runtime blind"</strong>. They know
-        your code, but they don't know:
+        your code, communicates with your server, but they can't:
       </p>
       <ul style={{ marginLeft: '1.5rem', marginBottom: '1rem' }}>
-        <li>The current value of a specific input field</li>
-        <li>The browsing history</li>
-        <li>The exact sequence of clicks that led to an error</li>
+        <li>Read the current value of a specific input field</li>
+        <li>Access the browsing history or event sequences</li>
+        <li>Send data back to update your UI components</li>
+        <li>Interact with custom tools you define in your components</li>
       </ul>
       <p>
         <strong>MCP-FE solves this</strong> by exposing the{' '}
-        <strong>Browser Runtime</strong> as a first-class MCP Server.
+        <strong>Browser Runtime</strong> as a first-class MCP Server with{' '}
+        <strong>bidirectional communication</strong> - agents can both read and
+        write to your application state.
       </p>
     </div>
 
@@ -42,10 +46,62 @@ export const HomePage = () => (
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '1rem',
         }}
       >
+        <div
+          style={{
+            padding: '1rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+          }}
+        >
+          <h4>🔧 Custom Tools</h4>
+          <p>
+            Register custom MCP tools directly from React components using{' '}
+            <code>@mcp-fe/react-tools</code>.
+          </p>
+        </div>
+        <div
+          style={{
+            padding: '1rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+          }}
+        >
+          <h4>📖 State Reading</h4>
+          <p>
+            AI agents can read the current state of your components in
+            real-time.
+          </p>
+        </div>
+        <div
+          style={{
+            padding: '1rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+          }}
+        >
+          <h4>📝 State Writing</h4>
+          <p>
+            Agents can send data directly to your components to update their
+            state.
+          </p>
+        </div>
+        <div
+          style={{
+            padding: '1rem',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+          }}
+        >
+          <h4>📊 Auto Event Tracking</h4>
+          <p>
+            Automatic tracking of user interactions with{' '}
+            <code>@mcp-fe/react-event-tracker</code>.
+          </p>
+        </div>
         <div
           style={{
             padding: '1rem',
@@ -66,33 +122,10 @@ export const HomePage = () => (
             borderRadius: '4px',
           }}
         >
-          <h4>🎯 On-Demand Pull</h4>
-          <p>No continuous data pushing. Context is shared only when needed.</p>
-        </div>
-        <div
-          style={{
-            padding: '1rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '4px',
-          }}
-        >
           <h4>⚡ Edge Architecture</h4>
           <p>
             SharedWorker/ServiceWorker acts as a local MCP server in your
             browser.
-          </p>
-        </div>
-        <div
-          style={{
-            padding: '1rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '4px',
-          }}
-        >
-          <h4>📦 Easy Integration</h4>
-          <p>
-            NPM packages ready to use: event tracker, React hooks, and worker
-            client.
           </p>
         </div>
       </div>
@@ -120,6 +153,19 @@ export const HomePage = () => (
         <li>
           <strong>Dynamic Onboarding:</strong> AI guides users based on their
           real-time progress and errors
+        </li>
+        <li>
+          <strong>Custom Tools Integration:</strong> Register domain-specific
+          tools directly in components (e.g., "calculate shipping cost",
+          "validate order")
+        </li>
+        <li>
+          <strong>Agent-Driven UI Updates:</strong> Let AI agents populate
+          forms, update dashboards, or trigger actions based on user queries
+        </li>
+        <li>
+          <strong>Component State Queries:</strong> Agents can ask "What items
+          are in the shopping cart?" and get real-time answers
         </li>
       </ul>
       <p style={{ marginTop: '1rem' }}>
@@ -193,6 +239,14 @@ export const HomePage = () => (
           rel="noopener noreferrer"
         >
           @mcp-fe/mcp-worker
+        </a>
+        ,{' '}
+        <a
+          href="https://www.npmjs.com/package/@mcp-fe/react-tools"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          @mcp-fe/react-tools
         </a>
         ,{' '}
         <a
