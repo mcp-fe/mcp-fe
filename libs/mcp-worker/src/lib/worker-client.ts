@@ -70,6 +70,47 @@ export class WorkerClient {
   // Mutex/promise to prevent concurrent init runs
   private initPromise: Promise<void> | null = null;
 
+  // Initialization state
+  private isInitialized = false;
+  private initResolvers: Array<() => void> = [];
+
+  // Queue for operations that need to wait for initialization
+  private pendingRegistrations: Array<{
+    name: string;
+    description: string;
+    inputSchema: Record<string, unknown>;
+    handler: (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }> = [];
+
+  // Map to store tool handlers in main thread
+  private toolHandlers = new Map<
+    string,
+    (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>
+  >();
+
+  // Tool registry for tracking registrations and reference counting
+  private toolRegistry = new Map<
+    string,
+    {
+      refCount: number;
+      description: string;
+      inputSchema: Record<string, unknown>;
+      isRegistered: boolean;
+    }
+  >();
+
+  // Subscribers for tool changes (for React hooks reactivity)
+  private toolChangeListeners = new Map<
+    string,
+    Set<(info: { refCount: number; isRegistered: boolean } | null) => void>
+  >();
+
   // Initialize and choose worker implementation (prefer SharedWorker)
   // Accept either a ServiceWorkerRegistration OR WorkerInitOptions to configure URLs
   public async init(
@@ -144,10 +185,14 @@ export class WorkerClient {
 
         // Try SharedWorker first
         const sharedOk = await this.initSharedWorker();
-        if (sharedOk) return;
+        if (sharedOk) {
+          this.markAsInitialized();
+          return;
+        }
 
         // If SharedWorker isn't supported or failed, use service worker
         await this.initServiceWorkerFallback();
+        this.markAsInitialized();
       } finally {
         // Clear the mutex so future init calls can proceed
         this.initPromise = null;
@@ -157,9 +202,72 @@ export class WorkerClient {
     return this.initPromise;
   }
 
+  /**
+   * Mark worker as initialized and process pending registrations
+   * @private
+   */
+  private markAsInitialized(): void {
+    this.isInitialized = true;
+    logger.log(
+      '[WorkerClient] Worker initialized, processing pending operations',
+    );
+
+    // Notify all waiters
+    this.initResolvers.forEach((resolve) => resolve());
+    this.initResolvers = [];
+
+    // Process pending registrations
+    const pending = [...this.pendingRegistrations];
+    this.pendingRegistrations = [];
+
+    pending.forEach(
+      async ({ name, description, inputSchema, handler, resolve, reject }) => {
+        try {
+          await this.registerToolInternal(
+            name,
+            description,
+            inputSchema,
+            handler,
+          );
+          resolve();
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      },
+    );
+  }
+
+  /**
+   * Wait for worker initialization
+   * @returns Promise that resolves when worker is initialized
+   */
+  public async waitForInit(): Promise<void> {
+    if (this.isInitialized) {
+      return Promise.resolve();
+    }
+
+    // If init is in progress, wait for it
+    if (this.initPromise) {
+      await this.initPromise;
+      return;
+    }
+
+    // Otherwise, create a promise that will resolve when initialized
+    return new Promise<void>((resolve) => {
+      this.initResolvers.push(resolve);
+    });
+  }
+
+  /**
+   * Check if worker is initialized
+   */
+  public get initialized(): boolean {
+    return this.isInitialized;
+  }
+
   private async initSharedWorker(): Promise<boolean> {
     if (typeof SharedWorker === 'undefined') {
-      return false;
+      return Promise.resolve(false);
     }
 
     try {
@@ -170,7 +278,7 @@ export class WorkerClient {
       this.sharedWorkerPort.start();
 
       // We will send INIT (backendUrl + optional token) once the shared worker confirms availability
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<boolean>((resolve, reject) => {
         let resolved = false;
         const timeout = setTimeout(() => {
           if (!resolved) {
@@ -194,7 +302,7 @@ export class WorkerClient {
               resolved = true;
               this.workerType = 'shared';
               p.onmessage = null;
-              resolve();
+              resolve(true);
             }
           } catch {
             // ignore parse/handler errors
@@ -233,6 +341,16 @@ export class WorkerClient {
                   /* ignore callback errors */
                 }
               });
+            } else if (data && data.type === 'CALL_TOOL') {
+              // Worker is asking us to execute a tool handler
+              this.handleToolCall(data.toolName, data.args, data.callId).catch(
+                (error) => {
+                  logger.error(
+                    '[WorkerClient] Failed to handle tool call:',
+                    error,
+                  );
+                },
+              );
             }
           } catch {
             // ignore
@@ -241,6 +359,7 @@ export class WorkerClient {
       }
 
       logger.info('[WorkerClient] Using SharedWorker');
+
       return true;
     } catch (error) {
       logger.warn(
@@ -269,6 +388,37 @@ export class WorkerClient {
           this.serviceWorkerUrl,
         );
         this.workerType = 'service';
+
+        // Setup message listener for ServiceWorker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.addEventListener(
+            'message',
+            (ev: MessageEvent) => {
+              try {
+                const data = ev.data;
+                if (data && data.type === 'CALL_TOOL') {
+                  // Worker is asking us to execute a tool handler
+                  this.handleToolCall(
+                    data.toolName,
+                    data.args,
+                    data.callId,
+                  ).catch((error) => {
+                    logger.error(
+                      '[WorkerClient] Failed to handle tool call:',
+                      error,
+                    );
+                  });
+                }
+              } catch (error) {
+                logger.error(
+                  '[WorkerClient] Error processing ServiceWorker message:',
+                  error,
+                );
+              }
+            },
+          );
+        }
+
         logger.info('[WorkerClient] Using MCP ServiceWorker (fallback)');
         // Send INIT (backend URL + optional token) to service worker (best-effort)
         try {
@@ -532,7 +682,7 @@ export class WorkerClient {
           token,
         });
       } catch (e) {
-        logger.error(
+        console.error(
           '[WorkerClient] Failed to send auth token to ServiceWorker:',
           e,
         );
@@ -547,7 +697,7 @@ export class WorkerClient {
           token,
         });
       } catch (e) {
-        logger.error(
+        console.error(
           '[WorkerClient] Failed to send auth token to ServiceWorker.controller:',
           e,
         );
@@ -600,6 +750,356 @@ export class WorkerClient {
       this.pendingAuthToken = null;
     } else {
       // queued and will be sent when init finishes
+    }
+  }
+
+  /**
+   * Register a custom MCP tool dynamically
+   *
+   * The handler function runs in the MAIN THREAD (browser context), not in the worker.
+   * This means you have full access to:
+   * - React context, hooks, Redux store
+   * - DOM API, window, localStorage
+   * - All your imports and dependencies
+   * - Closures and external variables
+   *
+   * The worker acts as a proxy - it receives MCP tool calls and forwards them
+   * to your handler via MessageChannel.
+   *
+   * @param name - Tool name
+   * @param description - Tool description
+   * @param inputSchema - JSON Schema for tool inputs
+   * @param handler - Async function that handles the tool execution (runs in main thread)
+   * @returns Promise that resolves when tool is registered
+   *
+   * @example With full access to imports and context:
+   * ```typescript
+   * import { z } from 'zod';
+   * import { useMyStore } from './store';
+   *
+   * const store = useMyStore();
+   *
+   * await client.registerTool(
+   *   'validate_user',
+   *   'Validate user data',
+   *   { type: 'object', properties: { username: { type: 'string' } } },
+   *   async (args: any) => {
+   *     // Full access to everything!
+   *     const schema = z.object({ username: z.string().min(3) });
+   *     const validated = schema.parse(args);
+   *
+   *     // Can access store, context, etc.
+   *     const currentUser = store.getState().user;
+   *
+   *     return {
+   *       content: [{
+   *         type: 'text',
+   *         text: JSON.stringify({ validated, currentUser })
+   *       }]
+   *     };
+   *   }
+   * );
+   * ```
+   */
+  public async registerTool(
+    name: string,
+    description: string,
+    inputSchema: Record<string, unknown>,
+    handler: (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+  ): Promise<void> {
+    // If not initialized, queue the registration
+    if (!this.isInitialized) {
+      logger.log(
+        `[WorkerClient] Queueing tool registration '${name}' (worker not initialized yet)`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        this.pendingRegistrations.push({
+          name,
+          description,
+          inputSchema,
+          handler,
+          resolve,
+          reject,
+        });
+      });
+    }
+
+    // Already initialized - register immediately
+    return this.registerToolInternal(name, description, inputSchema, handler);
+  }
+
+  /**
+   * Internal method to register tool (assumes worker is initialized)
+   * @private
+   */
+  private async registerToolInternal(
+    name: string,
+    description: string,
+    inputSchema: Record<string, unknown>,
+    handler: (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+  ): Promise<void> {
+    // Check if tool already exists (for reference counting)
+    const existing = this.toolRegistry.get(name);
+
+    if (existing) {
+      // Increment ref count
+      existing.refCount++;
+      logger.log(
+        `[WorkerClient] Incremented ref count for '${name}': ${existing.refCount}`,
+      );
+
+      // Update handler to latest version
+      this.toolHandlers.set(name, handler);
+
+      // Notify listeners
+      this.notifyToolChange(name);
+      return;
+    }
+
+    // Store handler in main thread
+    this.toolHandlers.set(name, handler);
+
+    // Register tool in worker with proxy handler
+    await this.request('REGISTER_TOOL', {
+      name,
+      description,
+      inputSchema,
+      handlerType: 'proxy', // Tell worker this is a proxy handler
+    });
+
+    // Add to registry
+    this.toolRegistry.set(name, {
+      refCount: 1,
+      description,
+      inputSchema,
+      isRegistered: true,
+    });
+
+    logger.log(
+      `[WorkerClient] Registered tool '${name}' with main-thread handler`,
+    );
+
+    // Notify listeners
+    this.notifyToolChange(name);
+  }
+
+  /**
+   * Unregister a previously registered MCP tool
+   * @param name - Tool name to unregister
+   * @returns Promise that resolves to true if tool was found and removed
+   */
+  public async unregisterTool(name: string): Promise<boolean> {
+    const existing = this.toolRegistry.get(name);
+    if (!existing) {
+      logger.warn(`[WorkerClient] Cannot unregister '${name}': not found`);
+      return false;
+    }
+
+    // Decrement ref count
+    existing.refCount--;
+    logger.log(
+      `[WorkerClient] Decremented ref count for '${name}': ${existing.refCount}`,
+    );
+
+    if (existing.refCount <= 0) {
+      // Last reference - actually unregister
+      // Remove from local handlers
+      this.toolHandlers.delete(name);
+
+      // Unregister from worker
+      const result = await this.request<{ success?: boolean }>(
+        'UNREGISTER_TOOL',
+        { name },
+      );
+
+      // Remove from registry
+      this.toolRegistry.delete(name);
+
+      logger.log(`[WorkerClient] Unregistered tool '${name}'`);
+
+      // Notify listeners (with null = tool removed)
+      this.notifyToolChange(name);
+
+      return result?.success ?? false;
+    }
+
+    // Still has references - just notify count change
+    this.notifyToolChange(name);
+    return true;
+  }
+
+  /**
+   * Subscribe to tool changes for a specific tool
+   * Returns unsubscribe function
+   */
+  public onToolChange(
+    toolName: string,
+    callback: (
+      info: { refCount: number; isRegistered: boolean } | null,
+    ) => void,
+  ): () => void {
+    if (!this.toolChangeListeners.has(toolName)) {
+      this.toolChangeListeners.set(toolName, new Set());
+    }
+
+    const listeners = this.toolChangeListeners.get(toolName)!;
+    listeners.add(callback);
+
+    // Immediately call with current value
+    const current = this.toolRegistry.get(toolName);
+    if (current) {
+      callback({
+        refCount: current.refCount,
+        isRegistered: current.isRegistered,
+      });
+    } else {
+      callback(null);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      listeners.delete(callback);
+      if (listeners.size === 0) {
+        this.toolChangeListeners.delete(toolName);
+      }
+    };
+  }
+
+  /**
+   * Notify all listeners about tool changes
+   * @private
+   */
+  private notifyToolChange(toolName: string): void {
+    const listeners = this.toolChangeListeners.get(toolName);
+    if (!listeners || listeners.size === 0) return;
+
+    const info = this.toolRegistry.get(toolName);
+    const payload = info
+      ? {
+          refCount: info.refCount,
+          isRegistered: info.isRegistered,
+        }
+      : null;
+
+    listeners.forEach((callback) => {
+      try {
+        callback(payload);
+      } catch (error) {
+        logger.error('[WorkerClient] Error in tool change listener:', error);
+      }
+    });
+  }
+
+  /**
+   * Get tool info from registry
+   */
+  public getToolInfo(
+    toolName: string,
+  ): { refCount: number; isRegistered: boolean } | null {
+    const info = this.toolRegistry.get(toolName);
+    if (!info) return null;
+
+    return {
+      refCount: info.refCount,
+      isRegistered: info.isRegistered,
+    };
+  }
+
+  /**
+   * Get all registered tool names
+   */
+  public getRegisteredTools(): string[] {
+    return Array.from(this.toolRegistry.keys()).filter(
+      (name) => this.toolRegistry.get(name)?.isRegistered,
+    );
+  }
+
+  /**
+   * Check if a tool is registered
+   */
+  public isToolRegistered(toolName: string): boolean {
+    return this.toolRegistry.get(toolName)?.isRegistered ?? false;
+  }
+
+  /**
+   * Handle tool call from worker - execute handler in main thread and return result
+   * @private
+   */
+  private async handleToolCall(
+    toolName: string,
+    args: unknown,
+    callId: string,
+  ): Promise<void> {
+    logger.log(`[WorkerClient] Handling tool call: ${toolName}`, {
+      callId,
+      args,
+    });
+
+    try {
+      const handler = this.toolHandlers.get(toolName);
+
+      if (!handler) {
+        throw new Error(`Tool handler not found: ${toolName}`);
+      }
+
+      // Execute handler in main thread (with full access to everything!)
+      const result = await handler(args);
+
+      // Send result back to worker
+      this.sendToolCallResult(callId, { success: true, result });
+    } catch (error) {
+      logger.error(`[WorkerClient] Tool call failed: ${toolName}`, error);
+
+      // Send error back to worker
+      this.sendToolCallResult(callId, {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Send tool call result back to worker
+   * @private
+   */
+  private sendToolCallResult(
+    callId: string,
+    result: { success: boolean; result?: unknown; error?: string },
+  ): void {
+    const message = {
+      type: 'TOOL_CALL_RESULT',
+      callId,
+      success: result.success,
+      result: result.result,
+      error: result.error,
+    };
+
+    if (this.workerType === 'shared' && this.sharedWorkerPort) {
+      try {
+        this.sharedWorkerPort.postMessage(message);
+      } catch (error) {
+        logger.error(
+          '[WorkerClient] Failed to send result to SharedWorker:',
+          error,
+        );
+      }
+    } else if (
+      this.workerType === 'service' &&
+      this.serviceWorkerRegistration?.active
+    ) {
+      try {
+        this.serviceWorkerRegistration.active.postMessage(message);
+      } catch (error) {
+        logger.error(
+          '[WorkerClient] Failed to send result to ServiceWorker:',
+          error,
+        );
+      }
     }
   }
 }

@@ -155,8 +155,7 @@ self.onconnect = (event: MessageEvent) => {
       return;
     }
 
-    if (messageData.type === 'STORE_EVENT') {
-      // Reply via MessageChannel port if provided (for request/response pattern)
+    if (messageData.type === 'REGISTER_TOOL') {
       const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
       try {
         if (!backendUrl || !controller) {
@@ -167,19 +166,19 @@ self.onconnect = (event: MessageEvent) => {
             });
           } catch (e: unknown) {
             logger.debug(
-              '[SharedWorker] Failed to post uninitialized error for STORE_EVENT:',
+              '[SharedWorker] Failed to post uninitialized error for REGISTER_TOOL:',
               e,
             );
           }
           return;
         }
-        const userEvent = messageData.event as UserEvent;
-        await getController().handleStoreEvent(userEvent);
+        const toolData = messageData as Record<string, unknown>;
+        await getController().handleRegisterTool(toolData);
         try {
           replyPort.postMessage({ success: true });
         } catch (e: unknown) {
           logger.debug(
-            '[SharedWorker] Failed to post STORE_EVENT success to port:',
+            '[SharedWorker] Failed to post REGISTER_TOOL success to port:',
             e,
           );
         }
@@ -188,10 +187,161 @@ self.onconnect = (event: MessageEvent) => {
           replyPort.postMessage({
             success: false,
             error:
-              error instanceof Error ? error.message : 'Worker not initialized',
+              error instanceof Error
+                ? error.message
+                : 'Failed to register tool',
           });
         } catch (e: unknown) {
-          logger.error('[SharedWorker] Failed to post failure to port:', e);
+          logger.error(
+            '[SharedWorker] Failed to post REGISTER_TOOL failure to port:',
+            e,
+          );
+        }
+      }
+      return;
+    }
+
+    if (messageData.type === 'UNREGISTER_TOOL') {
+      const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
+      try {
+        if (!backendUrl || !controller) {
+          try {
+            replyPort.postMessage({
+              success: false,
+              error: 'Worker not initialized',
+            });
+          } catch (e: unknown) {
+            logger.debug(
+              '[SharedWorker] Failed to post uninitialized error for UNREGISTER_TOOL:',
+              e,
+            );
+          }
+          return;
+        }
+        const toolName = (messageData as Record<string, unknown>)['name'] as
+          | string
+          | undefined;
+        if (!toolName) {
+          try {
+            replyPort.postMessage({
+              success: false,
+              error: 'Tool name is required',
+            });
+          } catch (e: unknown) {
+            logger.debug(
+              '[SharedWorker] Failed to post missing name error for UNREGISTER_TOOL:',
+              e,
+            );
+          }
+          return;
+        }
+        const success = await getController().handleUnregisterTool(toolName);
+        try {
+          replyPort.postMessage({ success });
+        } catch (e: unknown) {
+          logger.debug(
+            '[SharedWorker] Failed to post UNREGISTER_TOOL result to port:',
+            e,
+          );
+        }
+      } catch (error: unknown) {
+        try {
+          replyPort.postMessage({
+            success: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to unregister tool',
+          });
+        } catch (e: unknown) {
+          logger.error(
+            '[SharedWorker] Failed to post UNREGISTER_TOOL failure to port:',
+            e,
+          );
+        }
+      }
+      return;
+    }
+
+    if (messageData.type === 'TOOL_CALL_RESULT') {
+      // Main thread is sending back the result of a tool call
+      try {
+        if (!controller) {
+          logger.warn(
+            '[SharedWorker] Received TOOL_CALL_RESULT but no controller',
+          );
+          return;
+        }
+        const callId = messageData['callId'] as string | undefined;
+        if (!callId) {
+          logger.warn('[SharedWorker] TOOL_CALL_RESULT missing callId');
+          return;
+        }
+        getController().handleToolCallResult(callId, messageData);
+      } catch (error: unknown) {
+        logger.error(
+          '[SharedWorker] Failed to handle TOOL_CALL_RESULT:',
+          error,
+        );
+      }
+      return;
+    }
+
+    if (messageData.type === 'STORE_EVENT') {
+      // Reply via MessageChannel port if provided, otherwise fire-and-forget
+      const hasReplyPort = ev.ports && ev.ports.length > 0;
+      const replyPort = hasReplyPort ? ev.ports[0] : null;
+
+      try {
+        if (!backendUrl || !controller) {
+          // Only send error if client expects a response
+          if (replyPort) {
+            try {
+              replyPort.postMessage({
+                success: false,
+                error: 'Worker not initialized',
+              });
+            } catch (e: unknown) {
+              logger.debug(
+                '[SharedWorker] Failed to post uninitialized error for STORE_EVENT:',
+                e,
+              );
+            }
+          } else {
+            logger.warn('[SharedWorker] STORE_EVENT before INIT, ignoring');
+          }
+          return;
+        }
+
+        const userEvent = messageData.event as UserEvent;
+        await getController().handleStoreEvent(userEvent);
+
+        // Only send response if client expects it
+        if (replyPort) {
+          try {
+            replyPort.postMessage({ success: true });
+          } catch (e: unknown) {
+            logger.debug(
+              '[SharedWorker] Failed to post STORE_EVENT success to port:',
+              e,
+            );
+          }
+        }
+      } catch (error: unknown) {
+        logger.error('[SharedWorker] Failed to store event:', error);
+        // Only send error if client expects a response
+        if (replyPort) {
+          try {
+            replyPort.postMessage({
+              success: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to store event',
+            });
+          } catch (e: unknown) {
+            logger.error('[SharedWorker] Failed to post failure to port:', e);
+          }
         }
       }
 

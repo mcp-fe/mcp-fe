@@ -1,15 +1,17 @@
-/* eslint-disable no-restricted-globals */
 /**
  * MCP Controller
  *
  * Encapsulates the shared WebSocket / MCP server / storage logic used by
  * both SharedWorker and ServiceWorker implementations.
+ *
+ * Supports dynamic tool registration via handleRegisterTool and handleUnregisterTool.
  */
 
 import { storeEvent, queryEvents, UserEvent } from './database';
 import { mcpServer } from './mcp-server';
 import { WebSocketTransport } from './websocket-transport';
 import { logger } from './logger';
+import { toolRegistry } from './tool-registry';
 
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -24,6 +26,15 @@ export class MCPController {
   private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
   private requireAuth: boolean;
   private isReconnectingForToken = false;
+
+  // Queue for tool registrations that arrive before MCP server is ready
+  private pendingToolRegistrations: Array<{
+    toolData: Record<string, unknown>;
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }> = [];
+
+  private isMCPServerReady = false;
 
   constructor(
     private backendUrl: string,
@@ -124,6 +135,9 @@ export class MCPController {
               '[MCPController] MCP Server connected to WebSocket transport',
             );
 
+            this.isMCPServerReady = true;
+            this.processPendingToolRegistrations();
+
             this.startKeepAlive();
             this.broadcastFn({ type: 'CONNECTION_STATUS', connected: true });
             resolve();
@@ -222,6 +236,180 @@ export class MCPController {
 
   public async handleGetEvents(): Promise<ReturnType<typeof queryEvents>> {
     return queryEvents({ limit: 50 });
+  }
+
+  /**
+   * Process pending tool registrations after MCP server is ready
+   * @private
+   */
+  private processPendingToolRegistrations(): void {
+    if (this.pendingToolRegistrations.length === 0) return;
+
+    logger.log(
+      `[MCPController] Processing ${this.pendingToolRegistrations.length} pending tool registrations`,
+    );
+
+    const pending = [...this.pendingToolRegistrations];
+    this.pendingToolRegistrations = [];
+
+    pending.forEach(async ({ toolData, resolve, reject }) => {
+      try {
+        await this.handleRegisterToolInternal(toolData);
+        resolve();
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  public async handleRegisterTool(
+    toolData: Record<string, unknown>,
+  ): Promise<void> {
+    // If MCP server is not ready yet, queue the registration
+    if (!this.isMCPServerReady) {
+      logger.log(
+        `[MCPController] Queueing tool registration '${toolData['name']}' (MCP server not ready yet)`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        this.pendingToolRegistrations.push({
+          toolData,
+          resolve,
+          reject,
+        });
+      });
+    }
+
+    // MCP server is ready - register immediately
+    return this.handleRegisterToolInternal(toolData);
+  }
+
+  /**
+   * Internal method to register tool (assumes MCP server is ready)
+   * @private
+   */
+  private async handleRegisterToolInternal(
+    toolData: Record<string, unknown>,
+  ): Promise<void> {
+    const name = toolData['name'] as string;
+    const description = toolData['description'] as string;
+    const inputSchema = toolData['inputSchema'] as Record<string, unknown>;
+    const handlerType = toolData['handlerType'] as string;
+
+    if (!name || !description || !inputSchema) {
+      throw new Error(
+        'Missing required tool fields: name, description, inputSchema',
+      );
+    }
+
+    if (handlerType !== 'proxy') {
+      throw new Error(
+        `Unsupported handler type: ${handlerType}. Only 'proxy' handlers are supported.`,
+      );
+    }
+
+    // Create a proxy handler that sends CALL_TOOL message back to main thread
+    const handler: (
+      args: unknown,
+    ) => Promise<{ content: Array<{ type: string; text: string }> }> = async (
+      args: unknown,
+    ) => {
+      const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+      logger.log(`[MCPController] Proxying tool call to main thread: ${name}`, {
+        callId,
+        args,
+      });
+
+      // Send CALL_TOOL message to main thread and wait for result
+      return new Promise((resolve, reject) => {
+        // Store promise handlers for this call
+        const pendingCall = {
+          resolve,
+          reject,
+          timeout: setTimeout(() => {
+            reject(new Error(`Tool call timeout: ${name}`));
+          }, 30000), // 30 second timeout
+        };
+
+        // Store in a map (we'll need to track these)
+        if (!this.pendingToolCalls) {
+          this.pendingToolCalls = new Map();
+        }
+        this.pendingToolCalls.set(callId, pendingCall);
+
+        // Broadcast CALL_TOOL message to main thread
+        this.broadcastFn({
+          type: 'CALL_TOOL',
+          toolName: name,
+          args,
+          callId,
+        });
+      });
+    };
+
+    toolRegistry.register(
+      {
+        name,
+        description,
+        inputSchema,
+      },
+      handler,
+    );
+
+    logger.log(
+      `[MCPController] Registered proxy tool: ${name} (forwards to main thread)`,
+    );
+  }
+
+  private pendingToolCalls?: Map<
+    string,
+    {
+      resolve: (value: {
+        content: Array<{ type: string; text: string }>;
+      }) => void;
+      reject: (reason: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >;
+
+  public handleToolCallResult(callId: string, result: unknown): void {
+    if (!this.pendingToolCalls) return;
+
+    const pendingCall = this.pendingToolCalls.get(callId);
+    if (!pendingCall) {
+      logger.warn(
+        `[MCPController] Received result for unknown call: ${callId}`,
+      );
+      return;
+    }
+
+    clearTimeout(pendingCall.timeout);
+    this.pendingToolCalls.delete(callId);
+
+    const resultData = result as {
+      success?: boolean;
+      result?: { content: Array<{ type: string; text: string }> };
+      error?: string;
+    };
+
+    if (resultData.success && resultData.result) {
+      pendingCall.resolve(resultData.result);
+    } else {
+      pendingCall.reject(new Error(resultData.error || 'Tool call failed'));
+    }
+  }
+
+  public async handleUnregisterTool(toolName: string): Promise<boolean> {
+    const success = toolRegistry.unregister(toolName);
+
+    if (success) {
+      logger.log(`[MCPController] Unregistered tool: ${toolName}`);
+    } else {
+      logger.log(`[MCPController] Tool not found: ${toolName}`);
+    }
+
+    return success;
   }
 
   public getConnectionStatus(): boolean {

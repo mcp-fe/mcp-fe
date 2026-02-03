@@ -1,0 +1,30 @@
+{
+  "name": "@mcp-fe/react-tools",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "homepage": "https://mcp-fe.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mcp-fe/mcp-fe.git",
+    "directory": "libs/react-tools"
+  },
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    }
+  },
+  "dependencies": {
+    "@mcp-fe/mcp-worker": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

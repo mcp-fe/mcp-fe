@@ -5,7 +5,6 @@ import { useSessionManager } from './hooks/useSessionManager';
 import { HomePage } from './pages/HomePage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { FormsPage } from './pages/FormsPage';
-import { ComponentsPage } from './pages/ComponentsPage';
 import { DataTablePage } from './pages/DataTablePage';
 import { NavigationPage } from './pages/NavigationPage';
 import { Modal } from './components/Modal';
@@ -66,16 +65,6 @@ export function App() {
               </li>
               <li>
                 <Link
-                  to="/components"
-                  className={
-                    location.pathname === '/components' ? 'active' : ''
-                  }
-                >
-                  Components
-                </Link>
-              </li>
-              <li>
-                <Link
                   to="/forms"
                   className={location.pathname === '/forms' ? 'active' : ''}
                 >
@@ -103,7 +92,6 @@ export function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/how-it-works" element={<HowItWorksPage />} />
-              <Route path="/components" element={<ComponentsPage />} />
               <Route path="/forms" element={<FormsPage />} />
               <Route path="/data-table" element={<DataTablePage />} />
               <Route path="/navigation/*" element={<NavigationPage />} />
