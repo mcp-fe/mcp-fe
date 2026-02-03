@@ -8,9 +8,10 @@ export const HowItWorksPage = () => (
       className="lead-text"
       style={{ fontSize: '1.1rem', marginBottom: '2rem' }}
     >
-      MCP-FE implements a <strong>pull-based architecture</strong> where the
-      browser acts as a local MCP server, responding to data requests from AI
-      agents on-demand rather than continuously pushing data.
+      MCP-FE implements a <strong>bidirectional architecture</strong> where the
+      browser acts as a local MCP server with pull-based data requests from AI
+      agents, plus the ability for agents to send data back to components and
+      interact with custom tools registered directly in your React components.
     </p>
 
     <div
@@ -49,20 +50,38 @@ export const HowItWorksPage = () => (
         >
           <h4>1. Frontend Application</h4>
           <p>
-            Your React (or any other) application uses the{' '}
-            <code>@mcp-fe/event-tracker</code> or{' '}
-            <code>@mcp-fe/react-event-tracker</code> library to automatically
-            capture user interactions:
+            Your React (or any other) application integrates MCP-FE capabilities
+            through multiple libraries:
           </p>
           <ul>
-            <li>Navigation events (route changes, page transitions)</li>
-            <li>Click events (buttons, links, interactive elements)</li>
-            <li>Input events (typing, form changes, validations)</li>
-            <li>Custom events (application-specific interactions)</li>
+            <li>
+              <strong>Event Tracking:</strong>{' '}
+              <code>@mcp-fe/event-tracker</code> or{' '}
+              <code>@mcp-fe/react-event-tracker</code> automatically capture:
+              <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+                <li>Navigation events (route changes, page transitions)</li>
+                <li>Click events (buttons, links, interactive elements)</li>
+                <li>Input events (typing, form changes, validations)</li>
+                <li>Custom events (application-specific interactions)</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Custom Tools:</strong> <code>@mcp-fe/react-tools</code>{' '}
+              allows you to register custom MCP tools directly in React
+              components with hooks like <code>useMCPTool</code>
+            </li>
+            <li>
+              <strong>State Sharing:</strong> Components can expose their state
+              for AI agents to read
+            </li>
+            <li>
+              <strong>Data Receiving:</strong> Components can receive and
+              process data sent from AI agents
+            </li>
           </ul>
           <p>
-            These events are sent to the Worker Client for storage. The tracking
-            is automatic and requires minimal setup.
+            All data is sent to the Worker Client for storage and processing.
+            The integration is simple and requires minimal setup.
           </p>
         </div>
 
@@ -88,6 +107,10 @@ export const HowItWorksPage = () => (
               private browser storage)
             </li>
             <li>
+              <strong>Manages custom tools registry</strong> - keeps track of
+              tools registered by components
+            </li>
+            <li>
               <strong>Implements MCP server endpoints</strong> that can be
               called by AI agents
             </li>
@@ -97,12 +120,17 @@ export const HowItWorksPage = () => (
             </li>
             <li>
               <strong>Responds to tool calls</strong> from AI agents by querying
-              IndexedDB
+              IndexedDB or executing custom tools
+            </li>
+            <li>
+              <strong>Routes data from agents</strong> back to the appropriate
+              components
             </li>
           </ul>
           <p>
             The worker is shared across all tabs of your application (when using
-            SharedWorker), providing a unified view of user activity.
+            SharedWorker), providing a unified view of user activity and
+            bidirectional communication channel.
           </p>
         </div>
 
@@ -117,8 +145,8 @@ export const HowItWorksPage = () => (
         >
           <h4>3. Node.js MCP Proxy Server</h4>
           <p>
-            A lightweight Node.js server (<code>@mcp-fe/mcp-server</code>) acts
-            as a bridge between AI agents and the browser worker:
+            A lightweight Node.js server acts as a bridge between AI agents and
+            the browser worker:
           </p>
           <ul>
             <li>
@@ -155,22 +183,44 @@ export const HowItWorksPage = () => (
           <h4>4. AI Agent (Claude, Cursor, etc.)</h4>
           <p>
             Standard MCP-compatible AI agents connect to the proxy server and
-            can call tools to query the frontend state:
+            can call built-in and custom tools to interact with your frontend:
           </p>
           <ul>
             <li>
-              <code>get_user_events</code> - Retrieve user interaction history
+              <strong>Built-in tools:</strong>
+              <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+                <li>
+                  <code>get_client_status</code> - Get current state of the
+                  browser - worker connection
+                </li>
+                <li>
+                  <code>get_user_events</code> - Retrieve complete user
+                  interaction history
+                </li>
+                <li>
+                  <code>get_navigation_history</code> - Search through
+                  navigation history
+                </li>
+                <li>
+                  <code>get_click_events</code> - Retrieve click event history
+                </li>
+              </ul>
             </li>
             <li>
-              <code>query_application_state</code> - Get current UI state
+              <strong>Custom tools:</strong> Any tools registered by your
+              components using <code>@mcp-fe/react-tools</code> (e.g.,{' '}
+              <code>calculate_shipping</code>, <code>validate_order</code>,{' '}
+              <code>get_cart_items</code>)
             </li>
             <li>
-              <code>search_events</code> - Search through event history
+              <strong>Bidirectional actions:</strong> Agents can send data back
+              to components to update UI state
             </li>
           </ul>
           <p>
             The agent only requests data when it needs it, making the system
-            efficient and privacy-friendly.
+            efficient and privacy-friendly. Agents can both read from and write
+            to your application.
           </p>
         </div>
       </div>
@@ -214,6 +264,16 @@ export const HowItWorksPage = () => (
         </p>
       </div>
 
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h4>🔄 Bidirectional Communication</h4>
+        <p>
+          Unlike traditional one-way analytics, MCP-FE enables two-way
+          communication. AI agents can not only read application state but also
+          send data back to components, execute custom tools, and trigger UI
+          updates—all through a standard MCP interface.
+        </p>
+      </div>
+
       <div>
         <h4>🔌 Standard MCP Protocol</h4>
         <p>
@@ -234,15 +294,15 @@ export const HowItWorksPage = () => (
         borderRadius: '8px',
       }}
     >
-      <h3>Example: AI Agent Debugging Flow</h3>
+      <h3>Example: AI Agent Interactive Flow</h3>
       <ol style={{ marginLeft: '1.5rem' }}>
         <li>
-          <strong>User reports:</strong> "I clicked the submit button but
-          nothing happened"
+          <strong>User asks:</strong> "Why can't I submit this form?"
         </li>
         <li>
-          <strong>AI agent calls tool:</strong>{' '}
-          <code>get_user_events(type: "click", limit: 10)</code>
+          <strong>AI agent calls built-in tool:</strong>{' '}
+          <code>get_user_events(type: "click", limit: 10)</code> to see recent
+          interactions
         </li>
         <li>
           <strong>MCP Proxy routes</strong> the request to the browser worker
@@ -253,16 +313,28 @@ export const HowItWorksPage = () => (
           click events
         </li>
         <li>
-          <strong>Response sent back</strong> through proxy to AI agent
+          <strong>Agent calls custom tool:</strong>{' '}
+          <code>get_form_state(formId: "checkout-form")</code> registered by
+          your component
         </li>
         <li>
-          <strong>Agent analyzes:</strong> "I see you clicked 'Submit' but the
-          form has validation errors in the email field"
+          <strong>Component responds</strong> with current form state including
+          validation errors
+        </li>
+        <li>
+          <strong>Agent analyzes and responds:</strong> "I see you clicked
+          'Submit' but the form has validation errors in the email field. Would
+          you like me to help fix it?"
+        </li>
+        <li>
+          <strong>User agrees, agent sends data:</strong> Agent calls another
+          custom tool to populate the email field with a corrected value
         </li>
       </ol>
       <p style={{ marginTop: '1rem', fontStyle: 'italic' }}>
-        All of this happens in real-time, with the AI agent having full context
-        of what the user did.
+        All of this happens in real-time with bidirectional communication - the
+        AI agent has full context of user actions and can actively help by
+        updating the UI.
       </p>
     </div>
 
@@ -280,11 +352,11 @@ export const HowItWorksPage = () => (
         ← Back to Home
       </Link>{' '}
       <Link
-        to="/components"
+        to="/navigation"
         className="demo-link"
         style={{ fontSize: '1.1rem', padding: '0.5rem 1rem' }}
       >
-        Try Components →
+        Try Navigation →
       </Link>
     </div>
   </div>
