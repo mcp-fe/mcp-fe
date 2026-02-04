@@ -10,6 +10,7 @@ import {
   type ToolDefinition,
   type ToolHandler,
 } from './tool-registry';
+import type { TabManager } from './tab-manager';
 
 // Built-in tool definitions and handlers
 const builtInTools: Array<{
@@ -192,10 +193,47 @@ const builtInTools: Array<{
 ];
 
 /**
- * Register all built-in tools with the tool registry
+ * Register event tracking built-in tools with the tool registry
+ * Called once when MCP server is initialized
  */
 export function registerBuiltInTools(): void {
+  // Register event tracking tools
   builtInTools.forEach(({ definition, handler }) => {
     toolRegistry.register(definition, handler);
   });
+}
+
+/**
+ * Register tab management tool with the tool registry
+ * Called by MCPController with its TabManager instance
+ * @param tabManager - TabManager instance for multi-tab routing
+ */
+export function registerTabManagementTool(tabManager: TabManager): void {
+  toolRegistry.register(
+    {
+      name: 'list_browser_tabs',
+      description:
+        'List all active browser tabs running this application. Returns tab IDs, URLs, titles, and active status. Use this to discover available tabs before calling tools with specific tabId parameters.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    async () => {
+      const tabs = tabManager.getAllTabs().map((tab) => ({
+        ...tab,
+        isActive: tab.tabId === tabManager.getActiveTabId(),
+        lastSeen: new Date(tab.lastSeen).toISOString(),
+      }));
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(tabs, null, 2),
+          },
+        ],
+      };
+    },
+  );
 }

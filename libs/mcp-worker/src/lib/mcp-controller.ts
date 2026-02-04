@@ -13,6 +13,7 @@ import { WebSocketTransport } from './websocket-transport';
 import { logger } from './logger';
 import { toolRegistry } from './tool-registry';
 import { TabManager } from './tab-manager';
+import { registerTabManagementTool } from './built-in-tools';
 
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -58,45 +59,8 @@ export class MCPController {
     requireAuth = true,
   ) {
     this.requireAuth = requireAuth;
-    // Register built-in meta tools
-    this.registerBuiltInTools();
-  }
-
-  /**
-   * Register built-in meta tools for tab management
-   * @private
-   */
-  private registerBuiltInTools(): void {
-    // Tool for listing all active browser tabs
-    toolRegistry.register(
-      {
-        name: 'list_browser_tabs',
-        description:
-          'List all active browser tabs running this application. Returns tab IDs, URLs, titles, and active status. Use this to discover available tabs before calling tools with specific tabId parameters.',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-        },
-      },
-      async () => {
-        const tabs = this.tabManager.getAllTabs().map((tab) => ({
-          ...tab,
-          isActive: tab.tabId === this.tabManager.getActiveTabId(),
-          lastSeen: new Date(tab.lastSeen).toISOString(),
-        }));
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(tabs, null, 2),
-            },
-          ],
-        };
-      },
-    );
-
-    logger.log('[MCPController] Registered built-in meta tools');
+    // Register tab management tool with this controller's TabManager
+    registerTabManagementTool(this.tabManager);
   }
 
   /**
