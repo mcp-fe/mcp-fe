@@ -36,12 +36,130 @@ export class MCPController {
 
   private isMCPServerReady = false;
 
+  // Multi-tab support: track tabs and their tools
+  private tabRegistry = new Map<
+    string,
+    { url: string; title: string; lastSeen: number }
+  >();
+  private activeTabId: string | null = null;
+  // Tool handlers per tab: Map<ToolName, Set<TabId>>
+  private toolHandlersByTab = new Map<string, Set<string>>();
+  // Map to track pending tool calls
+  private pendingToolCalls = new Map<
+    string,
+    {
+      resolve: (result: {
+        content: Array<{ type: string; text: string }>;
+      }) => void;
+      reject: (error: Error) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >();
+
   constructor(
     private backendUrl: string,
     private broadcastFn: BroadcastFn,
     requireAuth = true,
   ) {
     this.requireAuth = requireAuth;
+    // Register built-in meta tools
+    this.registerBuiltInTools();
+  }
+
+  /**
+   * Register built-in meta tools for tab management
+   * @private
+   */
+  private registerBuiltInTools(): void {
+    // Tool for listing all active browser tabs
+    toolRegistry.register(
+      {
+        name: 'list_browser_tabs',
+        description:
+          'List all active browser tabs running this application. Returns tab IDs, URLs, titles, and active status. Use this to discover available tabs before calling tools with specific tabId parameters.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      async () => {
+        const tabs = Array.from(this.tabRegistry.entries()).map(
+          ([tabId, info]) => ({
+            tabId,
+            url: info.url,
+            title: info.title,
+            isActive: tabId === this.activeTabId,
+            lastSeen: new Date(info.lastSeen).toISOString(),
+          }),
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(tabs, null, 2),
+            },
+          ],
+        };
+      },
+    );
+
+    logger.log('[MCPController] Registered built-in meta tools');
+  }
+
+  /**
+   * Handle tab registration from WorkerClient
+   * @public
+   */
+  public handleRegisterTab(data: Record<string, unknown>): void {
+    const tabId = data['tabId'] as string;
+    const url = data['url'] as string;
+    const title = data['title'] as string;
+
+    if (!tabId) {
+      logger.warn('[MCPController] REGISTER_TAB missing tabId');
+      return;
+    }
+
+    this.tabRegistry.set(tabId, {
+      url: url || '',
+      title: title || '',
+      lastSeen: Date.now(),
+    });
+
+    logger.log(`[MCPController] Registered tab: ${tabId} (${title})`);
+
+    // Broadcast tab list update to all tabs
+    this.broadcastFn({
+      type: 'TAB_LIST_UPDATED',
+      tabs: Array.from(this.tabRegistry.entries()).map(([id, info]) => ({
+        tabId: id,
+        ...info,
+      })),
+    });
+  }
+
+  /**
+   * Handle active tab change from WorkerClient
+   * @public
+   */
+  public handleSetActiveTab(data: Record<string, unknown>): void {
+    const tabId = data['tabId'] as string;
+
+    if (!tabId) {
+      logger.warn('[MCPController] SET_ACTIVE_TAB missing tabId');
+      return;
+    }
+
+    this.activeTabId = tabId;
+
+    logger.log(`[MCPController] Active tab changed: ${tabId}`);
+
+    // Update lastSeen timestamp
+    const tab = this.tabRegistry.get(tabId);
+    if (tab) {
+      tab.lastSeen = Date.now();
+    }
   }
 
   private startKeepAlive(): void {
@@ -295,6 +413,7 @@ export class MCPController {
     const description = toolData['description'] as string;
     const inputSchema = toolData['inputSchema'] as Record<string, unknown>;
     const handlerType = toolData['handlerType'] as string;
+    const tabId = toolData['tabId'] as string;
 
     if (!name || !description || !inputSchema) {
       throw new Error(
@@ -308,74 +427,116 @@ export class MCPController {
       );
     }
 
-    // Create a proxy handler that sends CALL_TOOL message back to main thread
-    const handler: (
-      args: unknown,
-    ) => Promise<{ content: Array<{ type: string; text: string }> }> = async (
-      args: unknown,
-    ) => {
-      const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    // Track which tabs have registered this tool
+    if (!this.toolHandlersByTab.has(name)) {
+      this.toolHandlersByTab.set(name, new Set());
+    }
+    const tabHandlers = this.toolHandlersByTab.get(name)!;
 
-      logger.log(`[MCPController] Proxying tool call to main thread: ${name}`, {
-        callId,
-        args,
-      });
+    // Check if this is a new tab registering or existing tab re-registering
+    const isNewTab = !tabHandlers.has(tabId);
+    tabHandlers.add(tabId);
 
-      // Send CALL_TOOL message to main thread and wait for result
-      return new Promise((resolve, reject) => {
-        // Store promise handlers for this call
-        const pendingCall = {
-          resolve,
-          reject,
-          timeout: setTimeout(() => {
-            reject(new Error(`Tool call timeout: ${name}`));
-          }, 30000), // 30 second timeout
-        };
-
-        // Store in a map (we'll need to track these)
-        if (!this.pendingToolCalls) {
-          this.pendingToolCalls = new Map();
-        }
-        this.pendingToolCalls.set(callId, pendingCall);
-
-        // Broadcast CALL_TOOL message to main thread
-        this.broadcastFn({
-          type: 'CALL_TOOL',
-          toolName: name,
-          args,
-          callId,
-        });
-      });
-    };
-
-    toolRegistry.register(
-      {
-        name,
-        description,
-        inputSchema,
-      },
-      handler,
-    );
+    if (!isNewTab) {
+      logger.log(
+        `[MCPController] Tab ${tabId} re-registered tool '${name}' (already tracked)`,
+      );
+      return; // Don't re-register with MCP server
+    }
 
     logger.log(
-      `[MCPController] Registered proxy tool: ${name} (forwards to main thread)`,
+      `[MCPController] Tab ${tabId} registered tool '${name}' (${tabHandlers.size} tab(s) total)`,
     );
+
+    // Only register with MCP server once (first tab)
+    if (tabHandlers.size === 1) {
+      // Create a smart proxy handler with hybrid multi-tab routing
+      const handler: (
+        args: unknown,
+      ) => Promise<{ content: Array<{ type: string; text: string }> }> = async (
+        args: unknown,
+      ) => {
+        const argsObj = args as Record<string, unknown>;
+        let targetTabId = argsObj['tabId'] as string | undefined;
+
+        // Hybrid logic: use tabId from args, fallback to active tab
+        if (!targetTabId) {
+          targetTabId = this.activeTabId || undefined;
+        }
+
+        if (!targetTabId) {
+          // No active tab and no tabId specified - try first available
+          const firstTab = tabHandlers.values().next().value;
+          if (firstTab) {
+            targetTabId = firstTab;
+            logger.warn(
+              `[MCPController] No active tab or tabId specified for '${name}', using first available: ${targetTabId}`,
+            );
+          } else {
+            throw new Error(
+              `Tool '${name}' has no registered tabs. Please specify tabId parameter.`,
+            );
+          }
+        }
+
+        // Check if target tab has this tool
+        if (!tabHandlers.has(targetTabId)) {
+          const available = Array.from(tabHandlers);
+          throw new Error(
+            `Tool '${name}' not available in tab '${targetTabId}'. Available tabs: ${available.join(', ')}`,
+          );
+        }
+
+        const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+        logger.log(
+          `[MCPController] Routing tool call to tab ${targetTabId}: ${name}`,
+          { callId, args },
+        );
+
+        // Send CALL_TOOL message to main thread and wait for result
+        return new Promise((resolve, reject) => {
+          // Store promise handlers for this call
+          const pendingCall = {
+            resolve,
+            reject,
+            timeout: setTimeout(() => {
+              this.pendingToolCalls.delete(callId);
+              reject(
+                new Error(`Tool call timeout: ${name} (tab: ${targetTabId})`),
+              );
+            }, 30000), // 30 second timeout
+          };
+
+          this.pendingToolCalls.set(callId, pendingCall);
+
+          // Broadcast CALL_TOOL message with target tab ID
+          this.broadcastFn({
+            type: 'CALL_TOOL',
+            toolName: name,
+            args,
+            callId,
+            targetTabId, // NEW: specify which tab should handle this
+          });
+        });
+      };
+
+      toolRegistry.register(
+        {
+          name,
+          description,
+          inputSchema,
+        },
+        handler,
+      );
+
+      logger.log(
+        `[MCPController] Registered proxy tool: ${name} with hybrid multi-tab routing`,
+      );
+    }
   }
 
-  private pendingToolCalls?: Map<
-    string,
-    {
-      resolve: (value: {
-        content: Array<{ type: string; text: string }>;
-      }) => void;
-      reject: (reason: Error) => void;
-      timeout: ReturnType<typeof setTimeout>;
-    }
-  >;
-
   public handleToolCallResult(callId: string, result: unknown): void {
-    if (!this.pendingToolCalls) return;
-
     const pendingCall = this.pendingToolCalls.get(callId);
     if (!pendingCall) {
       logger.warn(
@@ -400,16 +561,41 @@ export class MCPController {
     }
   }
 
-  public async handleUnregisterTool(toolName: string): Promise<boolean> {
-    const success = toolRegistry.unregister(toolName);
+  public async handleUnregisterTool(
+    toolName: string,
+    tabId?: string,
+  ): Promise<boolean> {
+    // Get tabs that have this tool
+    const tabHandlers = this.toolHandlersByTab.get(toolName);
 
-    if (success) {
-      logger.log(`[MCPController] Unregistered tool: ${toolName}`);
-    } else {
-      logger.log(`[MCPController] Tool not found: ${toolName}`);
+    if (!tabHandlers || tabHandlers.size === 0) {
+      logger.warn(`[MCPController] Tool not found: ${toolName}`);
+      return false;
     }
 
-    return success;
+    // If tabId specified, remove only that tab
+    if (tabId) {
+      tabHandlers.delete(tabId);
+      logger.log(
+        `[MCPController] Removed tab ${tabId} from tool '${toolName}' (${tabHandlers.size} tab(s) remaining)`,
+      );
+    }
+
+    // If no more tabs have this tool, unregister from MCP
+    if (tabHandlers.size === 0) {
+      this.toolHandlersByTab.delete(toolName);
+      const success = toolRegistry.unregister(toolName);
+
+      if (success) {
+        logger.log(
+          `[MCPController] Unregistered tool from MCP: ${toolName} (no tabs remaining)`,
+        );
+      }
+
+      return success;
+    }
+
+    return true; // Still has tabs, so considered successful
   }
 
   public getConnectionStatus(): boolean {

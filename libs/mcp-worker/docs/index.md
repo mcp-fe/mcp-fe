@@ -10,6 +10,7 @@ Complete guide to all documentation and examples in the MCP Worker library.
 | **See advanced patterns** | [examples/dynamic-tools.ts](../examples/dynamic-tools.ts) |
 | **Learn step-by-step** | [Guide](./guide.md) |
 | **Complete API reference** | [API Reference](./api.md) |
+| **Multi-tab applications** | [Multi-Tab Guide](./multi-tab.md) |
 | **Worker implementation** | [Worker Details](./worker-details.md) |
 | **Use with React** | [React Hooks Guide](../../react-event-tracker/REACT_MCP_TOOLS.md) |
 | **Understand architecture** | [Architecture](./architecture.md) |
@@ -25,6 +26,7 @@ libs/mcp-worker/
 │   ├── index.md                           ← This file
 │   ├── guide.md                           ← Complete guide
 │   ├── api.md                             ← API reference
+│   ├── multi-tab.md                       ← Multi-tab support
 │   ├── worker-details.md                  ← Worker implementation
 │   ├── architecture.md                    ← Technical architecture
 │   └── initialization.md                  ← Init handling
@@ -78,6 +80,12 @@ libs/react-event-tracker/
 
 ### "How does the proxy pattern work?"
 → [Architecture](./architecture.md)
+
+### "How do I handle multiple tabs?"
+→ [Multi-Tab Guide](./multi-tab.md)
+
+### "What tools are built-in?"
+→ [Multi-Tab Guide](./multi-tab.md#built-in-meta-tool) (list_browser_tabs)
 
 ### "How do I handle initialization?"
 → [Initialization](./initialization.md)

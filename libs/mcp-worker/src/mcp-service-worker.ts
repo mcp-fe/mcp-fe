@@ -183,6 +183,28 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
     return;
   }
 
+  if (msg['type'] === 'REGISTER_TAB') {
+    try {
+      if (controller) {
+        getController().handleRegisterTab(msg as Record<string, unknown>);
+      }
+    } catch (error) {
+      logger.error('[ServiceWorker] Failed to register tab:', error);
+    }
+    return;
+  }
+
+  if (msg['type'] === 'SET_ACTIVE_TAB') {
+    try {
+      if (controller) {
+        getController().handleSetActiveTab(msg as Record<string, unknown>);
+      }
+    } catch (error) {
+      logger.error('[ServiceWorker] Failed to set active tab:', error);
+    }
+    return;
+  }
+
   if (msg['type'] === 'REGISTER_TOOL') {
     event.waitUntil(
       (async () => {

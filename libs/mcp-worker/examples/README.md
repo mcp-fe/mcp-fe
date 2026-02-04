@@ -43,6 +43,41 @@ Advanced patterns and real-world use cases.
 
 **Best for:** Production use cases, complex validation needs
 
+### [multi-tab.ts](./multi-tab.ts)
+Multi-tab support and intelligent routing patterns.
+
+**Includes:**
+- Basic multi-tab tool registration
+- Tab discovery with list_browser_tabs
+- Tab-specific state handling
+- Cross-tab comparison patterns
+- Focus-driven debugging
+- React component with multi-tab
+- Tab lifecycle explanation
+
+**Best for:** Multi-tab applications, debugging workflows, cross-tab analysis
+
+```typescript
+// Tool automatically works across tabs
+await workerClient.registerTool(
+  'get_current_page',
+  'Get current page info',
+  { type: 'object', properties: {} },
+  async () => ({
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        url: window.location.href,
+        tabId: workerClient.getTabId()
+      })
+    }]
+  })
+);
+
+// AI can call without tabId (uses focused tab)
+// or with tabId to target specific tab
+```
+
 ```typescript
 // Calculator with validation
 await workerClient.registerTool(

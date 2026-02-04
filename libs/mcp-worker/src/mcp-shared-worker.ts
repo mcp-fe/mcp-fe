@@ -155,6 +155,32 @@ self.onconnect = (event: MessageEvent) => {
       return;
     }
 
+    if (messageData.type === 'REGISTER_TAB') {
+      try {
+        if (controller) {
+          getController().handleRegisterTab(
+            messageData as Record<string, unknown>,
+          );
+        }
+      } catch (e: unknown) {
+        logger.error('[SharedWorker] Failed to register tab:', e);
+      }
+      return;
+    }
+
+    if (messageData.type === 'SET_ACTIVE_TAB') {
+      try {
+        if (controller) {
+          getController().handleSetActiveTab(
+            messageData as Record<string, unknown>,
+          );
+        }
+      } catch (e: unknown) {
+        logger.error('[SharedWorker] Failed to set active tab:', e);
+      }
+      return;
+    }
+
     if (messageData.type === 'REGISTER_TOOL') {
       const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
       try {

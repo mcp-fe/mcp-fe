@@ -160,11 +160,104 @@ public async handleRegisterTool(toolData: Record<string, unknown>) {
 
 1. **MCP Client** calls tool via MCP protocol
 2. **Worker** receives MCP tool call
-3. **Worker** sends `CALL_TOOL` message to main thread
-4. **Main Thread** executes handler function
+3. **Worker** sends `CALL_TOOL` message to main thread (with targetTabId if specified)
+4. **Main Thread** (specific tab) executes handler function
 5. **Main Thread** sends `TOOL_CALL_RESULT` back
 6. **Worker** resolves promise and returns to MCP
 7. **MCP Client** receives result
+
+## Multi-Tab Support
+
+### Architecture
+
+The library supports multiple browser tabs running the same application, with intelligent routing of tool calls:
+
+```
+┌─────────────────────┐
+│   MCP Client        │
+│   (Claude, etc.)    │
+└──────────┬──────────┘
+           │ MCP Protocol (with optional tabId param)
+           ▼
+┌─────────────────────┐
+│  Shared Worker      │
+│                     │
+│  Tab Registry       │
+│  ├─ Tab 1 (active)  │
+│  ├─ Tab 2           │
+│  └─ Tab 3           │
+│                     │
+│  Tool Registry      │
+│  └─ get_page_info   │
+│     ├─ Tab 1 ✓      │ ← Hybrid routing logic
+│     └─ Tab 2 ✓      │
+└──────────┬──────────┘
+           │ Route to specific tab or active tab
+           ▼
+┌─────────────────────┐
+│  Main Threads       │
+│  ├─ Tab 1 (active)  │ ← Focused/visible tab
+│  └─ Tab 2           │
+└─────────────────────┘
+```
+
+### Tab Management
+
+**Automatic Tab Registration:**
+- Each tab gets unique ID via `crypto.randomUUID()`
+- Stored in `sessionStorage` (persists across refreshes)
+- Registered with worker on init
+
+**Focus Tracking:**
+- Active tab tracked via `window.focus` and `document.visibilitychange`
+- Worker maintains `activeTabId` for default routing
+
+### Hybrid Routing Strategy
+
+When a tool is called, the worker uses this logic:
+
+1. **Explicit `tabId` parameter**: Route to specified tab
+2. **No `tabId` + active tab exists**: Route to focused tab (user-friendly default)
+3. **No `tabId` + no active tab**: Route to first available tab (fallback)
+4. **Invalid `tabId`**: Return error with list of available tabs
+
+**Example:**
+```typescript
+// Agent discovers tabs
+list_browser_tabs()
+// → [{ tabId: "abc-123", title: "Dashboard", isActive: true }, ...]
+
+// Agent calls tool without tabId (uses active tab)
+get_page_info()
+// → Routes to focused tab automatically
+
+// Agent calls tool with specific tabId
+get_page_info({ tabId: "abc-123" })
+// → Routes to Dashboard tab precisely
+```
+
+### Tool Schema Enhancement
+
+All tools automatically get optional `tabId` parameter:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    // ... your properties ...
+    "tabId": {
+      "type": "string",
+      "description": "Optional: Target specific tab by ID. If not provided, uses the currently focused tab."
+    }
+  }
+}
+```
+
+### Built-in Meta Tools
+
+**`list_browser_tabs`**: Discover available tabs
+- Returns tab IDs, URLs, titles, active status
+- Use before calling tools with specific tabIds
 
 ## Why This Works
 

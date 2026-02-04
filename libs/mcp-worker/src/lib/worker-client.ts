@@ -111,6 +111,123 @@ export class WorkerClient {
     Set<(info: { refCount: number; isRegistered: boolean } | null) => void>
   >();
 
+  // Tab tracking for multi-tab support
+  private tabId: string;
+  private static activeTabId: string | null = null;
+  private static readonly TAB_ID_STORAGE_KEY = 'mcp_tab_id';
+
+  constructor() {
+    // Get or create tab ID from session storage
+    this.tabId = this.getOrCreateTabId();
+
+    // Track focus changes for active tab management
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', () => {
+        this.setActiveTab();
+      });
+
+      // Track visibility changes (more reliable than focus)
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          this.setActiveTab();
+        }
+      });
+    }
+  }
+
+  /**
+   * Get existing tab ID from session storage or create new one using crypto.randomUUID()
+   * @private
+   */
+  private getOrCreateTabId(): string {
+    try {
+      // Try to get existing tab ID
+      const existing = sessionStorage.getItem(WorkerClient.TAB_ID_STORAGE_KEY);
+      if (existing) {
+        logger.log(`[WorkerClient] Reusing existing tab ID: ${existing}`);
+        return existing;
+      }
+
+      // Generate new UUID using crypto API
+      const newId = crypto.randomUUID();
+      sessionStorage.setItem(WorkerClient.TAB_ID_STORAGE_KEY, newId);
+      logger.log(`[WorkerClient] Generated new tab ID: ${newId}`);
+      return newId;
+    } catch (error) {
+      // Fallback if sessionStorage unavailable (private mode, etc.)
+      logger.warn(
+        '[WorkerClient] Session storage unavailable, using fallback ID:',
+        error,
+      );
+      return `fallback_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    }
+  }
+
+  /**
+   * Register this tab with the worker
+   * @private
+   */
+  private registerTab(): void {
+    this.post('REGISTER_TAB', {
+      tabId: this.tabId,
+      url: window.location.href,
+      title: document.title,
+      timestamp: Date.now(),
+    }).catch((error) => {
+      logger.warn('[WorkerClient] Failed to register tab:', error);
+    });
+  }
+
+  /**
+   * Mark this tab as the active tab
+   * @private
+   */
+  private setActiveTab(): void {
+    WorkerClient.activeTabId = this.tabId;
+    this.post('SET_ACTIVE_TAB', { tabId: this.tabId }).catch((error) => {
+      logger.warn('[WorkerClient] Failed to set active tab:', error);
+    });
+  }
+
+  /**
+   * Get the unique ID of this tab
+   * @public
+   */
+  public getTabId(): string {
+    return this.tabId;
+  }
+
+  /**
+   * Get current tab info (for debugging)
+   * @public
+   */
+  public getTabInfo(): {
+    tabId: string;
+    isActive: boolean;
+    url: string;
+    title: string;
+  } {
+    return {
+      tabId: this.tabId,
+      isActive: WorkerClient.activeTabId === this.tabId,
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      title: typeof document !== 'undefined' ? document.title : '',
+    };
+  }
+
+  /**
+   * Clear tab ID from session storage (useful for testing)
+   * @public
+   */
+  public static clearTabId(): void {
+    try {
+      sessionStorage.removeItem(WorkerClient.TAB_ID_STORAGE_KEY);
+      logger.log('[WorkerClient] Cleared tab ID from session storage');
+    } catch (error) {
+      logger.warn('[WorkerClient] Failed to clear tab ID:', error);
+    }
+  }
+
   // Initialize and choose worker implementation (prefer SharedWorker)
   // Accept either a ServiceWorkerRegistration OR WorkerInitOptions to configure URLs
   public async init(
@@ -211,6 +328,11 @@ export class WorkerClient {
     logger.log(
       '[WorkerClient] Worker initialized, processing pending operations',
     );
+
+    // Register this tab with the worker
+    this.registerTab();
+    // Set as active tab immediately
+    this.setActiveTab();
 
     // Notify all waiters
     this.initResolvers.forEach((resolve) => resolve());
@@ -342,6 +464,18 @@ export class WorkerClient {
                 }
               });
             } else if (data && data.type === 'CALL_TOOL') {
+              // Check if this call is intended for this tab
+              const targetTabId = data.targetTabId;
+
+              if (targetTabId && targetTabId !== this.tabId) {
+                // Not for this tab, ignore
+                logger.log(
+                  `[WorkerClient] Ignoring CALL_TOOL (not for this tab): ${data.toolName}`,
+                  { targetTabId, myTabId: this.tabId },
+                );
+                return;
+              }
+
               // Worker is asking us to execute a tool handler
               this.handleToolCall(data.toolName, data.args, data.callId).catch(
                 (error) => {
@@ -397,6 +531,18 @@ export class WorkerClient {
               try {
                 const data = ev.data;
                 if (data && data.type === 'CALL_TOOL') {
+                  // Check if this call is intended for this tab
+                  const targetTabId = data.targetTabId;
+
+                  if (targetTabId && targetTabId !== this.tabId) {
+                    // Not for this tab, ignore
+                    logger.log(
+                      `[WorkerClient] Ignoring CALL_TOOL (not for this tab): ${data.toolName}`,
+                      { targetTabId, myTabId: this.tabId },
+                    );
+                    return;
+                  }
+
                   // Worker is asking us to execute a tool handler
                   this.handleToolCall(
                     data.toolName,
@@ -832,6 +978,31 @@ export class WorkerClient {
   }
 
   /**
+   * Enhance tool input schema with optional tabId parameter for multi-tab support
+   * @private
+   */
+  private enhanceSchemaWithTabId(
+    schema: Record<string, unknown>,
+  ): Record<string, unknown> {
+    // Clone schema to avoid mutation
+    const enhanced = JSON.parse(JSON.stringify(schema));
+
+    // Ensure properties object exists
+    if (!enhanced.properties) {
+      enhanced.properties = {};
+    }
+
+    // Add optional tabId parameter
+    enhanced.properties['tabId'] = {
+      type: 'string',
+      description:
+        'Optional: Target specific tab by ID. If not provided, uses the currently focused tab. Use list_browser_tabs to discover available tabs.',
+    };
+
+    return enhanced;
+  }
+
+  /**
    * Internal method to register tool (assumes worker is initialized)
    * @private
    */
@@ -864,19 +1035,23 @@ export class WorkerClient {
     // Store handler in main thread
     this.toolHandlers.set(name, handler);
 
+    // Enhance schema with optional tabId parameter for multi-tab support
+    const enhancedSchema = this.enhanceSchemaWithTabId(inputSchema);
+
     // Register tool in worker with proxy handler
     await this.request('REGISTER_TOOL', {
       name,
       description,
-      inputSchema,
+      inputSchema: enhancedSchema,
       handlerType: 'proxy', // Tell worker this is a proxy handler
+      tabId: this.tabId, // Tell worker which tab registered this
     });
 
     // Add to registry
     this.toolRegistry.set(name, {
       refCount: 1,
       description,
-      inputSchema,
+      inputSchema: enhancedSchema,
       isRegistered: true,
     });
 
