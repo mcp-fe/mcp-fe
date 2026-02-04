@@ -21,30 +21,54 @@ const getController = () => {
   return controller;
 };
 const setBackendUrl = (url: string) => {
-  backendUrl = url;
-  controller = null;
-  controller = MCPController.create(url, (message: unknown) => {
-    self.clients
-      .matchAll()
-      .then((clients) => {
-        clients.forEach((client) => {
-          try {
-            client.postMessage(message);
-          } catch (e) {
-            logger.error(
-              '[ServiceWorker] Failed to post message to client:',
-              e,
-            );
-          }
+  // If controller already exists with same URL, reuse it
+  if (controller && backendUrl === url) {
+    logger.log(
+      '[ServiceWorker] Controller already initialized with same URL, reusing',
+    );
+    return controller;
+  }
+
+  // Only recreate if URL changed or no controller exists
+  if (backendUrl !== url) {
+    logger.log(
+      `[ServiceWorker] Initializing/updating controller with URL: ${url}`,
+    );
+    backendUrl = url;
+
+    // Close old controller if exists
+    if (controller) {
+      try {
+        controller.dispose();
+      } catch (e) {
+        logger.warn('[ServiceWorker] Failed to dispose old controller:', e);
+      }
+    }
+
+    controller = MCPController.create(url, (message: unknown) => {
+      self.clients
+        .matchAll()
+        .then((clients) => {
+          clients.forEach((client) => {
+            try {
+              client.postMessage(message);
+            } catch (e) {
+              logger.error(
+                '[ServiceWorker] Failed to post message to client:',
+                e,
+              );
+            }
+          });
+        })
+        .catch((err) => {
+          logger.error(
+            '[ServiceWorker] Failed to match clients for broadcast:',
+            err,
+          );
         });
-      })
-      .catch((err) => {
-        logger.error(
-          '[ServiceWorker] Failed to match clients for broadcast:',
-          err,
-        );
-      });
-  });
+    });
+  }
+
   return controller;
 };
 
@@ -183,6 +207,28 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
     return;
   }
 
+  if (msg['type'] === 'REGISTER_TAB') {
+    try {
+      if (controller) {
+        getController().handleRegisterTab(msg as Record<string, unknown>);
+      }
+    } catch (error) {
+      logger.error('[ServiceWorker] Failed to register tab:', error);
+    }
+    return;
+  }
+
+  if (msg['type'] === 'SET_ACTIVE_TAB') {
+    try {
+      if (controller) {
+        getController().handleSetActiveTab(msg as Record<string, unknown>);
+      }
+    } catch (error) {
+      logger.error('[ServiceWorker] Failed to set active tab:', error);
+    }
+    return;
+  }
+
   if (msg['type'] === 'REGISTER_TOOL') {
     event.waitUntil(
       (async () => {
@@ -231,6 +277,8 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
             return;
           }
           const toolName = msg['name'] as string | undefined;
+          const tabId = msg['tabId'] as string | undefined;
+
           if (!toolName) {
             if (event.ports && event.ports[0]) {
               event.ports[0].postMessage({
@@ -240,7 +288,11 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
             }
             return;
           }
-          const success = await getController().handleUnregisterTool(toolName);
+
+          const success = await getController().handleUnregisterTool(
+            toolName,
+            tabId,
+          );
           if (event.ports && event.ports[0]) {
             event.ports[0].postMessage({ success });
           }

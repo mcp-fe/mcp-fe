@@ -22,6 +22,7 @@ export {
 } from './lib/worker-client';
 export { queryEvents, type UserEvent } from './lib/database';
 export { type ToolHandler, type ToolDefinition } from './lib/tool-registry';
+export { TabManager, type TabInfo } from './lib/tab-manager';
 export { logger } from './lib/logger';
 
 // WorkerClient global singleton

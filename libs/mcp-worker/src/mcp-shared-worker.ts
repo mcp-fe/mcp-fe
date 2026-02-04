@@ -25,22 +25,46 @@ const getController = () => {
   return controller;
 };
 const setBackendUrl = (url: string) => {
-  backendUrl = url;
-  controller = null;
-  controller = MCPController.create(url, (message: unknown) => {
-    connectedPorts.forEach((port) => {
+  // If controller already exists with same URL, reuse it
+  if (controller && backendUrl === url) {
+    logger.log(
+      '[SharedWorker] Controller already initialized with same URL, reusing',
+    );
+    return controller;
+  }
+
+  // Only recreate if URL changed or no controller exists
+  if (backendUrl !== url) {
+    logger.log(
+      `[SharedWorker] Initializing/updating controller with URL: ${url}`,
+    );
+    backendUrl = url;
+
+    // Close old controller if exists
+    if (controller) {
       try {
-        port.postMessage(message);
-      } catch (error) {
-        const idx = connectedPorts.indexOf(port);
-        if (idx > -1) connectedPorts.splice(idx, 1);
-        logger.debug(
-          '[SharedWorker] Failed to broadcast to a port (removed):',
-          error,
-        );
+        controller.dispose();
+      } catch (e) {
+        logger.warn('[SharedWorker] Failed to dispose old controller:', e);
       }
+    }
+
+    controller = MCPController.create(url, (message: unknown) => {
+      connectedPorts.forEach((port) => {
+        try {
+          port.postMessage(message);
+        } catch (error) {
+          const idx = connectedPorts.indexOf(port);
+          if (idx > -1) connectedPorts.splice(idx, 1);
+          logger.debug(
+            '[SharedWorker] Failed to broadcast to a port (removed):',
+            error,
+          );
+        }
+      });
     });
-  });
+  }
+
   return controller;
 };
 
@@ -155,6 +179,32 @@ self.onconnect = (event: MessageEvent) => {
       return;
     }
 
+    if (messageData.type === 'REGISTER_TAB') {
+      try {
+        if (controller) {
+          getController().handleRegisterTab(
+            messageData as Record<string, unknown>,
+          );
+        }
+      } catch (e: unknown) {
+        logger.error('[SharedWorker] Failed to register tab:', e);
+      }
+      return;
+    }
+
+    if (messageData.type === 'SET_ACTIVE_TAB') {
+      try {
+        if (controller) {
+          getController().handleSetActiveTab(
+            messageData as Record<string, unknown>,
+          );
+        }
+      } catch (e: unknown) {
+        logger.error('[SharedWorker] Failed to set active tab:', e);
+      }
+      return;
+    }
+
     if (messageData.type === 'REGISTER_TOOL') {
       const replyPort = ev.ports && ev.ports.length > 0 ? ev.ports[0] : port;
       try {
@@ -221,6 +271,10 @@ self.onconnect = (event: MessageEvent) => {
         const toolName = (messageData as Record<string, unknown>)['name'] as
           | string
           | undefined;
+        const tabId = (messageData as Record<string, unknown>)['tabId'] as
+          | string
+          | undefined;
+
         if (!toolName) {
           try {
             replyPort.postMessage({
@@ -235,7 +289,11 @@ self.onconnect = (event: MessageEvent) => {
           }
           return;
         }
-        const success = await getController().handleUnregisterTool(toolName);
+
+        const success = await getController().handleUnregisterTool(
+          toolName,
+          tabId,
+        );
         try {
           replyPort.postMessage({ success });
         } catch (e: unknown) {

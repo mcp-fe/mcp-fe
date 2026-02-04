@@ -409,6 +409,128 @@ function MyComponent() {
 
 See [React Hooks Guide](../../react-event-tracker/REACT_MCP_TOOLS.md) for details.
 
+## Multi-Tab Applications
+
+The library automatically handles multiple browser tabs with intelligent routing.
+
+### How It Works
+
+Each tab gets a unique ID (via `crypto.randomUUID()`) stored in `sessionStorage`. Tools are registered per-tab, and the worker routes calls intelligently.
+
+### Automatic Routing (Smart Strategy)
+
+**Without `tabId` parameter**: Intelligently routes based on availability and focus
+
+```typescript
+// In any tab
+await workerClient.registerTool(
+  'get_page_url',
+  'Get current page URL',
+  { type: 'object', properties: {} },
+  async () => ({
+    content: [{
+      type: 'text',
+      text: window.location.href
+    }]
+  })
+);
+
+// Scenario 1: Only one tab has the tool
+// Tab A: Has get_page_url
+// Tab B: Doesn't have get_page_url (active)
+get_page_url()
+// → Automatically routes to Tab A (even though Tab B is active!)
+// No error, tool "just works"
+
+// Scenario 2: Multiple tabs have the tool
+// Tab A: Has get_page_url
+// Tab B: Has get_page_url (active)
+get_page_url()
+// → Routes to Tab B (active tab preferred when multiple available)
+```
+
+**With `tabId` parameter**: Routes to specific tab precisely
+
+```typescript
+// First, discover available tabs
+list_browser_tabs()
+// → [
+//   { tabId: "abc-123", url: "/dashboard", title: "Dashboard", isActive: true },
+//   { tabId: "def-456", url: "/settings", title: "Settings", isActive: false }
+// ]
+
+// Then target a specific tab
+get_page_url({ tabId: "def-456" })
+// → Routes to Settings tab specifically
+```
+
+### Built-in Meta Tool
+
+**`list_browser_tabs`**: Always available, lists all active tabs
+
+```typescript
+// Returns array of:
+{
+  tabId: string;      // Unique tab identifier
+  url: string;        // Current URL
+  title: string;      // Page title
+  isActive: boolean;  // Is this the focused tab?
+  lastSeen: string;   // ISO timestamp of last activity
+}
+```
+
+### Reference Counting
+
+When multiple tabs register the same tool:
+- Tool is registered once with MCP
+- Worker tracks all tabs that have the tool
+- Unregistration happens when last tab unmounts
+- Handler is always from the target tab's context
+
+### Tab Persistence
+
+Tab IDs persist across page refreshes (stored in `sessionStorage`):
+- Same tab keeps same ID after F5
+- Duplicate tab (Ctrl+K) gets new ID
+- New tab/window gets new ID
+
+### Use Cases
+
+**1. Compare data across tabs:**
+```typescript
+// Get state from multiple tabs
+const dashboardState = await get_react_state({ tabId: "tab-1" });
+const settingsState = await get_react_state({ tabId: "tab-2" });
+```
+
+**2. Debug specific tab:**
+```typescript
+// Agent: "Show me the state of the Settings tab"
+list_browser_tabs()
+// Find tabId for Settings
+get_react_state({ tabId: "settings-tab-id" })
+```
+
+**3. Focus-driven interaction:**
+```typescript
+// Agent: "What's on the current page?"
+get_page_info()  // No tabId needed - uses focused tab
+```
+
+### Debugging Multi-Tab
+
+```typescript
+import { workerClient } from '@mcp-fe/mcp-worker';
+
+// Get current tab info
+console.log(workerClient.getTabInfo());
+// → { tabId: "abc-123", url: "/dashboard", title: "Dashboard" }
+
+// Clear and regenerate tab ID (for testing)
+WorkerClient.clearTabId();
+// Refresh page to get new ID
+```
+
 ## Troubleshooting
 
 ### Tool doesn't register
