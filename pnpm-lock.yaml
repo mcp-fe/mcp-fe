@@ -278,10 +278,10 @@ importers:
         specifier: workspace:*
         version: link:../mcp-worker
       react:
-        specifier: '>=19.0.0'
+        specifier: ^19.0.0
         version: 19.2.3
       react-dom:
-        specifier: '>=19.0.0'
+        specifier: ^19.0.0
         version: 19.2.3(react@19.2.3)
 
 packages:
