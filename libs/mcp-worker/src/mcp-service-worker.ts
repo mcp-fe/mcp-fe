@@ -277,6 +277,8 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
             return;
           }
           const toolName = msg['name'] as string | undefined;
+          const tabId = msg['tabId'] as string | undefined;
+
           if (!toolName) {
             if (event.ports && event.ports[0]) {
               event.ports[0].postMessage({
@@ -286,7 +288,11 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
             }
             return;
           }
-          const success = await getController().handleUnregisterTool(toolName);
+
+          const success = await getController().handleUnregisterTool(
+            toolName,
+            tabId,
+          );
           if (event.ports && event.ports[0]) {
             event.ports[0].postMessage({ success });
           }

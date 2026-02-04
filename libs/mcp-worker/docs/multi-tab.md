@@ -52,7 +52,113 @@ Example:
 }
 ```
 
-## Routing Strategies
+## Tool Lifecycle & Navigation
+
+### Automatic Cleanup
+
+Tools are **automatically unregistered** when:
+
+1. **Page navigation** (beforeunload event)
+2. **Page close** (pagehide event)
+3. **Page refresh** (F5)
+4. **Component unmount** (via React hooks like useMCPTool)
+
+```typescript
+// WorkerClient automatically handles cleanup
+window.addEventListener('beforeunload', () => {
+  // Unregister all tools from this tab
+  toolRegistry.forEach(tool => {
+    unregisterTool(tool.name, this.tabId);
+  });
+});
+```
+
+### How It Works
+
+**Registration:**
+```typescript
+// Tab A: Dashboard page
+await workerClient.registerTool('get_dashboard_data', ...);
+// → Worker: toolHandlersByTab.set('get_dashboard_data', Set([tabA]))
+```
+
+**Navigation (automatic cleanup):**
+```typescript
+// User navigates Tab A away from Dashboard
+// → beforeunload event fires
+// → WorkerClient.cleanupAllTools() called
+// → Sends: UNREGISTER_TOOL({ name: 'get_dashboard_data', tabId: tabA })
+// → Worker: toolHandlersByTab.get('get_dashboard_data').delete(tabA)
+```
+
+**Routing after navigation:**
+```typescript
+// Tab B still has 'get_dashboard_data' registered
+// AI calls: get_dashboard_data()
+// → Worker checks: tabA (active) has tool? NO
+// → Worker checks: other tabs have tool? YES (tabB)
+// → Routes to Tab B automatically ✓
+```
+
+### SPA Navigation Pattern
+
+In Single Page Applications, components mount/unmount frequently:
+
+```typescript
+// Dashboard component
+function DashboardPage() {
+  // Tool registers on mount
+  useMCPTool({
+    name: 'get_dashboard_data',
+    // ...
+  });
+  
+  // Tool unregisters on unmount (automatic!)
+  // - When user navigates to /settings
+  // - When component is destroyed
+  // - When route changes
+}
+```
+
+**Multi-tab behavior:**
+- Tab A: /dashboard → registers tool
+- Tab B: /dashboard → registers tool (refCount = 2)
+- Tab A navigates to /settings → unregisters tool (refCount = 1)
+- Tool still available via Tab B ✓
+
+### Edge Cases
+
+**All tabs lose tool:**
+```typescript
+// Both tabs on /dashboard
+Tab A: registers tool
+Tab B: registers tool
+
+// Both tabs navigate away
+Tab A → /settings (unregisters)
+Tab B → /profile (unregisters)
+
+// Tool completely unregistered from MCP
+get_dashboard_data()
+// → Error: "Tool not available"
+
+// User returns to /dashboard in Tab A
+// → Component mounts → registers tool again
+// → Tool available again ✓
+```
+
+**Refresh handling:**
+```typescript
+// Tab has tools registered
+// User presses F5
+
+// → beforeunload fires
+// → All tools unregistered
+// → Page reloads
+// → Components mount
+// → Tools registered again
+// → Tab ID preserved (sessionStorage)
+```
 
 ### 1. Smart Routing (Default)
 

@@ -271,6 +271,10 @@ self.onconnect = (event: MessageEvent) => {
         const toolName = (messageData as Record<string, unknown>)['name'] as
           | string
           | undefined;
+        const tabId = (messageData as Record<string, unknown>)['tabId'] as
+          | string
+          | undefined;
+
         if (!toolName) {
           try {
             replyPort.postMessage({
@@ -285,7 +289,11 @@ self.onconnect = (event: MessageEvent) => {
           }
           return;
         }
-        const success = await getController().handleUnregisterTool(toolName);
+
+        const success = await getController().handleUnregisterTool(
+          toolName,
+          tabId,
+        );
         try {
           replyPort.postMessage({ success });
         } catch (e: unknown) {

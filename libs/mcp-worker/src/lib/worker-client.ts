@@ -132,6 +132,16 @@ export class WorkerClient {
           this.setActiveTab();
         }
       });
+
+      // Cleanup tools when page is unloading (navigation, close, refresh)
+      window.addEventListener('beforeunload', () => {
+        this.cleanupAllTools();
+      });
+
+      // Pagehide is more reliable for mobile and modern browsers
+      window.addEventListener('pagehide', () => {
+        this.cleanupAllTools();
+      });
     }
   }
 
@@ -226,6 +236,51 @@ export class WorkerClient {
     } catch (error) {
       logger.warn('[WorkerClient] Failed to clear tab ID:', error);
     }
+  }
+
+  /**
+   * Cleanup all registered tools (called on page unload)
+   * @private
+   */
+  private cleanupAllTools(): void {
+    const toolNames = Array.from(this.toolRegistry.keys());
+
+    if (toolNames.length === 0) {
+      return;
+    }
+
+    logger.log(
+      `[WorkerClient] Page unloading, cleaning up ${toolNames.length} tool(s)`,
+    );
+
+    // Unregister each tool properly (respecting refCount)
+    toolNames.forEach((toolName) => {
+      const existing = this.toolRegistry.get(toolName);
+      if (!existing) return;
+
+      // Set refCount to 1 and then unregister (forces cleanup)
+      // This is acceptable because page is unloading anyway
+      existing.refCount = 1;
+
+      try {
+        // Use synchronous post for unload events
+        this.post('UNREGISTER_TOOL', {
+          name: toolName,
+          tabId: this.tabId,
+        }).catch(() => {
+          // Ignore errors during cleanup
+        });
+
+        // Clean up local state
+        this.toolHandlers.delete(toolName);
+        this.toolRegistry.delete(toolName);
+      } catch (error) {
+        logger.warn(
+          `[WorkerClient] Failed to unregister '${toolName}' during cleanup:`,
+          error,
+        );
+      }
+    });
   }
 
   // Initialize and choose worker implementation (prefer SharedWorker)
@@ -1086,10 +1141,10 @@ export class WorkerClient {
       // Remove from local handlers
       this.toolHandlers.delete(name);
 
-      // Unregister from worker
+      // Unregister from worker (include tabId so worker can track properly)
       const result = await this.request<{ success?: boolean }>(
         'UNREGISTER_TOOL',
-        { name },
+        { name, tabId: this.tabId },
       );
 
       // Remove from registry
