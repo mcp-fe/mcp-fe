@@ -113,7 +113,7 @@ export class WorkerClient {
 
   // Tab tracking for multi-tab support
   private tabId: string;
-  private static readonly TAB_ID_STORAGE_KEY = 'mcp_tab_id';
+  private static readonly TAB_ID_STORAGE_KEY = 'mcp_fe_tab_id';
 
   constructor() {
     // Get or create tab ID from session storage

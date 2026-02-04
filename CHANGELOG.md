@@ -15,9 +15,9 @@
 
 ### 🎯 Routing Priority (Smart Strategy)
 1. Explicit `tabId` parameter (always respected)
-2. **Only one tab has tool → use it (even if not active)** - NEW!
+2. **Only one tab has tool → use it (even if not active)**
 3. Active tab has tool → use it
-4. **Active tab lacks tool (navigation) → use first available** - NEW!
+4. **Active tab lacks tool (navigation) → use first available**
 5. No active tab → use first available
 
 ### 🐛 Critical Fixes
@@ -37,10 +37,8 @@
 ### 📖 Documentation
 
 - Added comprehensive [Multi-Tab Guide](./libs/mcp-worker/docs/multi-tab.md)
-- Added [Multi-Tab Examples](./libs/mcp-worker/examples/multi-tab.ts)
 - Updated [Architecture](./libs/mcp-worker/docs/architecture.md) with multi-tab section
 - Updated [Guide](./libs/mcp-worker/docs/guide.md) with multi-tab usage
-- Added [Implementation Summary](./libs/mcp-worker/MULTI_TAB_IMPLEMENTATION.md)
 
 ### ❤️ Thank You
 
