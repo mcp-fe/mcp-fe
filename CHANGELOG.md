@@ -1,3 +1,41 @@
+## Unreleased
+
+### 🚀 Features
+
+- **Multi-Tab Support**: Added comprehensive multi-tab support with intelligent routing
+  - Each tab gets unique UUID (crypto.randomUUID()) stored in sessionStorage
+  - Hybrid routing: explicit tabId parameter or automatic focused tab
+  - Built-in `list_browser_tabs` meta-tool for tab discovery
+  - Automatic `tabId` parameter added to all tool schemas
+  - Tab reference counting for proper cleanup
+  - Focus tracking with window.focus and document.visibilitychange
+
+### 🐛 Critical Fixes
+
+- **Fixed MCPController recreation bug**: Multiple tabs no longer destroy shared controller
+  - Worker now reuses existing controller when URL hasn't changed
+  - Previously, each tab's INIT message recreated controller, losing all registered tabs
+  - This was causing `list_browser_tabs` to return only the last initialized tab
+  - Fixed in both SharedWorker and ServiceWorker implementations
+
+### 🩹 Fixes
+
+- **Fixed race condition in tab registration**: REGISTER_TAB now waits for INIT acknowledgment
+  - Ensures controller is ready before tab registration
+  - Prevents tabs from being lost during initialization
+
+### 📖 Documentation
+
+- Added comprehensive [Multi-Tab Guide](./libs/mcp-worker/docs/multi-tab.md)
+- Added [Multi-Tab Examples](./libs/mcp-worker/examples/multi-tab.ts)
+- Updated [Architecture](./libs/mcp-worker/docs/architecture.md) with multi-tab section
+- Updated [Guide](./libs/mcp-worker/docs/guide.md) with multi-tab usage
+- Added [Implementation Summary](./libs/mcp-worker/MULTI_TAB_IMPLEMENTATION.md)
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.1.3 (2026-02-04)
 
 ### 🩹 Fixes

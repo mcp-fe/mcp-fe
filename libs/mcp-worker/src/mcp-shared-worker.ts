@@ -25,22 +25,46 @@ const getController = () => {
   return controller;
 };
 const setBackendUrl = (url: string) => {
-  backendUrl = url;
-  controller = null;
-  controller = MCPController.create(url, (message: unknown) => {
-    connectedPorts.forEach((port) => {
+  // If controller already exists with same URL, reuse it
+  if (controller && backendUrl === url) {
+    logger.log(
+      '[SharedWorker] Controller already initialized with same URL, reusing',
+    );
+    return controller;
+  }
+
+  // Only recreate if URL changed or no controller exists
+  if (backendUrl !== url) {
+    logger.log(
+      `[SharedWorker] Initializing/updating controller with URL: ${url}`,
+    );
+    backendUrl = url;
+
+    // Close old controller if exists
+    if (controller) {
       try {
-        port.postMessage(message);
-      } catch (error) {
-        const idx = connectedPorts.indexOf(port);
-        if (idx > -1) connectedPorts.splice(idx, 1);
-        logger.debug(
-          '[SharedWorker] Failed to broadcast to a port (removed):',
-          error,
-        );
+        controller.dispose();
+      } catch (e) {
+        logger.warn('[SharedWorker] Failed to dispose old controller:', e);
       }
+    }
+
+    controller = MCPController.create(url, (message: unknown) => {
+      connectedPorts.forEach((port) => {
+        try {
+          port.postMessage(message);
+        } catch (error) {
+          const idx = connectedPorts.indexOf(port);
+          if (idx > -1) connectedPorts.splice(idx, 1);
+          logger.debug(
+            '[SharedWorker] Failed to broadcast to a port (removed):',
+            error,
+          );
+        }
+      });
     });
-  });
+  }
+
   return controller;
 };
 
