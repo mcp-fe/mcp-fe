@@ -459,24 +459,52 @@ export class MCPController {
         const argsObj = args as Record<string, unknown>;
         let targetTabId = argsObj['tabId'] as string | undefined;
 
-        // Hybrid logic: use tabId from args, fallback to active tab
-        if (!targetTabId) {
-          targetTabId = this.activeTabId || undefined;
-        }
+        // Smart routing strategy:
+        // 1. Explicit tabId parameter (highest priority)
+        // 2. If only one tab has this tool -> use it (regardless of focus)
+        // 3. Active/focused tab (if it has the tool)
+        // 4. First available tab (fallback)
 
         if (!targetTabId) {
-          // No active tab and no tabId specified - try first available
-          const firstTab = tabHandlers.values().next().value;
-          if (firstTab) {
-            targetTabId = firstTab;
-            logger.warn(
-              `[MCPController] No active tab or tabId specified for '${name}', using first available: ${targetTabId}`,
+          // Check if only one tab has this tool
+          if (tabHandlers.size === 1) {
+            // Only one tab provides this tool - route to it automatically
+            targetTabId = tabHandlers.values().next().value;
+            logger.log(
+              `[MCPController] Tool '${name}' available in only one tab, routing to: ${targetTabId}`,
             );
+          } else if (this.activeTabId && tabHandlers.has(this.activeTabId)) {
+            // Multiple tabs have tool, prefer active tab if it has it
+            targetTabId = this.activeTabId;
+            logger.log(
+              `[MCPController] Routing '${name}' to active tab: ${targetTabId}`,
+            );
+          } else if (this.activeTabId && !tabHandlers.has(this.activeTabId)) {
+            // Active tab doesn't have tool, use first available
+            const firstTab = tabHandlers.values().next().value;
+            if (firstTab) {
+              targetTabId = firstTab;
+              logger.log(
+                `[MCPController] Active tab doesn't have '${name}', routing to first available: ${targetTabId}`,
+              );
+            }
           } else {
-            throw new Error(
-              `Tool '${name}' has no registered tabs. Please specify tabId parameter.`,
-            );
+            // No active tab - use first available
+            const firstTab = tabHandlers.values().next().value;
+            if (firstTab) {
+              targetTabId = firstTab;
+              logger.log(
+                `[MCPController] No active tab, routing '${name}' to first available: ${targetTabId}`,
+              );
+            }
           }
+        }
+
+        // Validate we found a target
+        if (!targetTabId) {
+          throw new Error(
+            `Tool '${name}' has no registered tabs. Please specify tabId parameter.`,
+          );
         }
 
         // Check if target tab has this tool

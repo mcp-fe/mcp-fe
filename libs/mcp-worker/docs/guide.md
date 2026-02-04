@@ -417,9 +417,9 @@ The library automatically handles multiple browser tabs with intelligent routing
 
 Each tab gets a unique ID (via `crypto.randomUUID()`) stored in `sessionStorage`. Tools are registered per-tab, and the worker routes calls intelligently.
 
-### Automatic Routing (Hybrid Strategy)
+### Automatic Routing (Smart Strategy)
 
-**Without `tabId` parameter**: Routes to the currently focused/visible tab
+**Without `tabId` parameter**: Intelligently routes based on availability and focus
 
 ```typescript
 // In any tab
@@ -435,9 +435,18 @@ await workerClient.registerTool(
   })
 );
 
-// AI calls without tabId
+// Scenario 1: Only one tab has the tool
+// Tab A: Has get_page_url
+// Tab B: Doesn't have get_page_url (active)
 get_page_url()
-// → Automatically routes to the focused tab
+// → Automatically routes to Tab A (even though Tab B is active!)
+// No error, tool "just works"
+
+// Scenario 2: Multiple tabs have the tool
+// Tab A: Has get_page_url
+// Tab B: Has get_page_url (active)
+get_page_url()
+// → Routes to Tab B (active tab preferred when multiple available)
 ```
 
 **With `tabId` parameter**: Routes to specific tab precisely

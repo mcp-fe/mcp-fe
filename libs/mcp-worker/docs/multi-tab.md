@@ -54,33 +54,60 @@ Example:
 
 ## Routing Strategies
 
-### 1. Hybrid Routing (Default)
+### 1. Smart Routing (Default)
 
-Most user-friendly approach - combines explicit and implicit targeting:
+Intelligent routing that prioritizes user intent and availability:
 
 ```typescript
 // Priority order:
-1. tabId parameter (explicit)
-2. Active/focused tab (implicit)
-3. First available tab (fallback)
+1. Explicit tabId parameter (always respected)
+2. Only one tab has tool → route to it (regardless of focus)
+3. Active/focused tab has tool → use it
+4. Active tab doesn't have tool → use first available
+5. No active tab → use first available
 ```
 
-**Example:**
+**Example Scenarios:**
+
+**Scenario 1: Single tab with tool (most intuitive)**
 ```typescript
-// Scenario: Two tabs open (Dashboard, Settings)
-// Dashboard is focused
+// Tab A (active): Has toolX
+// Tab B (inactive): Doesn't have toolX
 
-// Without tabId - uses focused tab
-get_page_info()
-→ Routed to Dashboard ✓
+toolX()
+→ Routes to Tab A ✓ (active tab has it)
 
-// With tabId - precise targeting
-get_page_info({ tabId: "settings-tab-id" })
-→ Routed to Settings ✓
+// Now focus Tab B
+// Tab A (inactive): Has toolX
+// Tab B (active): Doesn't have toolX
 
-// No focused tab - uses first available
-get_page_info()  // (all tabs minimized)
-→ Routed to first registered tab + warning
+toolX()
+→ Routes to Tab A ✓ (only tab with tool, even though not active!)
+```
+
+**Scenario 2: Multiple tabs with tool**
+```typescript
+// Tab A (active): Has toolX
+// Tab B (inactive): Has toolX
+
+toolX()
+→ Routes to Tab A ✓ (active tab preferred when multiple available)
+
+// Now focus Tab B
+// Tab A (inactive): Has toolX
+// Tab B (active): Has toolX
+
+toolX()
+→ Routes to Tab B ✓ (new active tab)
+```
+
+**Scenario 3: Explicit targeting**
+```typescript
+// Tab A (active): Has toolX
+// Tab B (inactive): Has toolX
+
+toolX({ tabId: "tab-b-id" })
+→ Routes to Tab B ✓ (explicit parameter always wins)
 ```
 
 ### 2. Built-in Discovery Tool

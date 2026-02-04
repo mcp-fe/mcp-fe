@@ -214,24 +214,28 @@ The library supports multiple browser tabs running the same application, with in
 
 ### Hybrid Routing Strategy
 
-When a tool is called, the worker uses this logic:
+When a tool is called, the worker uses this intelligent logic:
 
-1. **Explicit `tabId` parameter**: Route to specified tab
-2. **No `tabId` + active tab exists**: Route to focused tab (user-friendly default)
-3. **No `tabId` + no active tab**: Route to first available tab (fallback)
-4. **Invalid `tabId`**: Return error with list of available tabs
+1. **Explicit `tabId` parameter**: Route to specified tab (always respected)
+2. **Only one tab has tool**: Route to that tab automatically (even if not active) ⭐
+3. **Active tab has tool**: Route to focused tab (user is likely working there)
+4. **Active tab lacks tool**: Route to first available tab with the tool
+5. **No active tab**: Route to first available tab (fallback)
 
 **Example:**
 ```typescript
-// Agent discovers tabs
-list_browser_tabs()
-// → [{ tabId: "abc-123", title: "Dashboard", isActive: true }, ...]
+// Scenario: Tab A (inactive) has toolX, Tab B (active) doesn't
 
-// Agent calls tool without tabId (uses active tab)
+// Agent calls without tabId
 get_page_info()
-// → Routes to focused tab automatically
+// → Routes to Tab A automatically (only tab with the tool)
+// User doesn't get an error, tool "just works"
 
-// Agent calls tool with specific tabId
+// Agent discovers tabs first
+list_browser_tabs()
+// → [{ tabId: "abc-123", title: "Dashboard", isActive: false }, ...]
+
+// Agent targets specific tab
 get_page_info({ tabId: "abc-123" })
 // → Routes to Dashboard tab precisely
 ```
