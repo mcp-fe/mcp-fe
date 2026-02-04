@@ -1,3 +1,13 @@
+## 0.1.3 (2026-02-04)
+
+### 🩹 Fixes
+
+- Setup mcp-worker as a peerDependency ([f9e52ca](https://github.com/mcp-fe/mcp-fe/commit/f9e52ca))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.1.2 (2026-02-04)
 
 ### 🩹 Fixes
