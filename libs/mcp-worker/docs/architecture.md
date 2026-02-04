@@ -210,7 +210,8 @@ The library supports multiple browser tabs running the same application, with in
 
 **Focus Tracking:**
 - Active tab tracked via `window.focus` and `document.visibilitychange`
-- Worker maintains `activeTabId` for default routing
+- Worker's `TabManager` is the single source of truth for `activeTabId`
+- Use `list_browser_tabs` tool to query which tab is currently active
 
 ### Hybrid Routing Strategy
 

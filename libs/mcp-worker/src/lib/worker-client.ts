@@ -113,7 +113,6 @@ export class WorkerClient {
 
   // Tab tracking for multi-tab support
   private tabId: string;
-  private static activeTabId: string | null = null;
   private static readonly TAB_ID_STORAGE_KEY = 'mcp_tab_id';
 
   constructor() {
@@ -193,7 +192,7 @@ export class WorkerClient {
    * @private
    */
   private setActiveTab(): void {
-    WorkerClient.activeTabId = this.tabId;
+    // Notify worker's TabManager (single source of truth)
     this.post('SET_ACTIVE_TAB', { tabId: this.tabId }).catch((error) => {
       logger.warn('[WorkerClient] Failed to set active tab:', error);
     });
@@ -213,13 +212,11 @@ export class WorkerClient {
    */
   public getTabInfo(): {
     tabId: string;
-    isActive: boolean;
     url: string;
     title: string;
   } {
     return {
       tabId: this.tabId,
-      isActive: WorkerClient.activeTabId === this.tabId,
       url: typeof window !== 'undefined' ? window.location.href : '',
       title: typeof document !== 'undefined' ? document.title : '',
     };

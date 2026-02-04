@@ -524,7 +524,7 @@ import { workerClient } from '@mcp-fe/mcp-worker';
 
 // Get current tab info
 console.log(workerClient.getTabInfo());
-// → { tabId: "abc-123", isActive: true, url: "/dashboard", title: "Dashboard" }
+// → { tabId: "abc-123", url: "/dashboard", title: "Dashboard" }
 
 // Clear and regenerate tab ID (for testing)
 WorkerClient.clearTabId();

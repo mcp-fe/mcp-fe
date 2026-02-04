@@ -470,17 +470,18 @@ console.log(tabId); // "550e8400-e29b-41d4-a716-446655440000"
 
 #### `getTabInfo(): TabInfo`
 
-Get detailed info about current tab.
+Get info about current tab (for debugging).
 
 ```typescript
 const info = workerClient.getTabInfo();
 // {
 //   tabId: "550e8400-...",
-//   isActive: true,
 //   url: "https://app.example.com/dashboard",
 //   title: "Dashboard - My App"
 // }
 ```
+
+> **Note:** To check which tab is currently active, use the `list_browser_tabs` tool which queries the worker's `TabManager` (the authoritative source).
 
 #### `static clearTabId(): void`
 
