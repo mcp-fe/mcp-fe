@@ -1,3 +1,13 @@
+## 0.1.2 (2026-02-04)
+
+### 🩹 Fixes
+
+- React-tools fixed external packages - do not include react ([efe3e36](https://github.com/mcp-fe/mcp-fe/commit/efe3e36))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.1.1 (2026-02-03)
 
 ### 🩹 Fixes
