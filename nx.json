@@ -134,6 +134,7 @@
           "preserveLocalDependencyProtocols": true
         }
       ],
+      "versionPrefix": "^",
       "generatorOptions": {
         "updateDependents": "subsequent-release",
         "currentVersionResolver": "git-tag",

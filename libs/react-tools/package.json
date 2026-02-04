@@ -18,10 +18,8 @@
       "default": "./index.mjs"
     }
   },
-  "dependencies": {
-    "@mcp-fe/mcp-worker": "workspace:*"
-  },
   "peerDependencies": {
+    "@mcp-fe/mcp-worker": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -49,6 +49,7 @@ export default defineConfig(() => ({
         'react-dom/client',
         'react/jsx-runtime',
         'react/jsx-dev-runtime',
+        '@mcp-fe/mcp-worker',
       ],
     },
   },
