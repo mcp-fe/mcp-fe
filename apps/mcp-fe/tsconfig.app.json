@@ -29,13 +29,6 @@
     "eslint.config.cjs",
     "eslint.config.mjs"
   ],
-  "include": [
-    "src/**/*.js",
-    "src/**/*.jsx",
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "../../libs/**/*.ts",
-    "../../libs/**/*.tsx"
-  ],
+  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
   "references": []
 }
