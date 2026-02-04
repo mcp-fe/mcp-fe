@@ -7,31 +7,38 @@ export const MCPToolsInfo = () => {
   const tools = [
     {
       name: 'get_form_state',
-      description: 'View all current field values',
+      description:
+        'Get current values of all form fields (firstName, lastName, email, age, country, newsletter, plan, message)',
     },
     {
-      name: 'get_form_validation_status',
-      description: 'Check validation errors',
+      name: 'submit_form',
+      description:
+        'Validate and submit the registration form. Returns success if valid, or validation errors if invalid. Resets form on success.',
+    },
+    {
+      name: 'validate_form',
+      description:
+        'Run validation on current form state without submitting. Returns isValid status, error details, and lists of valid/invalid fields.',
     },
     {
       name: 'get_form_completion',
-      description: 'See progress and which fields are filled',
+      description:
+        'Get form completion status showing which required fields are filled and overall progress percentage.',
     },
     {
       name: 'get_field_info',
-      description: 'Get detailed info about a specific field',
-    },
-    {
-      name: 'validate_form_now',
-      description: 'Run validation and see if form can be submitted',
+      description:
+        'Get detailed information about a specific field including value, validation status, requirements, and current errors.',
     },
     {
       name: 'get_form_analytics',
-      description: 'Get statistics and analytics about form data',
+      description:
+        'Get statistics about form data: character counts, field lengths, data quality metrics, and validation summary.',
     },
     {
       name: 'fill_field',
-      description: 'Fill a specific form field with a value',
+      description:
+        'Fill a specific form field with a value. Supports all 8 fields with proper type validation.',
     },
   ];
 
@@ -44,7 +51,7 @@ export const MCPToolsInfo = () => {
           use to inspect the form state in real-time:
         </>
       }
-      tools={tools}
+      tools={tools.map(({ name, description }) => ({ name, description }))}
     />
   );
 };

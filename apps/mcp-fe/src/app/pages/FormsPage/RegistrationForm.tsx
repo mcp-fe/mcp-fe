@@ -85,8 +85,6 @@ export const RegistrationForm = ({
               onChange={onInputChange}
               className={validationErrors.age ? 'error' : ''}
               placeholder="25"
-              min="1"
-              max="120"
             />
             {validationErrors.age && (
               <span className="error-message">{validationErrors.age}</span>

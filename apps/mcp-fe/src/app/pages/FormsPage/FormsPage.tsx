@@ -5,10 +5,10 @@ import { MCPToolsInfo } from './MCPToolsInfo';
 import { RegistrationForm } from './RegistrationForm';
 import {
   useFormStateTool,
-  useFormValidationTool,
+  useSubmitFormTool,
   useFormCompletionTool,
   useFieldInfoTool,
-  useValidateFormNowTool,
+  useValidateFormTool,
   useFormAnalyticsTool,
   useFillFieldTool,
 } from './mcp-tools';
@@ -76,10 +76,10 @@ export const FormsPage = () => {
   // ===== MCP Tools Integration =====
   // Register all MCP tools for form state inspection
   useFormStateTool(formData);
-  useFormValidationTool(formData, validateForm);
+  useSubmitFormTool(formData, validateForm, setValidationErrors, setFormData);
   useFormCompletionTool(formData);
   useFieldInfoTool(formData, validationErrors, validateForm);
-  useValidateFormNowTool(formData, validateForm);
+  useValidateFormTool(formData, validateForm);
   useFormAnalyticsTool(formData);
   useFillFieldTool(setFormData);
 

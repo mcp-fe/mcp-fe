@@ -2,15 +2,15 @@ import { useMCPGetter } from '@mcp-fe/react-tools';
 import { FormData } from '../types';
 
 /**
- * MCP Tool: Simulate form validation
- * Runs validation on the current form state and returns all errors
+ * MCP Tool: Validate form
+ * Runs validation on the current form state and returns all errors without submitting
  */
-export function useValidateFormNowTool(
+export function useValidateFormTool(
   formData: FormData,
   validateForm: (data: FormData) => Partial<FormData>,
 ) {
   useMCPGetter(
-    'validate_form_now',
+    'validate_form',
     'Run validation on the current form state and return all errors',
     () => {
       const errors = validateForm(formData);
