@@ -110,6 +110,47 @@ toolX({ tabId: "tab-b-id" })
 → Routes to Tab B ✓ (explicit parameter always wins)
 ```
 
+**Scenario 4: Active tab loses tool (navigation)**
+```typescript
+// Initial state
+// Tab A (active): Has toolX
+// Tab B (inactive): Has toolX
+
+toolX()
+→ Routes to Tab A ✓ (active tab)
+
+// User navigates Tab A to different page
+// Tab A (active): No longer has toolX (page changed)
+// Tab B (inactive): Has toolX
+
+toolX()
+→ Routes to Tab B ✓ (active tab doesn't have tool, auto-fallback!)
+// No error, seamless transition
+```
+
+**Visual Flow:**
+```
+Before Navigation:
+┌─────────────┐         ┌─────────────┐
+│  Tab A      │ Active  │  Tab B      │
+│  /dashboard │   ✓     │  /dashboard │
+│  has toolX  │         │  has toolX  │
+└─────────────┘         └─────────────┘
+       ↑
+   toolX() routes here
+
+After Navigation (Tab A → /settings):
+┌─────────────┐         ┌─────────────┐
+│  Tab A      │ Active  │  Tab B      │
+│  /settings  │   ✓     │  /dashboard │
+│  NO toolX   │         │  has toolX  │
+└─────────────┘         └─────────────┘
+                              ↑
+                    toolX() auto-routes here!
+```
+
+This ensures tools continue to work even when the user navigates away from pages that provided specific tools.
+
 ### 2. Built-in Discovery Tool
 
 `list_browser_tabs` provides tab discovery:

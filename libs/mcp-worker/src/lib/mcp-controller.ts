@@ -603,10 +603,24 @@ export class MCPController {
 
     // If tabId specified, remove only that tab
     if (tabId) {
+      const wasActiveTab = tabId === this.activeTabId;
+      const hadMultipleTabs = tabHandlers.size > 1;
+
       tabHandlers.delete(tabId);
       logger.log(
         `[MCPController] Removed tab ${tabId} from tool '${toolName}' (${tabHandlers.size} tab(s) remaining)`,
       );
+
+      // Smart active tab management: If the active tab just lost this tool,
+      // but other tabs still have it, we should prefer routing to those tabs
+      if (wasActiveTab && hadMultipleTabs && tabHandlers.size > 0) {
+        logger.log(
+          `[MCPController] Active tab ${tabId} unregistered '${toolName}', ` +
+            `but ${tabHandlers.size} other tab(s) still have it. Future calls will route to available tabs.`,
+        );
+        // Note: We don't change activeTabId itself (tab is still active),
+        // but the routing logic will automatically prefer tabs that have the tool
+      }
     }
 
     // If no more tabs have this tool, unregister from MCP
