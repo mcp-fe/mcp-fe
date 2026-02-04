@@ -4,9 +4,10 @@
 
 - **Multi-Tab Support**: Added comprehensive multi-tab support with intelligent routing
   - Each tab gets unique UUID (crypto.randomUUID()) stored in sessionStorage
-  - **Smart routing**: If only one tab has a tool, automatically routes to it even if not active ⭐
-  - **Navigation fallback**: When active tab loses tool (navigation), automatically routes to remaining tabs ⭐
-  - **Automatic cleanup**: Tools unregister when page navigates/closes (beforeunload, pagehide events) ⭐
+  - **Smart routing**: If only one tab has a tool, automatically routes to it even if not active
+  - **Navigation fallback**: When active tab loses tool (navigation), automatically routes to remaining tabs
+  - **Automatic cleanup**: Tools unregister when page navigates/closes (beforeunload, pagehide events)
+  - **TabManager class**: Standalone, testable class for tab management logic
   - Built-in `list_browser_tabs` meta-tool for tab discovery
   - Automatic `tabId` parameter added to all tool schemas
   - Tab reference counting for proper cleanup

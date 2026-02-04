@@ -12,6 +12,7 @@ import { mcpServer } from './mcp-server';
 import { WebSocketTransport } from './websocket-transport';
 import { logger } from './logger';
 import { toolRegistry } from './tool-registry';
+import { TabManager } from './tab-manager';
 
 const MAX_RECONNECT_DELAY = 30000;
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -36,14 +37,9 @@ export class MCPController {
 
   private isMCPServerReady = false;
 
-  // Multi-tab support: track tabs and their tools
-  private tabRegistry = new Map<
-    string,
-    { url: string; title: string; lastSeen: number }
-  >();
-  private activeTabId: string | null = null;
-  // Tool handlers per tab: Map<ToolName, Set<TabId>>
-  private toolHandlersByTab = new Map<string, Set<string>>();
+  // Multi-tab support via TabManager
+  private tabManager = new TabManager();
+
   // Map to track pending tool calls
   private pendingToolCalls = new Map<
     string,
@@ -83,15 +79,11 @@ export class MCPController {
         },
       },
       async () => {
-        const tabs = Array.from(this.tabRegistry.entries()).map(
-          ([tabId, info]) => ({
-            tabId,
-            url: info.url,
-            title: info.title,
-            isActive: tabId === this.activeTabId,
-            lastSeen: new Date(info.lastSeen).toISOString(),
-          }),
-        );
+        const tabs = this.tabManager.getAllTabs().map((tab) => ({
+          ...tab,
+          isActive: tab.tabId === this.tabManager.getActiveTabId(),
+          lastSeen: new Date(tab.lastSeen).toISOString(),
+        }));
 
         return {
           content: [
@@ -121,21 +113,12 @@ export class MCPController {
       return;
     }
 
-    this.tabRegistry.set(tabId, {
-      url: url || '',
-      title: title || '',
-      lastSeen: Date.now(),
-    });
-
-    logger.log(`[MCPController] Registered tab: ${tabId} (${title})`);
+    this.tabManager.registerTab(tabId, url, title);
 
     // Broadcast tab list update to all tabs
     this.broadcastFn({
       type: 'TAB_LIST_UPDATED',
-      tabs: Array.from(this.tabRegistry.entries()).map(([id, info]) => ({
-        tabId: id,
-        ...info,
-      })),
+      tabs: this.tabManager.getAllTabs(),
     });
   }
 
@@ -151,15 +134,7 @@ export class MCPController {
       return;
     }
 
-    this.activeTabId = tabId;
-
-    logger.log(`[MCPController] Active tab changed: ${tabId}`);
-
-    // Update lastSeen timestamp
-    const tab = this.tabRegistry.get(tabId);
-    if (tab) {
-      tab.lastSeen = Date.now();
-    }
+    this.tabManager.setActiveTab(tabId);
   }
 
   private startKeepAlive(): void {
@@ -427,104 +402,54 @@ export class MCPController {
       );
     }
 
-    // Track which tabs have registered this tool
-    if (!this.toolHandlersByTab.has(name)) {
-      this.toolHandlersByTab.set(name, new Set());
-    }
-    const tabHandlers = this.toolHandlersByTab.get(name)!;
-
-    // Check if this is a new tab registering or existing tab re-registering
-    const isNewTab = !tabHandlers.has(tabId);
-    tabHandlers.add(tabId);
+    // Register tool for this tab using TabManager
+    const isNewTab = this.tabManager.registerToolForTab(name, tabId);
 
     if (!isNewTab) {
-      logger.log(
-        `[MCPController] Tab ${tabId} re-registered tool '${name}' (already tracked)`,
-      );
-      return; // Don't re-register with MCP server
+      return; // Tab already has this tool registered
     }
 
-    logger.log(
-      `[MCPController] Tab ${tabId} registered tool '${name}' (${tabHandlers.size} tab(s) total)`,
-    );
-
     // Only register with MCP server once (first tab)
-    if (tabHandlers.size === 1) {
-      // Create a smart proxy handler with hybrid multi-tab routing
+    const tabsWithTool = this.tabManager.getTabsForTool(name);
+    if (tabsWithTool.size === 1) {
+      // Create a smart proxy handler with multi-tab routing via TabManager
       const handler: (
         args: unknown,
       ) => Promise<{ content: Array<{ type: string; text: string }> }> = async (
         args: unknown,
       ) => {
         const argsObj = args as Record<string, unknown>;
-        let targetTabId = argsObj['tabId'] as string | undefined;
+        const explicitTabId = argsObj['tabId'] as string | undefined;
 
-        // Smart routing strategy:
-        // 1. Explicit tabId parameter (highest priority)
-        // 2. If only one tab has this tool -> use it (regardless of focus)
-        // 3. Active/focused tab (if it has the tool)
-        // 4. First available tab (fallback)
+        // Use TabManager's smart routing
+        const routingResult = this.tabManager.routeToolCall(
+          name,
+          explicitTabId,
+        );
 
-        if (!targetTabId) {
-          // Check if only one tab has this tool
-          if (tabHandlers.size === 1) {
-            // Only one tab provides this tool - route to it automatically
-            targetTabId = tabHandlers.values().next().value;
-            logger.log(
-              `[MCPController] Tool '${name}' available in only one tab, routing to: ${targetTabId}`,
+        if (!routingResult) {
+          const available = Array.from(this.tabManager.getTabsForTool(name));
+          if (explicitTabId) {
+            throw new Error(
+              `Tool '${name}' not available in tab '${explicitTabId}'. Available tabs: ${available.join(', ')}`,
             );
-          } else if (this.activeTabId && tabHandlers.has(this.activeTabId)) {
-            // Multiple tabs have tool, prefer active tab if it has it
-            targetTabId = this.activeTabId;
-            logger.log(
-              `[MCPController] Routing '${name}' to active tab: ${targetTabId}`,
-            );
-          } else if (this.activeTabId && !tabHandlers.has(this.activeTabId)) {
-            // Active tab doesn't have tool, use first available
-            const firstTab = tabHandlers.values().next().value;
-            if (firstTab) {
-              targetTabId = firstTab;
-              logger.log(
-                `[MCPController] Active tab doesn't have '${name}', routing to first available: ${targetTabId}`,
-              );
-            }
           } else {
-            // No active tab - use first available
-            const firstTab = tabHandlers.values().next().value;
-            if (firstTab) {
-              targetTabId = firstTab;
-              logger.log(
-                `[MCPController] No active tab, routing '${name}' to first available: ${targetTabId}`,
-              );
-            }
+            throw new Error(
+              `Tool '${name}' has no registered tabs. Please specify tabId parameter.`,
+            );
           }
         }
 
-        // Validate we found a target
-        if (!targetTabId) {
-          throw new Error(
-            `Tool '${name}' has no registered tabs. Please specify tabId parameter.`,
-          );
-        }
+        const { targetTabId, reason } = routingResult;
 
-        // Check if target tab has this tool
-        if (!tabHandlers.has(targetTabId)) {
-          const available = Array.from(tabHandlers);
-          throw new Error(
-            `Tool '${name}' not available in tab '${targetTabId}'. Available tabs: ${available.join(', ')}`,
-          );
-        }
+        logger.log(
+          `[MCPController] Routing '${name}' to tab ${targetTabId}: ${reason}`,
+        );
 
         const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-        logger.log(
-          `[MCPController] Routing tool call to tab ${targetTabId}: ${name}`,
-          { callId, args },
-        );
-
         // Send CALL_TOOL message to main thread and wait for result
         return new Promise((resolve, reject) => {
-          // Store promise handlers for this call
           const pendingCall = {
             resolve,
             reject,
@@ -544,7 +469,7 @@ export class MCPController {
             toolName: name,
             args,
             callId,
-            targetTabId, // NEW: specify which tab should handle this
+            targetTabId,
           });
         });
       };
@@ -559,7 +484,7 @@ export class MCPController {
       );
 
       logger.log(
-        `[MCPController] Registered proxy tool: ${name} with hybrid multi-tab routing`,
+        `[MCPController] Registered proxy tool: ${name} with smart multi-tab routing`,
       );
     }
   }
@@ -593,39 +518,33 @@ export class MCPController {
     toolName: string,
     tabId?: string,
   ): Promise<boolean> {
-    // Get tabs that have this tool
-    const tabHandlers = this.toolHandlersByTab.get(toolName);
-
-    if (!tabHandlers || tabHandlers.size === 0) {
-      logger.warn(`[MCPController] Tool not found: ${toolName}`);
+    if (!tabId) {
+      logger.warn(
+        `[MCPController] UNREGISTER_TOOL missing tabId for '${toolName}'`,
+      );
       return false;
     }
 
-    // If tabId specified, remove only that tab
-    if (tabId) {
-      const wasActiveTab = tabId === this.activeTabId;
-      const hadMultipleTabs = tabHandlers.size > 1;
+    // Unregister tool from tab using TabManager
+    const result = this.tabManager.unregisterToolFromTab(toolName, tabId);
 
-      tabHandlers.delete(tabId);
-      logger.log(
-        `[MCPController] Removed tab ${tabId} from tool '${toolName}' (${tabHandlers.size} tab(s) remaining)`,
+    if (!result.wasRemoved) {
+      logger.warn(
+        `[MCPController] Tool '${toolName}' not found in tab ${tabId}`,
       );
+      return false;
+    }
 
-      // Smart active tab management: If the active tab just lost this tool,
-      // but other tabs still have it, we should prefer routing to those tabs
-      if (wasActiveTab && hadMultipleTabs && tabHandlers.size > 0) {
-        logger.log(
-          `[MCPController] Active tab ${tabId} unregistered '${toolName}', ` +
-            `but ${tabHandlers.size} other tab(s) still have it. Future calls will route to available tabs.`,
-        );
-        // Note: We don't change activeTabId itself (tab is still active),
-        // but the routing logic will automatically prefer tabs that have the tool
-      }
+    // Log smart active tab management info
+    if (result.wasActiveTab && result.remainingTabs > 0) {
+      logger.log(
+        `[MCPController] Active tab ${tabId} unregistered '${toolName}', ` +
+          `but ${result.remainingTabs} other tab(s) still have it. Future calls will route to available tabs.`,
+      );
     }
 
     // If no more tabs have this tool, unregister from MCP
-    if (tabHandlers.size === 0) {
-      this.toolHandlersByTab.delete(toolName);
+    if (result.remainingTabs === 0) {
       const success = toolRegistry.unregister(toolName);
 
       if (success) {
