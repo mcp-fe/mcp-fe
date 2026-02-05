@@ -18,12 +18,15 @@
       "require": "./index.js"
     }
   },
+  "dependencies": {
+    "@mcp-fe/event-tracker": "workspace:*"
+  },
   "peerDependencies": {
     "react": ">=19.0.0",
     "react-dom": ">=19.0.0",
     "react-router-dom": ">=6.0.0",
     "@tanstack/react-router": ">=1.0.0",
-    "@mcp-fe/event-tracker": "workspace:*"
+    "@mcp-fe/mcp-worker": "workspace:*"
   },
   "publishConfig": {
     "access": "public"
