@@ -11,7 +11,13 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { workerClient, type ToolHandler } from '@mcp-fe/mcp-worker';
+import {
+  workerClient,
+  type ToolHandler,
+  type Icon,
+  type ToolAnnotations,
+  type ToolExecution,
+} from '@mcp-fe/mcp-worker';
 
 export interface UseMCPToolOptions {
   /**
@@ -22,7 +28,7 @@ export interface UseMCPToolOptions {
   /**
    * Tool description for AI
    */
-  description: string;
+  description?: string;
 
   /**
    * JSON Schema for tool inputs
@@ -30,9 +36,45 @@ export interface UseMCPToolOptions {
   inputSchema: Record<string, unknown>;
 
   /**
+   * JSON Schema for tool outputs (optional)
+   */
+  outputSchema?: Record<string, unknown>;
+
+  /**
    * Handler function (runs in main thread with full browser access)
    */
   handler: ToolHandler;
+
+  /**
+   * Tool annotations (hints for AI about tool behavior)
+   * - title: Human-readable title for the tool
+   * - readOnlyHint: Indicates the tool only reads data
+   * - destructiveHint: Warns that the tool performs destructive actions
+   * - idempotentHint: Indicates multiple calls have the same effect
+   * - openWorldHint: Suggests the tool may access external systems
+   */
+  annotations?: ToolAnnotations;
+
+  /**
+   * Tool execution metadata
+   * - taskSupport: Whether the tool supports task-based execution
+   */
+  execution?: ToolExecution;
+
+  /**
+   * Optional metadata for extensibility
+   */
+  _meta?: Record<string, unknown>;
+
+  /**
+   * Optional icons for the tool
+   */
+  icons?: Icon[];
+
+  /**
+   * Optional display title
+   */
+  title?: string;
 
   /**
    * Whether to register immediately on mount (default: true)
@@ -133,7 +175,13 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     name,
     description,
     inputSchema,
+    outputSchema,
     handler,
+    annotations,
+    execution,
+    _meta,
+    icons,
+    title,
     autoRegister = true,
     autoUnregister = true,
   } = options;
@@ -149,6 +197,12 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
   const nameRef = useRef(name);
   const descriptionRef = useRef(description);
   const inputSchemaRef = useRef(inputSchema);
+  const outputSchemaRef = useRef(outputSchema);
+  const annotationsRef = useRef(annotations);
+  const executionRef = useRef(execution);
+  const metaRef = useRef(_meta);
+  const iconsRef = useRef(icons);
+  const titleRef = useRef(title);
   const isMountedRef = useRef(true);
   const hasRegisteredRef = useRef(false);
 
@@ -158,7 +212,24 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     nameRef.current = name;
     descriptionRef.current = description;
     inputSchemaRef.current = inputSchema;
-  }, [handler, name, description, inputSchema]);
+    outputSchemaRef.current = outputSchema;
+    annotationsRef.current = annotations;
+    executionRef.current = execution;
+    metaRef.current = _meta;
+    iconsRef.current = icons;
+    titleRef.current = title;
+  }, [
+    handler,
+    name,
+    description,
+    inputSchema,
+    outputSchema,
+    annotations,
+    execution,
+    _meta,
+    icons,
+    title,
+  ]);
 
   // Stable wrapper that always calls the latest handler
   const stableHandler = useCallback<ToolHandler>(async (args: unknown) => {
@@ -172,6 +243,12 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     const currentName = nameRef.current;
     const currentDescription = descriptionRef.current;
     const currentInputSchema = inputSchemaRef.current;
+    const currentOutputSchema = outputSchemaRef.current;
+    const currentAnnotations = annotationsRef.current;
+    const currentExecution = executionRef.current;
+    const currentMeta = metaRef.current;
+    const currentIcons = iconsRef.current;
+    const currentTitle = titleRef.current;
 
     try {
       await workerClient.registerTool(
@@ -179,6 +256,14 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
         currentDescription,
         currentInputSchema,
         stableHandler,
+        {
+          outputSchema: currentOutputSchema,
+          annotations: currentAnnotations,
+          execution: currentExecution,
+          _meta: currentMeta,
+          icons: currentIcons,
+          title: currentTitle,
+        },
       );
 
       hasRegisteredRef.current = true;
@@ -243,7 +328,7 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
         });
       }
     };
-    // eslint-disable-next-line react-tools-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name]); // Only re-run if name changes!
 
   return {

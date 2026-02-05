@@ -3,11 +3,39 @@
  * Manages tool definitions and their handlers
  */
 
+// Icon for tools, prompts, resources, and implementations (from MCP spec)
+export interface Icon {
+  src: string;
+  mimeType?: string;
+  sizes?: string[];
+  theme?: 'light' | 'dark';
+}
+
+// Tool annotations (hints for AI) from MCP spec
+export interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
+// Tool execution metadata from MCP spec
+export interface ToolExecution {
+  taskSupport?: 'optional' | 'required' | 'forbidden';
+}
+
 // Dynamic tool registry types
 export interface ToolDefinition {
   name: string;
-  description: string;
+  description?: string;
   inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  annotations?: ToolAnnotations;
+  execution?: ToolExecution;
+  _meta?: Record<string, unknown>;
+  icons?: Icon[];
+  title?: string;
 }
 
 export interface ToolHandler {

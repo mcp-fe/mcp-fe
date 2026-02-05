@@ -13,11 +13,35 @@ Main hook for registering MCP tools with automatic lifecycle management.
 ```typescript
 interface UseMCPToolOptions {
   name: string;                // Unique tool name (required)
-  description: string;          // Description for AI (required)
-  inputSchema: object;          // JSON Schema for inputs (required)
-  handler: ToolHandler;         // Handler function (required)
-  autoRegister?: boolean;       // Auto-register on mount (default: true)
-  autoUnregister?: boolean;     // Auto-unregister on unmount (default: true)
+  description?: string;        // Description for AI (optional)
+  inputSchema: object;         // JSON Schema for inputs (required)
+  outputSchema?: object;       // JSON Schema for outputs (optional)
+  handler: ToolHandler;        // Handler function (required)
+  
+  // Meta information (optional)
+  annotations?: {
+    title?: string;             // Human-readable title
+    readOnlyHint?: boolean;     // Tool only reads data
+    destructiveHint?: boolean;  // Performs destructive actions
+    idempotentHint?: boolean;   // Multiple calls have same effect
+    openWorldHint?: boolean;    // May access external systems
+  };
+  
+  execution?: {
+    taskSupport?: 'optional' | 'required' | 'forbidden';  // Task-based execution support
+  };
+  
+  _meta?: Record<string, unknown>;  // Custom metadata
+  icons?: Array<{              // Tool icons
+    src: string;
+    mimeType?: string;
+    sizes?: string[];
+    theme?: 'light' | 'dark';
+  }>;
+  title?: string;              // Display title
+  
+  autoRegister?: boolean;      // Auto-register on mount (default: true)
+  autoUnregister?: boolean;    // Auto-unregister on unmount (default: true)
 }
 ```
 
@@ -45,6 +69,12 @@ const { isRegistered, refCount } = useMCPTool({
     },
     required: ['param']
   },
+  outputSchema: {
+    type: 'object',
+    properties: {
+      result: { type: 'string' }
+    }
+  },
   handler: async (args: { param: string }) => {
     // Your logic here
     return {
@@ -53,6 +83,45 @@ const { isRegistered, refCount } = useMCPTool({
         text: `Result: ${args.param}`
       }]
     };
+  },
+  // Optional meta information
+  annotations: {
+    title: 'My Custom Tool',
+    readOnlyHint: true,         // This tool only reads data
+    idempotentHint: true        // Safe to call multiple times
+  },
+  icons: [{
+    src: '/icons/my-tool.svg',
+    theme: 'light'
+  }]
+});
+```
+
+#### Example: Destructive Action with Hints
+
+```tsx
+useMCPTool({
+  name: 'delete_user',
+  description: 'Delete a user account permanently',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      userId: { type: 'string' }
+    },
+    required: ['userId']
+  },
+  handler: async (args) => {
+    await api.deleteUser(args.userId);
+    return {
+      content: [{
+        type: 'text',
+        text: `User ${args.userId} deleted`
+      }]
+    };
+  },
+  annotations: {
+    destructiveHint: true,      // Warns AI about destructive action
+    idempotentHint: false       // Can't safely retry
   }
 });
 ```
