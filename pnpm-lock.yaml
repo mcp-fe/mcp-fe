@@ -259,6 +259,9 @@ importers:
       '@mcp-fe/event-tracker':
         specifier: workspace:*
         version: link:../event-tracker
+      '@mcp-fe/mcp-worker':
+        specifier: workspace:*
+        version: link:../mcp-worker
       '@tanstack/react-router':
         specifier: '>=1.0.0'
         version: 1.150.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)

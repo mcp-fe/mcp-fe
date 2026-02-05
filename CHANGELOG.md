@@ -1,3 +1,14 @@
+## 0.1.5 (2026-02-05)
+
+### 🩹 Fixes
+
+- Configure cjs build for react packages ([f931ab8](https://github.com/mcp-fe/mcp-fe/commit/f931ab8))
+- Fixed deps for react-event-tracker ([3bfbc6d](https://github.com/mcp-fe/mcp-fe/commit/3bfbc6d))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.1.4 (2026-02-04)
 
 ### 🚀 Features
