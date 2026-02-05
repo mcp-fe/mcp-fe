@@ -349,15 +349,27 @@ export class MCPController {
     toolData: Record<string, unknown>,
   ): Promise<void> {
     const name = toolData['name'] as string;
-    const description = toolData['description'] as string;
+    const description = toolData['description'] as string | undefined;
     const inputSchema = toolData['inputSchema'] as Record<string, unknown>;
+    const outputSchema = toolData['outputSchema'] as
+      | Record<string, unknown>
+      | undefined;
+    const annotations = toolData['annotations'] as
+      | Record<string, unknown>
+      | undefined;
+    const execution = toolData['execution'] as
+      | Record<string, unknown>
+      | undefined;
+    const _meta = toolData['_meta'] as Record<string, unknown> | undefined;
+    const icons = toolData['icons'] as
+      | Array<Record<string, unknown>>
+      | undefined;
+    const title = toolData['title'] as string | undefined;
     const handlerType = toolData['handlerType'] as string;
     const tabId = toolData['tabId'] as string;
 
-    if (!name || !description || !inputSchema) {
-      throw new Error(
-        'Missing required tool fields: name, description, inputSchema',
-      );
+    if (!name || !inputSchema) {
+      throw new Error('Missing required tool fields: name, inputSchema');
     }
 
     if (handlerType !== 'proxy') {
@@ -443,6 +455,31 @@ export class MCPController {
           name,
           description,
           inputSchema,
+          outputSchema,
+          annotations: annotations as
+            | {
+                title?: string;
+                readOnlyHint?: boolean;
+                destructiveHint?: boolean;
+                idempotentHint?: boolean;
+                openWorldHint?: boolean;
+              }
+            | undefined,
+          execution: execution as
+            | {
+                taskSupport?: 'optional' | 'required' | 'forbidden';
+              }
+            | undefined,
+          _meta,
+          icons: icons as
+            | Array<{
+                src: string;
+                mimeType?: string;
+                sizes?: string[];
+                theme?: 'light' | 'dark';
+              }>
+            | undefined,
+          title,
         },
         handler,
       );

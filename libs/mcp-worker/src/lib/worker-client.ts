@@ -77,11 +77,32 @@ export class WorkerClient {
   // Queue for operations that need to wait for initialization
   private pendingRegistrations: Array<{
     name: string;
-    description: string;
+    description?: string;
     inputSchema: Record<string, unknown>;
     handler: (
       args: unknown,
     ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    options?: {
+      outputSchema?: Record<string, unknown>;
+      annotations?: {
+        title?: string;
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+        idempotentHint?: boolean;
+        openWorldHint?: boolean;
+      };
+      execution?: {
+        taskSupport?: 'optional' | 'required' | 'forbidden';
+      };
+      _meta?: Record<string, unknown>;
+      icons?: Array<{
+        src: string;
+        mimeType?: string;
+        sizes?: string[];
+        theme?: 'light' | 'dark';
+      }>;
+      title?: string;
+    };
     resolve: () => void;
     reject: (error: Error) => void;
   }> = [];
@@ -99,8 +120,27 @@ export class WorkerClient {
     string,
     {
       refCount: number;
-      description: string;
+      description?: string;
       inputSchema: Record<string, unknown>;
+      outputSchema?: Record<string, unknown>;
+      annotations?: {
+        title?: string;
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+        idempotentHint?: boolean;
+        openWorldHint?: boolean;
+      };
+      execution?: {
+        taskSupport?: 'optional' | 'required' | 'forbidden';
+      };
+      _meta?: Record<string, unknown>;
+      icons?: Array<{
+        src: string;
+        mimeType?: string;
+        sizes?: string[];
+        theme?: 'light' | 'dark';
+      }>;
+      title?: string;
       isRegistered: boolean;
     }
   >();
@@ -395,13 +435,22 @@ export class WorkerClient {
     this.pendingRegistrations = [];
 
     pending.forEach(
-      async ({ name, description, inputSchema, handler, resolve, reject }) => {
+      async ({
+        name,
+        description,
+        inputSchema,
+        handler,
+        options,
+        resolve,
+        reject,
+      }) => {
         try {
           await this.registerToolInternal(
             name,
             description,
             inputSchema,
             handler,
+            options,
           );
           resolve();
         } catch (error) {
@@ -1001,11 +1050,32 @@ export class WorkerClient {
    */
   public async registerTool(
     name: string,
-    description: string,
+    description: string | undefined,
     inputSchema: Record<string, unknown>,
     handler: (
       args: unknown,
     ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+    options?: {
+      outputSchema?: Record<string, unknown>;
+      annotations?: {
+        title?: string;
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+        idempotentHint?: boolean;
+        openWorldHint?: boolean;
+      };
+      execution?: {
+        taskSupport?: 'optional' | 'required' | 'forbidden';
+      };
+      _meta?: Record<string, unknown>;
+      icons?: Array<{
+        src: string;
+        mimeType?: string;
+        sizes?: string[];
+        theme?: 'light' | 'dark';
+      }>;
+      title?: string;
+    },
   ): Promise<void> {
     // If not initialized, queue the registration
     if (!this.isInitialized) {
@@ -1019,6 +1089,7 @@ export class WorkerClient {
           description,
           inputSchema,
           handler,
+          options,
           resolve,
           reject,
         });
@@ -1026,7 +1097,13 @@ export class WorkerClient {
     }
 
     // Already initialized - register immediately
-    return this.registerToolInternal(name, description, inputSchema, handler);
+    return this.registerToolInternal(
+      name,
+      description,
+      inputSchema,
+      handler,
+      options,
+    );
   }
 
   /**
@@ -1060,11 +1137,32 @@ export class WorkerClient {
    */
   private async registerToolInternal(
     name: string,
-    description: string,
+    description: string | undefined,
     inputSchema: Record<string, unknown>,
     handler: (
       args: unknown,
     ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+    options?: {
+      outputSchema?: Record<string, unknown>;
+      annotations?: {
+        title?: string;
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+        idempotentHint?: boolean;
+        openWorldHint?: boolean;
+      };
+      execution?: {
+        taskSupport?: 'optional' | 'required' | 'forbidden';
+      };
+      _meta?: Record<string, unknown>;
+      icons?: Array<{
+        src: string;
+        mimeType?: string;
+        sizes?: string[];
+        theme?: 'light' | 'dark';
+      }>;
+      title?: string;
+    },
   ): Promise<void> {
     // Check if tool already exists (for reference counting)
     const existing = this.toolRegistry.get(name);
@@ -1095,6 +1193,12 @@ export class WorkerClient {
       name,
       description,
       inputSchema: enhancedSchema,
+      outputSchema: options?.outputSchema,
+      annotations: options?.annotations,
+      execution: options?.execution,
+      _meta: options?._meta,
+      icons: options?.icons,
+      title: options?.title,
       handlerType: 'proxy', // Tell worker this is a proxy handler
       tabId: this.tabId, // Tell worker which tab registered this
     });
@@ -1104,6 +1208,12 @@ export class WorkerClient {
       refCount: 1,
       description,
       inputSchema: enhancedSchema,
+      outputSchema: options?.outputSchema,
+      annotations: options?.annotations,
+      execution: options?.execution,
+      _meta: options?._meta,
+      icons: options?.icons,
+      title: options?.title,
       isRegistered: true,
     });
 

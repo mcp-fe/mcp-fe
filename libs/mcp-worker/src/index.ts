@@ -21,7 +21,13 @@ export {
   type WorkerClientInitOptions,
 } from './lib/worker-client';
 export { queryEvents, type UserEvent } from './lib/database';
-export { type ToolHandler, type ToolDefinition } from './lib/tool-registry';
+export {
+  type ToolHandler,
+  type ToolDefinition,
+  type Icon,
+  type ToolAnnotations,
+  type ToolExecution,
+} from './lib/tool-registry';
 export { TabManager, type TabInfo } from './lib/tab-manager';
 export { logger } from './lib/logger';
 

@@ -1,3 +1,38 @@
+## Unreleased
+
+### 🚀 Features
+
+- **MCP Tool Metadata Support**: Added full support for MCP tool metadata according to MCP specification
+  - **Annotations**: AI hints for tool behavior (readOnly, destructive, idempotent, openWorld)
+  - **Output Schema**: JSON Schema for tool outputs
+  - **Execution Metadata**: Task support configuration
+  - **Icons**: Visual representation with theme support (light/dark)
+  - **Custom Metadata**: Extensible `_meta` field for application-specific data
+  - **Display Title**: Optional human-readable title
+  
+### 📦 Updated Components
+
+- `useMCPTool` hook: Extended `UseMCPToolOptions` with metadata fields
+- `WorkerClient`: New `options` parameter in `registerTool()` method
+- `MCPController`: Metadata parsing and registration
+- `ToolRegistry`: Extended `ToolDefinition` with metadata properties
+- Exported types: `Icon`, `ToolAnnotations`, `ToolExecution`
+
+### 🔄 Backward Compatibility
+
+- All changes are fully backward compatible
+- `description` field is now optional (previously required)
+- All metadata fields are optional
+- Existing code works without modifications
+
+### 📖 Documentation
+
+- Updated [api-reference.md](./libs/react-tools/docs/api-reference.md) with metadata examples
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.1.5 (2026-02-05)
 
 ### 🩹 Fixes
