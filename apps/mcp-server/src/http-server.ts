@@ -33,7 +33,7 @@ function isInitializeRequest(
 export interface ServerConfig {
   port?: number;
   host?: string;
-  allowedDomain?: string;
+  allowedDomains?: string | string[];
 }
 
 /**
@@ -46,15 +46,18 @@ export function createHTTPServer(
 ): {
   server: HttpServer;
 } {
-  const { port = 3001, host = '0.0.0.0', allowedDomain } = config;
+  const { port = 3001, host = '0.0.0.0', allowedDomains } = config;
 
   // Build allowed hosts array
   const allowedHosts = ['host.docker.internal', 'localhost'];
 
-  // Add custom domain if specified
-  if (allowedDomain) {
-    allowedHosts.push(allowedDomain);
-    console.log(`[HTTP] Added allowed domain: ${allowedDomain}`);
+  // Add custom domains if specified
+  if (allowedDomains) {
+    const domains = Array.isArray(allowedDomains)
+      ? allowedDomains
+      : [allowedDomains];
+    allowedHosts.push(...domains);
+    console.log(`[HTTP] Added allowed domains: ${domains.join(', ')}`);
   }
 
   console.log(`[HTTP] Server host: ${host}`);

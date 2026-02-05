@@ -31,23 +31,30 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const SERVER_HOST = process.env.SERVER_HOST || '0.0.0.0';
 const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN;
 
+// Parse allowed domains from comma-separated string
+const allowedDomains = ALLOWED_DOMAIN
+  ? ALLOWED_DOMAIN.split(',')
+      .map((domain) => domain.trim())
+      .filter(Boolean)
+  : undefined;
+
 const sessionManager = new SessionManager();
 const wsManager = new WebSocketManager(sessionManager);
 
 console.log(`[Main] Server configuration:`);
 console.log(`[Main] - Port: ${PORT}`);
 console.log(`[Main] - Host: ${SERVER_HOST}`);
-if (ALLOWED_DOMAIN) {
-  console.log(`[Main] - Allowed domain: ${ALLOWED_DOMAIN}`);
+if (allowedDomains && allowedDomains.length > 0) {
+  console.log(`[Main] - Allowed domains: ${allowedDomains.join(', ')}`);
 } else {
-  console.log(`[Main] - Allowed domain: not set (localhost only)`);
+  console.log(`[Main] - Allowed domains: not set (localhost only)`);
 }
 
 // Setup HTTP server (no global MCP server needed)
 const { server: httpServer } = createHTTPServer(sessionManager, wsManager, {
   port: PORT,
   host: SERVER_HOST,
-  allowedDomain: ALLOWED_DOMAIN,
+  allowedDomains: allowedDomains,
 });
 
 // Setup WebSocket server
