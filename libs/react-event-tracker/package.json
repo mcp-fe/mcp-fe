@@ -9,6 +9,7 @@
     "directory": "libs/react-event-tracker"
   },
   "main": "./index.js",
+  "module": "./index.mjs",
   "types": "./index.d.ts",
   "exports": {
     ".": {

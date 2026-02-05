@@ -39,7 +39,7 @@ export default defineConfig(() => ({
       fileName: 'index',
       // Change this to the formats you want to support.
       // Don't forget to update your package.json as well.
-      formats: ['es' as const],
+      formats: ['es' as const, 'cjs' as const],
     },
     rollupOptions: {
       // External packages that should not be bundled into your library.
@@ -49,6 +49,15 @@ export default defineConfig(() => ({
         'react/jsx-runtime',
         '@mcp-fe/mcp-worker',
       ],
+      output: {
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM',
+          'react-router-dom': 'ReactRouterDom',
+          '@tanstack/react-router': 'TanstackReactRouter',
+          '@mcp-fe/mcp-worker': 'McpFeWorker',
+        },
+      },
     },
   },
   test: {
