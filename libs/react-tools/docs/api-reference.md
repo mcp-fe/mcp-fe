@@ -128,10 +128,10 @@ useMCPTool({
 
 #### Structured Output
 
-When `outputSchema` is defined, return structured data instead of serialized text:
+When `outputSchema` is defined, return JSON string in text format. MCPController automatically adds `structuredContent`:
 
 ```tsx
-// ✅ With outputSchema - structured data
+// ✅ Correct - with outputSchema
 useMCPTool({
   name: 'get_user',
   outputSchema: {
@@ -141,15 +141,26 @@ useMCPTool({
       name: { type: 'string' }
     }
   },
-  handler: async () => ({
-    content: [{
-      type: 'resource',
-      resource: { id: '123', name: 'John' }
-    }]
-  })
+  handler: async () => {
+    const data = { id: '123', name: 'John' };
+    
+    // Return as JSON string
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify(data)
+      }]
+    };
+  }
 });
 
-// ❌ Without outputSchema - legacy text format
+// AI receives both versions:
+// {
+//   content: [{ type: 'text', text: '{"id":"123","name":"John"}' }],
+//   structuredContent: { id: '123', name: 'John' }
+// }
+
+// ❌ Legacy - without outputSchema
 useMCPTool({
   name: 'get_data',
   handler: async () => ({
@@ -159,6 +170,7 @@ useMCPTool({
     }]
   })
 });
+// AI receives only: { content: [...] }
 ```
 
 ---

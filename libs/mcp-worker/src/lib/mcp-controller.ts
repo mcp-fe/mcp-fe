@@ -512,39 +512,47 @@ export class MCPController {
     };
 
     if (resultData.success && resultData.result !== undefined) {
-      // Check if tool has outputSchema - if yes, return structured output
-      if (pendingCall.hasOutputSchema) {
-        // Structured output - return as-is (should already be in content format from handler)
-        const contentResult = resultData.result as {
-          content: Array<{
-            type: string;
-            text?: string;
-            resource?: Record<string, unknown>;
-          }>;
-        };
+      const contentResult = resultData.result as {
+        content: Array<{ type: string; text: string }>;
+      };
 
-        pendingCall.resolve(
-          contentResult as { content: Array<{ type: string; text: string }> },
-        );
-      } else {
-        // Legacy behavior - serialize result to text
-        const contentResult = resultData.result as {
-          content: Array<{ type: string; text: string }>;
-        };
-
-        // If result is already in content format, use it directly
-        if (contentResult?.content && Array.isArray(contentResult.content)) {
-          pendingCall.resolve(contentResult);
-        } else {
-          // Otherwise serialize to text
-          const serialized =
-            typeof resultData.result === 'string'
-              ? resultData.result
-              : JSON.stringify(resultData.result, null, 2);
-          pendingCall.resolve({
-            content: [{ type: 'text', text: serialized }],
-          });
+      // If result is already in content format, use it
+      if (contentResult?.content && Array.isArray(contentResult.content)) {
+        // Check if tool has outputSchema - if yes, add structuredContent
+        if (pendingCall.hasOutputSchema) {
+          try {
+            // Parse JSON from text content
+            const textContent = contentResult.content.find(
+              (c) => c.type === 'text',
+            );
+            if (textContent && textContent.text) {
+              const parsed = JSON.parse(textContent.text);
+              // Return both content and structuredContent
+              pendingCall.resolve({
+                content: contentResult.content,
+                structuredContent: parsed,
+              } as any);
+              return;
+            }
+          } catch (error) {
+            logger.warn(
+              '[MCPController] Failed to parse structured content:',
+              error,
+            );
+            // Fall back to regular content if parsing fails
+          }
         }
+        // No outputSchema or parsing failed - return just content
+        pendingCall.resolve(contentResult);
+      } else {
+        // Otherwise serialize to text (shouldn't happen with new code)
+        const serialized =
+          typeof resultData.result === 'string'
+            ? resultData.result
+            : JSON.stringify(resultData.result, null, 2);
+        pendingCall.resolve({
+          content: [{ type: 'text', text: serialized }],
+        });
       }
     } else {
       pendingCall.reject(new Error(resultData.error || 'Tool call failed'));

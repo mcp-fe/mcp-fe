@@ -583,12 +583,14 @@ function SettingsManager() {
 
 ## Structured Output
 
-Return typed, structured data that AI models can directly understand instead of serialized text.
+Return typed, structured data that AI models can directly understand. Tools with `outputSchema` automatically get both text and structured versions.
 
-### When to Use
+### How It Works
 
-- **With `outputSchema`**: AI needs structured, parseable data (objects, arrays)
-- **Without `outputSchema`**: Simple text responses are sufficient (legacy behavior)
+When you define `outputSchema`:
+1. Your handler returns JSON string in `content`
+2. MCPController automatically parses it
+3. AI receives **both** `content` (text) and `structuredContent` (parsed object)
 
 ### Example: Product Search
 
@@ -596,10 +598,9 @@ Return typed, structured data that AI models can directly understand instead of 
 import { useMCPTool } from '@mcp-fe/react-tools';
 
 function ProductSearch() {
-  const [products, setProducts] = useState([
+  const [products] = useState([
     { id: '1', name: 'Laptop Pro', price: 1299.99, inStock: true },
     { id: '2', name: 'Wireless Mouse', price: 29.99, inStock: true },
-    { id: '3', name: 'USB-C Cable', price: 12.99, inStock: false }
   ]);
 
   useMCPTool({
@@ -608,12 +609,11 @@ function ProductSearch() {
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Search query' },
+        query: { type: 'string' },
         limit: { type: 'number', default: 10 }
       },
       required: ['query']
     },
-    // Define outputSchema for structured response
     outputSchema: {
       type: 'object',
       properties: {
@@ -639,14 +639,13 @@ function ProductSearch() {
         .filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
         .slice(0, limit);
       
-      // Return structured data (not serialized text)
+      const data = { results, totalCount: results.length };
+      
+      // Return as JSON string - MCPController adds structuredContent
       return {
         content: [{
-          type: 'resource',
-          resource: {
-            results,
-            totalCount: results.length
-          }
+          type: 'text',
+          text: JSON.stringify(data)
         }]
       };
     }
@@ -656,23 +655,27 @@ function ProductSearch() {
 }
 ```
 
-**AI receives:**
+**AI receives (automatically):**
 ```json
 {
-  "results": [
-    { "id": "1", "name": "Laptop Pro", "price": 1299.99, "inStock": true }
+  "content": [
+    { "type": "text", "text": "{\"results\":[...],\"totalCount\":1}" }
   ],
-  "totalCount": 1
+  "structuredContent": {
+    "results": [
+      { "id": "1", "name": "Laptop Pro", "price": 1299.99, "inStock": true }
+    ],
+    "totalCount": 1
+  }
 }
 ```
 
-### Legacy Behavior (without outputSchema)
+### Without outputSchema (Legacy)
 
 ```tsx
 useMCPTool({
   name: 'get_data',
   inputSchema: { type: 'object', properties: {} },
-  // No outputSchema - returns serialized text
   handler: async () => ({
     content: [{
       type: 'text',
@@ -682,7 +685,7 @@ useMCPTool({
 });
 ```
 
-**AI receives:** `"{\"value\":42}"`
+**AI receives:** Only `content` with text `"{\"value\":42}"`
 
 ---
 
