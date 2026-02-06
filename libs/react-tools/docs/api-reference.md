@@ -126,6 +126,41 @@ useMCPTool({
 });
 ```
 
+#### Structured Output
+
+When `outputSchema` is defined, return structured data instead of serialized text:
+
+```tsx
+// ✅ With outputSchema - structured data
+useMCPTool({
+  name: 'get_user',
+  outputSchema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      name: { type: 'string' }
+    }
+  },
+  handler: async () => ({
+    content: [{
+      type: 'resource',
+      resource: { id: '123', name: 'John' }
+    }]
+  })
+});
+
+// ❌ Without outputSchema - legacy text format
+useMCPTool({
+  name: 'get_data',
+  handler: async () => ({
+    content: [{
+      type: 'text',
+      text: JSON.stringify({ value: 42 })
+    }]
+  })
+});
+```
+
 ---
 
 ### `useMCPGetter(name, description, getter)`

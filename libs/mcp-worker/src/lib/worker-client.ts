@@ -79,9 +79,12 @@ export class WorkerClient {
     name: string;
     description?: string;
     inputSchema: Record<string, unknown>;
-    handler: (
-      args: unknown,
-    ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+    handler: (args: unknown) => Promise<{
+      content: Array<
+        | { type: string; text: string }
+        | { type: string; resource?: Record<string, unknown> }
+      >;
+    }>;
     options?: {
       outputSchema?: Record<string, unknown>;
       annotations?: {
@@ -110,9 +113,12 @@ export class WorkerClient {
   // Map to store tool handlers in main thread
   private toolHandlers = new Map<
     string,
-    (
-      args: unknown,
-    ) => Promise<{ content: Array<{ type: string; text: string }> }>
+    (args: unknown) => Promise<{
+      content: Array<
+        | { type: string; text: string }
+        | { type: string; resource?: Record<string, unknown> }
+      >;
+    }>
   >();
 
   // Tool registry for tracking registrations and reference counting
@@ -1052,9 +1058,12 @@ export class WorkerClient {
     name: string,
     description: string | undefined,
     inputSchema: Record<string, unknown>,
-    handler: (
-      args: unknown,
-    ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+    handler: (args: unknown) => Promise<{
+      content: Array<
+        | { type: string; text: string }
+        | { type: string; resource?: Record<string, unknown> }
+      >;
+    }>,
     options?: {
       outputSchema?: Record<string, unknown>;
       annotations?: {
@@ -1139,9 +1148,12 @@ export class WorkerClient {
     name: string,
     description: string | undefined,
     inputSchema: Record<string, unknown>,
-    handler: (
-      args: unknown,
-    ) => Promise<{ content: Array<{ type: string; text: string }> }>,
+    handler: (args: unknown) => Promise<{
+      content: Array<
+        | { type: string; text: string }
+        | { type: string; resource?: Record<string, unknown> }
+      >;
+    }>,
     options?: {
       outputSchema?: Record<string, unknown>;
       annotations?: {

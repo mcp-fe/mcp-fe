@@ -50,6 +50,7 @@ export class MCPController {
       }) => void;
       reject: (error: Error) => void;
       timeout: ReturnType<typeof setTimeout>;
+      hasOutputSchema: boolean;
     }
   >();
 
@@ -435,6 +436,7 @@ export class MCPController {
                 new Error(`Tool call timeout: ${name} (tab: ${targetTabId})`),
               );
             }, 30000), // 30 second timeout
+            hasOutputSchema: !!outputSchema,
           };
 
           this.pendingToolCalls.set(callId, pendingCall);
@@ -446,6 +448,7 @@ export class MCPController {
             args,
             callId,
             targetTabId,
+            hasOutputSchema: !!outputSchema,
           });
         });
       };
@@ -504,12 +507,45 @@ export class MCPController {
 
     const resultData = result as {
       success?: boolean;
-      result?: { content: Array<{ type: string; text: string }> };
+      result?: unknown;
       error?: string;
     };
 
-    if (resultData.success && resultData.result) {
-      pendingCall.resolve(resultData.result);
+    if (resultData.success && resultData.result !== undefined) {
+      // Check if tool has outputSchema - if yes, return structured output
+      if (pendingCall.hasOutputSchema) {
+        // Structured output - return as-is (should already be in content format from handler)
+        const contentResult = resultData.result as {
+          content: Array<{
+            type: string;
+            text?: string;
+            resource?: Record<string, unknown>;
+          }>;
+        };
+
+        pendingCall.resolve(
+          contentResult as { content: Array<{ type: string; text: string }> },
+        );
+      } else {
+        // Legacy behavior - serialize result to text
+        const contentResult = resultData.result as {
+          content: Array<{ type: string; text: string }>;
+        };
+
+        // If result is already in content format, use it directly
+        if (contentResult?.content && Array.isArray(contentResult.content)) {
+          pendingCall.resolve(contentResult);
+        } else {
+          // Otherwise serialize to text
+          const serialized =
+            typeof resultData.result === 'string'
+              ? resultData.result
+              : JSON.stringify(resultData.result, null, 2);
+          pendingCall.resolve({
+            content: [{ type: 'text', text: serialized }],
+          });
+        }
+      }
     } else {
       pendingCall.reject(new Error(resultData.error || 'Tool call failed'));
     }

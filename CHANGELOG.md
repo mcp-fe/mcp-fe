@@ -1,3 +1,41 @@
+## Unreleased
+
+### 🚀 Features
+
+- **Structured Output Support**: Tools can now return structured data when `outputSchema` is defined
+  - **Automatic Detection**: MCPController detects `outputSchema` presence and handles output accordingly
+  - **Structured Data**: Tools with `outputSchema` return data as `{ type: 'resource', resource: data }`
+  - **Legacy Support**: Tools without `outputSchema` continue to work with serialized text output
+  - **Better AI Integration**: AI models can directly parse and manipulate structured outputs
+  
+### 📦 Updated Components
+
+- `MCPController`: Added `hasOutputSchema` flag to `pendingToolCalls` for smart output handling
+- `handleToolCallResult`: Conditional logic to return structured vs. serialized output
+- `ToolHandler` type: Extended to support both text and resource content types
+- `WorkerClient`: Updated handler types throughout for structured output compatibility
+
+### 🎯 Use Cases
+
+- **Type-Safe Outputs**: Define clear schemas for tool results
+- **Complex Data**: Return nested objects and arrays without serialization
+- **AI Understanding**: Models can better understand and work with structured data
+
+### 📖 Documentation & Examples
+
+- New [structured-output.md](./libs/mcp-worker/docs/structured-output.md) guide
+- Example: [structured-output.ts](./libs/mcp-worker/examples/structured-output.ts) - WorkerClient usage
+- Example: [structured-output-example.tsx](./libs/react-tools/examples/structured-output-example.tsx) - React hook usage
+- Updated examples README with structured output section
+
+### 🔄 Backward Compatibility
+
+- **100% Backward Compatible**: All existing tools continue to work
+- Tools without `outputSchema` maintain legacy serialized text behavior
+- No breaking changes to existing APIs
+
+---
+
 ## 0.1.6 (2026-02-05)
 
 ### 🚀 Features

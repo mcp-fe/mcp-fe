@@ -581,6 +581,111 @@ function SettingsManager() {
 
 ---
 
+## Structured Output
+
+Return typed, structured data that AI models can directly understand instead of serialized text.
+
+### When to Use
+
+- **With `outputSchema`**: AI needs structured, parseable data (objects, arrays)
+- **Without `outputSchema`**: Simple text responses are sufficient (legacy behavior)
+
+### Example: Product Search
+
+```tsx
+import { useMCPTool } from '@mcp-fe/react-tools';
+
+function ProductSearch() {
+  const [products, setProducts] = useState([
+    { id: '1', name: 'Laptop Pro', price: 1299.99, inStock: true },
+    { id: '2', name: 'Wireless Mouse', price: 29.99, inStock: true },
+    { id: '3', name: 'USB-C Cable', price: 12.99, inStock: false }
+  ]);
+
+  useMCPTool({
+    name: 'search_products',
+    description: 'Search products with structured results',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+        limit: { type: 'number', default: 10 }
+      },
+      required: ['query']
+    },
+    // Define outputSchema for structured response
+    outputSchema: {
+      type: 'object',
+      properties: {
+        results: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              price: { type: 'number' },
+              inStock: { type: 'boolean' }
+            }
+          }
+        },
+        totalCount: { type: 'number' }
+      }
+    },
+    handler: async (args) => {
+      const { query, limit = 10 } = args as { query: string; limit?: number };
+      
+      const results = products
+        .filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, limit);
+      
+      // Return structured data (not serialized text)
+      return {
+        content: [{
+          type: 'resource',
+          resource: {
+            results,
+            totalCount: results.length
+          }
+        }]
+      };
+    }
+  });
+
+  return <div>{/* Your UI */}</div>;
+}
+```
+
+**AI receives:**
+```json
+{
+  "results": [
+    { "id": "1", "name": "Laptop Pro", "price": 1299.99, "inStock": true }
+  ],
+  "totalCount": 1
+}
+```
+
+### Legacy Behavior (without outputSchema)
+
+```tsx
+useMCPTool({
+  name: 'get_data',
+  inputSchema: { type: 'object', properties: {} },
+  // No outputSchema - returns serialized text
+  handler: async () => ({
+    content: [{
+      type: 'text',
+      text: JSON.stringify({ value: 42 })
+    }]
+  })
+});
+```
+
+**AI receives:** `"{\"value\":42}"`
+
+---
+
 ## Next Steps
 
 - **[Architecture](./architecture.md)** - Understand how it works
