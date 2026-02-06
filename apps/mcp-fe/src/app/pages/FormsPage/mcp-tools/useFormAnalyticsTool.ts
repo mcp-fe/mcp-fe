@@ -2,6 +2,9 @@ import { useMCPTool } from '@mcp-fe/react-tools';
 import { z } from 'zod';
 import { FormData } from '../types';
 
+// Input schema (no parameters)
+const formAnalyticsInputSchema = z.object({});
+
 // Output schema for form analytics
 const formAnalyticsOutputSchema = z.object({
   characterCounts: z.object({
@@ -38,10 +41,7 @@ export function useFormAnalyticsTool(formData: FormData) {
   useMCPTool({
     name: 'get_form_analytics',
     description: 'Get analytics and statistics about the form state',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
+    inputSchema: formAnalyticsInputSchema.toJSONSchema(),
     outputSchema: formAnalyticsOutputSchema.toJSONSchema(),
     handler: async () => {
       const fieldLengths = {

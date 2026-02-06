@@ -2,6 +2,9 @@ import { useMCPTool } from '@mcp-fe/react-tools';
 import { z } from 'zod';
 import { FormData } from '../types';
 
+// Input schema (no parameters)
+const formStateInputSchema = z.object({});
+
 // Output schema for form state
 const formStateOutputSchema = z.object({
   formData: z.object({
@@ -27,10 +30,7 @@ export function useFormStateTool(formData: FormData) {
     name: 'get_form_state',
     description:
       'Get the current state of all form fields in the registration form',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
+    inputSchema: formStateInputSchema.toJSONSchema(),
     outputSchema: formStateOutputSchema.toJSONSchema(),
     handler: async () => {
       const result = {

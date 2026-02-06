@@ -2,6 +2,9 @@ import { useMCPTool } from '@mcp-fe/react-tools';
 import { z } from 'zod';
 import { FormData } from '../types';
 
+// Input schema (no parameters)
+const validateFormInputSchema = z.object({});
+
 // Output schema for form validation
 const formValidationOutputSchema = z.object({
   isValid: z.boolean(),
@@ -30,10 +33,7 @@ export function useValidateFormTool(
     name: 'validate_form',
     description:
       'Run validation on the current form state and return all errors',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
+    inputSchema: validateFormInputSchema.toJSONSchema(),
     outputSchema: formValidationOutputSchema.toJSONSchema(),
     handler: async () => {
       const errors = validateForm(formData);

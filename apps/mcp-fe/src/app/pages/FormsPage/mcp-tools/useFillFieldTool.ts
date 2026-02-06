@@ -2,6 +2,21 @@ import { useMCPTool } from '@mcp-fe/react-tools';
 import { z } from 'zod';
 import { FormData } from '../types';
 
+// Input schema
+const fillFieldInputSchema = z.object({
+  fieldName: z.enum([
+    'firstName',
+    'lastName',
+    'email',
+    'age',
+    'country',
+    'newsletter',
+    'plan',
+    'message',
+  ]),
+  value: z.union([z.string(), z.boolean(), z.number()]),
+});
+
 // Output schema for fill field result
 const fillFieldOutputSchema = z.object({
   success: z.boolean(),
@@ -22,31 +37,7 @@ export function useFillFieldTool(
   useMCPTool({
     name: 'fill_field',
     description: 'Fill a specific form field with a value.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        fieldName: {
-          type: 'string',
-          description: 'Field name to fill',
-          enum: [
-            'firstName',
-            'lastName',
-            'email',
-            'age',
-            'country',
-            'newsletter',
-            'plan',
-            'message',
-          ],
-        },
-        value: {
-          type: ['string', 'boolean', 'number'],
-          description:
-            'Value to set. For text fields use string, for newsletter use boolean, for age use number or string. Country values: us (United States), uk (United Kingdom), ca (Canada), de (Germany), fr (France), cz (Czech Republic), other. Plan values: basic, premium, enterprise.',
-        },
-      },
-      required: ['fieldName', 'value'],
-    },
+    inputSchema: fillFieldInputSchema.toJSONSchema(),
     outputSchema: fillFieldOutputSchema.toJSONSchema(),
     handler: async (args: unknown) => {
       const { fieldName, value } = args as {

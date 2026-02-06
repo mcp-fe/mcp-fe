@@ -2,6 +2,20 @@ import { useMCPTool } from '@mcp-fe/react-tools';
 import { z } from 'zod';
 import { FormData } from '../types';
 
+// Input schema
+const fieldInfoInputSchema = z.object({
+  fieldName: z.enum([
+    'firstName',
+    'lastName',
+    'email',
+    'age',
+    'country',
+    'newsletter',
+    'plan',
+    'message',
+  ]),
+});
+
 // Output schema for field info
 const fieldInfoOutputSchema = z.object({
   fieldName: z.string(),
@@ -25,27 +39,7 @@ export function useFieldInfoTool(
   useMCPTool({
     name: 'get_field_info',
     description: 'Get detailed information about a specific form field',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        fieldName: {
-          type: 'string',
-          description:
-            'Field name (firstName, lastName, email, age, country, newsletter, plan, message)',
-          enum: [
-            'firstName',
-            'lastName',
-            'email',
-            'age',
-            'country',
-            'newsletter',
-            'plan',
-            'message',
-          ],
-        },
-      },
-      required: ['fieldName'],
-    },
+    inputSchema: fieldInfoInputSchema.toJSONSchema(),
     outputSchema: fieldInfoOutputSchema.toJSONSchema(),
     handler: async (args: unknown) => {
       const { fieldName } = args as { fieldName: keyof FormData };

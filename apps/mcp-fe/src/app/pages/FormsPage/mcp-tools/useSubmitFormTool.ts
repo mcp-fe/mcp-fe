@@ -2,6 +2,9 @@ import { useMCPTool } from '@mcp-fe/react-tools';
 import { z } from 'zod';
 import { FormData } from '../types';
 
+// Input schema (no parameters)
+const submitFormInputSchema = z.object({});
+
 // Output schema for form submission
 const submitFormOutputSchema = z.object({
   success: z.boolean(),
@@ -35,10 +38,7 @@ export function useSubmitFormTool(
     name: 'submit_form',
     description:
       'Validate and submit the registration form. Returns validation errors if form is invalid, or success message if form was submitted.',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
+    inputSchema: submitFormInputSchema.toJSONSchema(),
     outputSchema: submitFormOutputSchema.toJSONSchema(),
     handler: async () => {
       const errors = validateForm(formData);
