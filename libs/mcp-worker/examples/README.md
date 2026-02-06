@@ -31,6 +31,42 @@ await workerClient.registerTool(
 );
 ```
 
+### [structured-output.ts](./structured-output.ts)
+Examples of structured output using `outputSchema`.
+
+**Includes:**
+- Tool with structured output (using outputSchema)
+- Legacy tool without outputSchema
+- Complex nested structures
+- Real-world analytics example
+
+**Best for:** Working with AI models that support structured data, type-safe outputs
+
+```typescript
+// With outputSchema - returns structured data
+await workerClient.registerTool(
+  'get_user',
+  'Get user data',
+  { type: 'object', properties: { userId: { type: 'string' } } },
+  async (args) => ({
+    content: [{
+      type: 'resource',
+      resource: { id: '123', name: 'John', email: 'john@example.com' }
+    }]
+  }),
+  {
+    outputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        email: { type: 'string' }
+      }
+    }
+  }
+);
+```
+
 ### [dynamic-tools.ts](./dynamic-tools.ts)
 Advanced patterns and real-world use cases.
 

@@ -1,42 +1,49 @@
-import { useMCPAction } from '@mcp-fe/react-tools';
+import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
+
+// Input schema
+const fillFieldInputSchema = z.object({
+  fieldName: z.enum([
+    'firstName',
+    'lastName',
+    'email',
+    'age',
+    'country',
+    'newsletter',
+    'plan',
+    'message',
+  ]),
+  value: z.union([z.string(), z.boolean(), z.number()]),
+});
+
+// Output schema for fill field result
+const fillFieldOutputSchema = z.object({
+  success: z.boolean(),
+  fieldName: z.string(),
+  newValue: z.union([z.string(), z.boolean()]),
+  previousValue: z.union([z.string(), z.boolean()]),
+  message: z.string(),
+});
 
 /**
  * MCP Tool: Fill specific field
  * Allows AI to fill a specific form field with a value
  */
 export function useFillFieldTool(
+  formData: FormData,
   setFormData: React.Dispatch<React.SetStateAction<FormData>>,
 ) {
-  useMCPAction(
-    'fill_field',
-    'Fill a specific form field with a value.',
-    {
-      fieldName: {
-        type: 'string',
-        description: 'Field name to fill',
-        enum: [
-          'firstName',
-          'lastName',
-          'email',
-          'age',
-          'country',
-          'newsletter',
-          'plan',
-          'message',
-        ],
-      },
-      value: {
-        type: ['string', 'boolean', 'number'],
-        description:
-          'Value to set. For text fields use string, for newsletter use boolean, for age use number or string. Country values: us (United States), uk (United Kingdom), ca (Canada), de (Germany), fr (France), cz (Czech Republic), other. Plan values: basic, premium, enterprise.',
-      },
-    },
-    async (args: {
-      fieldName: keyof FormData;
-      value: string | boolean | number;
-    }) => {
-      const { fieldName, value } = args;
+  useMCPTool({
+    name: 'fill_field',
+    description: 'Fill a specific form field with a value.',
+    inputSchema: fillFieldInputSchema.toJSONSchema(),
+    outputSchema: fillFieldOutputSchema.toJSONSchema(),
+    handler: async (args: unknown) => {
+      const { fieldName, value } = args as {
+        fieldName: keyof FormData;
+        value: string | boolean | number;
+      };
 
       // Validate field name
       const validFields: (keyof FormData)[] = [
@@ -51,19 +58,12 @@ export function useFillFieldTool(
       ];
 
       if (!validFields.includes(fieldName)) {
-        return {
-          success: false,
-          error: `Invalid field name: ${fieldName}`,
-          validFields,
-        };
+        throw new Error(`Invalid field name: ${fieldName}`);
       }
 
       // Type validation based on field
       if (fieldName === 'newsletter' && typeof value !== 'boolean') {
-        return {
-          success: false,
-          error: 'Field "newsletter" requires a boolean value',
-        };
+        throw new Error('Field "newsletter" requires a boolean value');
       }
 
       if (
@@ -71,11 +71,10 @@ export function useFillFieldTool(
         typeof value !== 'string' &&
         typeof value !== 'number'
       ) {
-        return {
-          success: false,
-          error: 'Field "age" requires a string or number value',
-        };
+        throw new Error('Field "age" requires a string or number value');
       }
+
+      const previousValue = formData[fieldName];
 
       // Update the form data
       setFormData((prev) => ({
@@ -83,13 +82,24 @@ export function useFillFieldTool(
         [fieldName]: fieldName === 'age' ? String(value) : value,
       }));
 
-      return {
+      const newValue = fieldName === 'age' ? String(value) : value;
+
+      const result = {
         success: true,
         fieldName,
-        value,
-        message: `Field "${fieldName}" has been set to: ${value}`,
+        newValue,
+        previousValue,
+        message: `Field "${fieldName}" has been set to: ${newValue}`,
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result),
+          },
+        ],
       };
     },
-    { required: ['fieldName', 'value'] },
-  );
+  });
 }

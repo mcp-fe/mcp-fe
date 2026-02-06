@@ -39,7 +39,9 @@ export interface ToolDefinition {
 }
 
 export interface ToolHandler {
-  (args: unknown): Promise<{ content: Array<{ type: string; text: string }> }>;
+  (args: unknown): Promise<{
+    content: Array<{ type: string; text: string }>;
+  }>;
 }
 
 // Dynamic tool registry

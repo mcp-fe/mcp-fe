@@ -20,6 +20,31 @@ const INITIAL_RECONNECT_DELAY = 1000;
 
 export type BroadcastFn = (message: unknown) => void;
 
+// Type for tool call results from handlers
+export interface ToolCallResult {
+  success: boolean;
+  result?: {
+    content: Array<{ type: string; text: string }>;
+  };
+  error?: string;
+}
+
+// Type guard for ToolCallResult
+export function isToolCallResult(obj: unknown): obj is ToolCallResult {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const result = obj as Record<string, unknown>;
+  return (
+    typeof result['success'] === 'boolean' &&
+    (result['error'] === undefined || typeof result['error'] === 'string') &&
+    (result['result'] === undefined ||
+      (typeof result['result'] === 'object' &&
+        result['result'] !== null &&
+        Array.isArray(
+          (result['result'] as Record<string, unknown>)['content'],
+        )))
+  );
+}
+
 export class MCPController {
   private socket: WebSocket | null = null;
   private transport: WebSocketTransport | null = null;
@@ -50,6 +75,7 @@ export class MCPController {
       }) => void;
       reject: (error: Error) => void;
       timeout: ReturnType<typeof setTimeout>;
+      hasOutputSchema: boolean;
     }
   >();
 
@@ -435,6 +461,7 @@ export class MCPController {
                 new Error(`Tool call timeout: ${name} (tab: ${targetTabId})`),
               );
             }, 30000), // 30 second timeout
+            hasOutputSchema: !!outputSchema,
           };
 
           this.pendingToolCalls.set(callId, pendingCall);
@@ -446,6 +473,7 @@ export class MCPController {
             args,
             callId,
             targetTabId,
+            hasOutputSchema: !!outputSchema,
           });
         });
       };
@@ -490,7 +518,7 @@ export class MCPController {
     }
   }
 
-  public handleToolCallResult(callId: string, result: unknown): void {
+  public handleToolCallResult(callId: string, result: ToolCallResult): void {
     const pendingCall = this.pendingToolCalls.get(callId);
     if (!pendingCall) {
       logger.warn(
@@ -502,16 +530,48 @@ export class MCPController {
     clearTimeout(pendingCall.timeout);
     this.pendingToolCalls.delete(callId);
 
-    const resultData = result as {
-      success?: boolean;
-      result?: { content: Array<{ type: string; text: string }> };
-      error?: string;
-    };
+    if (result.success && result.result !== undefined) {
+      const contentResult = result.result;
 
-    if (resultData.success && resultData.result) {
-      pendingCall.resolve(resultData.result);
+      // If result is already in content format, use it
+      if (contentResult?.content && Array.isArray(contentResult.content)) {
+        // Check if tool has outputSchema - if yes, add structuredContent
+        if (pendingCall.hasOutputSchema) {
+          try {
+            // Parse JSON from text content
+            const textContent = contentResult.content.find(
+              (c) => c.type === 'text',
+            );
+            if (textContent && textContent.text) {
+              const parsed = JSON.parse(textContent.text);
+              // Return both content and structuredContent
+              pendingCall.resolve({
+                content: contentResult.content,
+                structuredContent: parsed,
+              } as any);
+              return;
+            }
+          } catch (error) {
+            logger.warn(
+              '[MCPController] Failed to parse structured content:',
+              error,
+            );
+            // Fall back to regular content if parsing fails
+          }
+        }
+        // No outputSchema or parsing failed - return just content
+        pendingCall.resolve(contentResult);
+      } else {
+        // This shouldn't happen with properly typed handlers, but handle it anyway
+        logger.warn(
+          '[MCPController] Result missing content array, serializing',
+        );
+        pendingCall.resolve({
+          content: [{ type: 'text', text: JSON.stringify(result.result) }],
+        });
+      }
     } else {
-      pendingCall.reject(new Error(resultData.error || 'Tool call failed'));
+      pendingCall.reject(new Error(result.error || 'Tool call failed'));
     }
   }
 

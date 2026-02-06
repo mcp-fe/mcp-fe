@@ -81,7 +81,7 @@ export const FormsPage = () => {
   useFieldInfoTool(formData, validationErrors, validateForm);
   useValidateFormTool(formData, validateForm);
   useFormAnalyticsTool(formData);
-  useFillFieldTool(setFormData);
+  useFillFieldTool(formData, setFormData);
 
   return (
     <div className="forms-page">

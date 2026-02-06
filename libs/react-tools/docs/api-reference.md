@@ -126,6 +126,53 @@ useMCPTool({
 });
 ```
 
+#### Structured Output
+
+When `outputSchema` is defined, return JSON string in text format. MCPController automatically adds `structuredContent`:
+
+```tsx
+// ✅ Correct - with outputSchema
+useMCPTool({
+  name: 'get_user',
+  outputSchema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      name: { type: 'string' }
+    }
+  },
+  handler: async () => {
+    const data = { id: '123', name: 'John' };
+    
+    // Return as JSON string
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify(data)
+      }]
+    };
+  }
+});
+
+// AI receives both versions:
+// {
+//   content: [{ type: 'text', text: '{"id":"123","name":"John"}' }],
+//   structuredContent: { id: '123', name: 'John' }
+// }
+
+// ❌ Legacy - without outputSchema
+useMCPTool({
+  name: 'get_data',
+  handler: async () => ({
+    content: [{
+      type: 'text',
+      text: JSON.stringify({ value: 42 })
+    }]
+  })
+});
+// AI receives only: { content: [...] }
+```
+
 ---
 
 ### `useMCPGetter(name, description, getter)`

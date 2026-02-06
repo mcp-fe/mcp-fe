@@ -581,6 +581,114 @@ function SettingsManager() {
 
 ---
 
+## Structured Output
+
+Return typed, structured data that AI models can directly understand. Tools with `outputSchema` automatically get both text and structured versions.
+
+### How It Works
+
+When you define `outputSchema`:
+1. Your handler returns JSON string in `content`
+2. MCPController automatically parses it
+3. AI receives **both** `content` (text) and `structuredContent` (parsed object)
+
+### Example: Product Search
+
+```tsx
+import { useMCPTool } from '@mcp-fe/react-tools';
+
+function ProductSearch() {
+  const [products] = useState([
+    { id: '1', name: 'Laptop Pro', price: 1299.99, inStock: true },
+    { id: '2', name: 'Wireless Mouse', price: 29.99, inStock: true },
+  ]);
+
+  useMCPTool({
+    name: 'search_products',
+    description: 'Search products with structured results',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string' },
+        limit: { type: 'number', default: 10 }
+      },
+      required: ['query']
+    },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        results: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              price: { type: 'number' },
+              inStock: { type: 'boolean' }
+            }
+          }
+        },
+        totalCount: { type: 'number' }
+      }
+    },
+    handler: async (args) => {
+      const { query, limit = 10 } = args as { query: string; limit?: number };
+      
+      const results = products
+        .filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, limit);
+      
+      const data = { results, totalCount: results.length };
+      
+      // Return as JSON string - MCPController adds structuredContent
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(data)
+        }]
+      };
+    }
+  });
+
+  return <div>{/* Your UI */}</div>;
+}
+```
+
+**AI receives (automatically):**
+```json
+{
+  "content": [
+    { "type": "text", "text": "{\"results\":[...],\"totalCount\":1}" }
+  ],
+  "structuredContent": {
+    "results": [
+      { "id": "1", "name": "Laptop Pro", "price": 1299.99, "inStock": true }
+    ],
+    "totalCount": 1
+  }
+}
+```
+
+### Without outputSchema (Legacy)
+
+```tsx
+useMCPTool({
+  name: 'get_data',
+  inputSchema: { type: 'object', properties: {} },
+  handler: async () => ({
+    content: [{
+      type: 'text',
+      text: JSON.stringify({ value: 42 })
+    }]
+  })
+});
+```
+
+**AI receives:** Only `content` with text `"{\"value\":42}"`
+
+---
+
 ## Next Steps
 
 - **[Architecture](./architecture.md)** - Understand how it works

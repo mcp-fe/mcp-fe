@@ -8,7 +8,7 @@
 declare const self: ServiceWorkerGlobalScope;
 
 import type { UserEvent } from './lib/database';
-import { MCPController } from './lib/mcp-controller';
+import { MCPController, isToolCallResult } from './lib/mcp-controller';
 import { logger } from './lib/logger';
 
 // Controller is only created after INIT with backendUrl. Client must send INIT.
@@ -326,6 +326,16 @@ self.addEventListener('message', async (event: ExtendableMessageEvent) => {
         logger.warn('[ServiceWorker] TOOL_CALL_RESULT missing callId');
         return;
       }
+
+      // Validate message structure with type guard
+      if (!isToolCallResult(msg)) {
+        logger.error(
+          '[ServiceWorker] Invalid TOOL_CALL_RESULT structure:',
+          msg,
+        );
+        return;
+      }
+
       getController().handleToolCallResult(callId, msg);
     } catch (error) {
       logger.error('[ServiceWorker] Failed to handle TOOL_CALL_RESULT:', error);
