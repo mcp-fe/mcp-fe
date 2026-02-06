@@ -1,8 +1,8 @@
-## Unreleased
+## 0.1.7 (2026-02-06)
 
 ### 🚀 Features
 
-- **Structured Output Support**: Tools can now return structured data when `outputSchema` is defined
+- **Structured Output Support**: Tools can now return structured data when `outputSchema` is defined  ([37d757c](https://github.com/mcp-fe/mcp-fe/commit/37d757c))
   - **Automatic Detection**: MCPController detects `outputSchema` presence and handles output accordingly
   - **Structured Data**: Tools with `outputSchema` return data as JSON objects instead of serialized text
   - **Legacy Support**: Tools without `outputSchema` continue to work with serialized text output
