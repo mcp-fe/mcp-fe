@@ -9,7 +9,7 @@
 declare const self: SharedWorkerGlobalScope;
 
 import type { UserEvent } from './lib/database';
-import { MCPController } from './lib/mcp-controller';
+import { MCPController, isToolCallResult } from './lib/mcp-controller';
 import { logger } from './lib/logger';
 
 // Track all connected ports
@@ -335,6 +335,16 @@ self.onconnect = (event: MessageEvent) => {
           logger.warn('[SharedWorker] TOOL_CALL_RESULT missing callId');
           return;
         }
+
+        // Validate message structure with type guard
+        if (!isToolCallResult(messageData)) {
+          logger.error(
+            '[SharedWorker] Invalid TOOL_CALL_RESULT structure:',
+            messageData,
+          );
+          return;
+        }
+
         getController().handleToolCallResult(callId, messageData);
       } catch (error: unknown) {
         logger.error(

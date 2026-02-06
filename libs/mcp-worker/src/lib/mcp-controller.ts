@@ -21,12 +21,28 @@ const INITIAL_RECONNECT_DELAY = 1000;
 export type BroadcastFn = (message: unknown) => void;
 
 // Type for tool call results from handlers
-interface ToolCallResult {
+export interface ToolCallResult {
   success: boolean;
   result?: {
     content: Array<{ type: string; text: string }>;
   };
   error?: string;
+}
+
+// Type guard for ToolCallResult
+export function isToolCallResult(obj: unknown): obj is ToolCallResult {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const result = obj as Record<string, unknown>;
+  return (
+    typeof result['success'] === 'boolean' &&
+    (result['error'] === undefined || typeof result['error'] === 'string') &&
+    (result['result'] === undefined ||
+      (typeof result['result'] === 'object' &&
+        result['result'] !== null &&
+        Array.isArray(
+          (result['result'] as Record<string, unknown>)['content'],
+        )))
+  );
 }
 
 export class MCPController {
