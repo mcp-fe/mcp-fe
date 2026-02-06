@@ -1,9 +1,10 @@
-import { useMCPAction } from '@mcp-fe/react-tools';
+import { useMCPTool } from '@mcp-fe/react-tools';
 import { FormData } from '../types';
+import { submitFormOutputJsonSchema } from './schemas';
 
 /**
  * MCP Tool: Submit form
- * Validates and submits the registration form
+ * Validates and submits the registration form with structured output
  */
 export function useSubmitFormTool(
   formData: FormData,
@@ -11,15 +12,22 @@ export function useSubmitFormTool(
   setValidationErrors: React.Dispatch<React.SetStateAction<Partial<FormData>>>,
   setFormData: React.Dispatch<React.SetStateAction<FormData>>,
 ) {
-  useMCPAction(
-    'submit_form',
-    'Validate and submit the registration form. Returns validation errors if form is invalid, or success message if form was submitted.',
-    {},
-    async () => {
+  useMCPTool({
+    name: 'submit_form',
+    description:
+      'Validate and submit the registration form. Returns validation errors if form is invalid, or success message if form was submitted.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    outputSchema: submitFormOutputJsonSchema,
+    handler: async () => {
       const errors = validateForm(formData);
       setValidationErrors(errors);
 
       if (Object.keys(errors).length === 0) {
+        const submittedData = { ...formData };
+
         // Reset form
         setFormData({
           firstName: '',
@@ -32,22 +40,36 @@ export function useSubmitFormTool(
           message: '',
         });
 
-        return {
+        const result = {
           success: true,
           message: 'Form submitted successfully! The form has been reset.',
-          submittedData: formData,
+          submittedData,
+        };
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result),
+            },
+          ],
         };
       } else {
-        return {
+        const result = {
           success: false,
           message: 'Form validation failed. Please fix the errors.',
-          isValid: false,
-          errorCount: Object.keys(errors).length,
-          errors: errors,
-          fieldsWithErrors: Object.keys(errors),
+          errors: errors as Record<string, string>,
+        };
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result),
+            },
+          ],
         };
       }
     },
-    { required: [] },
-  );
+  });
 }

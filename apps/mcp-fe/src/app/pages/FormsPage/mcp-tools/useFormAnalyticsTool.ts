@@ -1,15 +1,21 @@
-import { useMCPGetter } from '@mcp-fe/react-tools';
+import { useMCPTool } from '@mcp-fe/react-tools';
 import { FormData } from '../types';
+import { formAnalyticsOutputJsonSchema } from './schemas';
 
 /**
  * MCP Tool: Get form analytics/statistics
- * Returns analytics and statistics about the form state
+ * Returns analytics and statistics about the form state with structured output
  */
 export function useFormAnalyticsTool(formData: FormData) {
-  useMCPGetter(
-    'get_form_analytics',
-    'Get analytics and statistics about the form state',
-    () => {
+  useMCPTool({
+    name: 'get_form_analytics',
+    description: 'Get analytics and statistics about the form state',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    outputSchema: formAnalyticsOutputJsonSchema,
+    handler: async () => {
       const fieldLengths = {
         firstName: formData.firstName.length,
         lastName: formData.lastName.length,
@@ -24,7 +30,7 @@ export function useFormAnalyticsTool(formData: FormData) {
         parseInt(formData.age) >= 1 &&
         parseInt(formData.age) <= 120;
 
-      return {
+      const result = {
         characterCounts: fieldLengths,
         totalCharacters: Object.values(fieldLengths).reduce(
           (sum, len) => sum + len,
@@ -48,6 +54,15 @@ export function useFormAnalyticsTool(formData: FormData) {
           hasMessage: formData.message.length >= 10,
         },
       };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result),
+          },
+        ],
+      };
     },
-  );
+  });
 }
