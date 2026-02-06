@@ -2,16 +2,16 @@
  * Structured Output Example
  *
  * This file demonstrates the use of outputSchema for structured tool outputs.
- * When outputSchema is defined, the tool returns structured data instead of
- * serialized text, allowing AI models to better understand and work with the results.
+ * When outputSchema is defined, the tool returns JSON text that MCPController
+ * automatically parses and adds as structuredContent alongside the text content.
  *
  * Examples included:
- * 1. Tool with outputSchema - returns structured data
+ * 1. Tool with outputSchema - returns text that becomes structured
  * 2. Tool without outputSchema - returns serialized text (legacy behavior)
  *
  * Related Files:
  * - dynamic-tools.ts - More tool registration examples
- * - ../docs/guide.md - Complete documentation
+ * - ../docs/structured-output.md - Complete documentation
  */
 
 import { WorkerClient } from '../src/lib/worker-client';
@@ -42,14 +42,7 @@ async function registerStructuredUserTool(client: WorkerClient) {
       },
       required: ['userId'],
     },
-    async (
-      args: unknown,
-    ): Promise<{
-      content: Array<
-        | { type: string; text: string }
-        | { type: string; resource?: Record<string, unknown> }
-      >;
-    }> => {
+    async (args: unknown) => {
       const { userId } = args as { userId: string };
 
       // Simulate fetching user data
@@ -61,13 +54,13 @@ async function registerStructuredUserTool(client: WorkerClient) {
         createdAt: new Date().toISOString(),
       };
 
-      // With outputSchema, return structured data
-      // The MCPController will handle this as structured output
+      // With outputSchema, return as JSON text
+      // MCPController will automatically parse this and add structuredContent
       return {
         content: [
           {
-            type: 'resource',
-            resource: userData,
+            type: 'text',
+            text: JSON.stringify(userData),
           },
         ],
       };
@@ -93,6 +86,9 @@ async function registerStructuredUserTool(client: WorkerClient) {
   );
 
   console.log('✓ Registered tool with outputSchema: get_user_data');
+  console.log(
+    '  → Returns both content (text) and structuredContent (parsed object)',
+  );
 }
 
 // Example 2: Tool WITHOUT outputSchema - returns serialized text (legacy)
@@ -121,8 +117,7 @@ async function registerLegacyUserTool(client: WorkerClient) {
         role: 'user',
       };
 
-      // Without outputSchema, this will be serialized to text
-      // The MCPController will convert this to JSON string
+      // Without outputSchema, returns only text content
       return {
         content: [
           {
@@ -142,6 +137,7 @@ async function registerLegacyUserTool(client: WorkerClient) {
   );
 
   console.log('✓ Registered tool without outputSchema: get_user_legacy');
+  console.log('  → Returns only content (text), no structuredContent');
 }
 
 // Example 3: Complex structured output with nested objects
@@ -160,14 +156,7 @@ async function registerAnalyticsTool(client: WorkerClient) {
       },
       required: ['period'],
     },
-    async (
-      args: unknown,
-    ): Promise<{
-      content: Array<
-        | { type: string; text: string }
-        | { type: string; resource?: Record<string, unknown> }
-      >;
-    }> => {
+    async (args: unknown) => {
       const { period } = args as { period: string };
 
       // Simulate fetching analytics data
@@ -192,12 +181,12 @@ async function registerAnalyticsTool(client: WorkerClient) {
         timestamp: new Date().toISOString(),
       };
 
-      // Return as structured data
+      // Return as JSON text - MCPController parses it for structuredContent
       return {
         content: [
           {
-            type: 'resource',
-            resource: analyticsData,
+            type: 'text',
+            text: JSON.stringify(analyticsData),
           },
         ],
       };
@@ -246,11 +235,17 @@ async function registerAnalyticsTool(client: WorkerClient) {
   );
 
   console.log('✓ Registered complex structured tool: get_analytics');
+  console.log(
+    '  → MCPController adds structuredContent with parsed nested objects',
+  );
 }
 
 // Main execution
 async function main() {
-  console.log('Initializing MCP Worker Client...');
+  console.log('='.repeat(60));
+  console.log('Structured Output Example - MCP Worker');
+  console.log('='.repeat(60));
+  console.log('\nInitializing MCP Worker Client...');
   const client = await initializeWorkerClient();
 
   console.log('\nRegistering tools with different output formats...\n');
@@ -260,18 +255,28 @@ async function main() {
   await registerLegacyUserTool(client);
   await registerAnalyticsTool(client);
 
-  console.log('\n✓ All tools registered successfully!');
-  console.log('\nKey Differences:');
+  console.log('\n' + '='.repeat(60));
+  console.log('✓ All tools registered successfully!');
+  console.log('='.repeat(60));
+
+  console.log('\n📋 How it works:');
+  console.log('');
+  console.log('1. WITH outputSchema:');
   console.log(
-    '- get_user_data: Uses outputSchema → returns structured data (resource)',
+    '   Handler returns: { content: [{ type: "text", text: JSON.stringify(data) }] }',
   );
-  console.log('- get_user_legacy: No outputSchema → returns serialized text');
+  console.log('   MCPController adds: structuredContent: <parsed JSON object>');
+  console.log('   AI receives: BOTH text and structured versions');
+  console.log('');
+  console.log('2. WITHOUT outputSchema:');
   console.log(
-    '- get_analytics: Complex outputSchema → returns nested structured data',
+    '   Handler returns: { content: [{ type: "text", text: "..." }] }',
   );
-  console.log(
-    '\nThe AI model can now better understand and work with structured outputs!',
-  );
+  console.log('   MCPController sends: Only text content');
+  console.log('   AI receives: Just the text string');
+  console.log('');
+  console.log('📖 See docs/structured-output.md for complete documentation');
+  console.log('');
 }
 
 // Run the example
