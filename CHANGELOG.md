@@ -4,7 +4,7 @@
 
 - **Structured Output Support**: Tools can now return structured data when `outputSchema` is defined
   - **Automatic Detection**: MCPController detects `outputSchema` presence and handles output accordingly
-  - **Structured Data**: Tools with `outputSchema` return data as `{ type: 'resource', resource: data }`
+  - **Structured Data**: Tools with `outputSchema` return data as JSON objects instead of serialized text
   - **Legacy Support**: Tools without `outputSchema` continue to work with serialized text output
   - **Better AI Integration**: AI models can directly parse and manipulate structured outputs
   
@@ -25,7 +25,6 @@
 
 - New [structured-output.md](./libs/mcp-worker/docs/structured-output.md) guide
 - Example: [structured-output.ts](./libs/mcp-worker/examples/structured-output.ts) - WorkerClient usage
-- Example: [structured-output-example.tsx](./libs/react-tools/examples/structured-output-example.tsx) - React hook usage
 - Updated examples README with structured output section
 
 ### 🔄 Backward Compatibility
