@@ -40,10 +40,7 @@ export interface ToolDefinition {
 
 export interface ToolHandler {
   (args: unknown): Promise<{
-    content: Array<
-      | { type: string; text: string }
-      | { type: string; resource?: Record<string, unknown> }
-    >;
+    content: Array<{ type: string; text: string }>;
   }>;
 }
 

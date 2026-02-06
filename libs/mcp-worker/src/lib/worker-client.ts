@@ -80,10 +80,7 @@ export class WorkerClient {
     description?: string;
     inputSchema: Record<string, unknown>;
     handler: (args: unknown) => Promise<{
-      content: Array<
-        | { type: string; text: string }
-        | { type: string; resource?: Record<string, unknown> }
-      >;
+      content: Array<{ type: string; text: string }>;
     }>;
     options?: {
       outputSchema?: Record<string, unknown>;
@@ -114,10 +111,7 @@ export class WorkerClient {
   private toolHandlers = new Map<
     string,
     (args: unknown) => Promise<{
-      content: Array<
-        | { type: string; text: string }
-        | { type: string; resource?: Record<string, unknown> }
-      >;
+      content: Array<{ type: string; text: string }>;
     }>
   >();
 
@@ -1059,10 +1053,7 @@ export class WorkerClient {
     description: string | undefined,
     inputSchema: Record<string, unknown>,
     handler: (args: unknown) => Promise<{
-      content: Array<
-        | { type: string; text: string }
-        | { type: string; resource?: Record<string, unknown> }
-      >;
+      content: Array<{ type: string; text: string }>;
     }>,
     options?: {
       outputSchema?: Record<string, unknown>;
@@ -1149,10 +1140,7 @@ export class WorkerClient {
     description: string | undefined,
     inputSchema: Record<string, unknown>,
     handler: (args: unknown) => Promise<{
-      content: Array<
-        | { type: string; text: string }
-        | { type: string; resource?: Record<string, unknown> }
-      >;
+      content: Array<{ type: string; text: string }>;
     }>,
     options?: {
       outputSchema?: Record<string, unknown>;

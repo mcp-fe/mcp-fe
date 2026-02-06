@@ -20,6 +20,15 @@ const INITIAL_RECONNECT_DELAY = 1000;
 
 export type BroadcastFn = (message: unknown) => void;
 
+// Type for tool call results from handlers
+interface ToolCallResult {
+  success: boolean;
+  result?: {
+    content: Array<{ type: string; text: string }>;
+  };
+  error?: string;
+}
+
 export class MCPController {
   private socket: WebSocket | null = null;
   private transport: WebSocketTransport | null = null;
@@ -493,7 +502,7 @@ export class MCPController {
     }
   }
 
-  public handleToolCallResult(callId: string, result: unknown): void {
+  public handleToolCallResult(callId: string, result: ToolCallResult): void {
     const pendingCall = this.pendingToolCalls.get(callId);
     if (!pendingCall) {
       logger.warn(
@@ -505,16 +514,8 @@ export class MCPController {
     clearTimeout(pendingCall.timeout);
     this.pendingToolCalls.delete(callId);
 
-    const resultData = result as {
-      success?: boolean;
-      result?: unknown;
-      error?: string;
-    };
-
-    if (resultData.success && resultData.result !== undefined) {
-      const contentResult = resultData.result as {
-        content: Array<{ type: string; text: string }>;
-      };
+    if (result.success && result.result !== undefined) {
+      const contentResult = result.result;
 
       // If result is already in content format, use it
       if (contentResult?.content && Array.isArray(contentResult.content)) {
@@ -545,17 +546,16 @@ export class MCPController {
         // No outputSchema or parsing failed - return just content
         pendingCall.resolve(contentResult);
       } else {
-        // Otherwise serialize to text (shouldn't happen with new code)
-        const serialized =
-          typeof resultData.result === 'string'
-            ? resultData.result
-            : JSON.stringify(resultData.result, null, 2);
+        // This shouldn't happen with properly typed handlers, but handle it anyway
+        logger.warn(
+          '[MCPController] Result missing content array, serializing',
+        );
         pendingCall.resolve({
-          content: [{ type: 'text', text: serialized }],
+          content: [{ type: 'text', text: JSON.stringify(result.result) }],
         });
       }
     } else {
-      pendingCall.reject(new Error(resultData.error || 'Tool call failed'));
+      pendingCall.reject(new Error(result.error || 'Tool call failed'));
     }
   }
 
