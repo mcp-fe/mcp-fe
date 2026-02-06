@@ -51,12 +51,14 @@ export function useFormAnalyticsTool(formData: FormData) {
         message: formData.message.length,
       };
 
-      const hasValidEmail =
-        formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
-      const hasValidAge =
+      const hasValidEmail = !!(
+        formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+      );
+      const hasValidAge = !!(
         formData.age &&
         parseInt(formData.age) >= 1 &&
-        parseInt(formData.age) <= 120;
+        parseInt(formData.age) <= 120
+      );
 
       const result = {
         characterCounts: fieldLengths,
