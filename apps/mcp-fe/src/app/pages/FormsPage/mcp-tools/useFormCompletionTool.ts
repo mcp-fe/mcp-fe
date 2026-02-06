@@ -1,6 +1,26 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
-import { formCompletionOutputJsonSchema } from './schemas';
+
+// Output schema for form completion
+const formCompletionOutputSchema = z.object({
+  isComplete: z.boolean(),
+  completionPercentage: z.number(),
+  requiredFieldsStatus: z.object({
+    firstName: z.boolean(),
+    lastName: z.boolean(),
+    email: z.boolean(),
+  }),
+  optionalFieldsStatus: z.object({
+    age: z.boolean(),
+    country: z.boolean(),
+    message: z.boolean(),
+    newsletter: z.boolean(),
+  }),
+  missingRequiredFields: z.array(z.string()),
+  totalFields: z.number(),
+  filledFields: z.number(),
+});
 
 /**
  * MCP Tool: Get form completion progress
@@ -15,7 +35,7 @@ export function useFormCompletionTool(formData: FormData) {
       type: 'object',
       properties: {},
     },
-    outputSchema: formCompletionOutputJsonSchema,
+    outputSchema: formCompletionOutputSchema.toJSONSchema(),
     handler: async () => {
       const requiredFields: (keyof FormData)[] = [
         'firstName',

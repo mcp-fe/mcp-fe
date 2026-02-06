@@ -1,6 +1,17 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
-import { fieldInfoOutputJsonSchema } from './schemas';
+
+// Output schema for field info
+const fieldInfoOutputSchema = z.object({
+  fieldName: z.string(),
+  value: z.union([z.string(), z.boolean()]),
+  hasError: z.boolean(),
+  errorMessage: z.string().nullable(),
+  isFilled: z.boolean(),
+  valueType: z.string(),
+  wouldBeValidIfSubmitted: z.boolean(),
+});
 
 /**
  * MCP Tool: Get specific field info
@@ -35,7 +46,7 @@ export function useFieldInfoTool(
       },
       required: ['fieldName'],
     },
-    outputSchema: fieldInfoOutputJsonSchema,
+    outputSchema: fieldInfoOutputSchema.toJSONSchema(),
     handler: async (args: unknown) => {
       const { fieldName } = args as { fieldName: keyof FormData };
       const value = formData[fieldName];

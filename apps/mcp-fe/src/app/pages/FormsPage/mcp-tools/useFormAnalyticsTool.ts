@@ -1,6 +1,34 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
-import { formAnalyticsOutputJsonSchema } from './schemas';
+
+// Output schema for form analytics
+const formAnalyticsOutputSchema = z.object({
+  characterCounts: z.object({
+    firstName: z.number(),
+    lastName: z.number(),
+    email: z.number(),
+    message: z.number(),
+  }),
+  totalCharacters: z.number(),
+  selectedOptions: z.object({
+    country: z.string(),
+    plan: z.string(),
+    newsletter: z.boolean(),
+  }),
+  validation: z.object({
+    emailFormat: z.boolean(),
+    ageInRange: z.boolean(),
+    messageLength: z.boolean(),
+  }),
+  completeness: z.object({
+    hasName: z.boolean(),
+    hasContact: z.boolean(),
+    hasAge: z.boolean(),
+    hasLocation: z.boolean(),
+    hasMessage: z.boolean(),
+  }),
+});
 
 /**
  * MCP Tool: Get form analytics/statistics
@@ -14,7 +42,7 @@ export function useFormAnalyticsTool(formData: FormData) {
       type: 'object',
       properties: {},
     },
-    outputSchema: formAnalyticsOutputJsonSchema,
+    outputSchema: formAnalyticsOutputSchema.toJSONSchema(),
     handler: async () => {
       const fieldLengths = {
         firstName: formData.firstName.length,

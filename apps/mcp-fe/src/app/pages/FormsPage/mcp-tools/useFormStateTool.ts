@@ -1,6 +1,22 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
-import { formStateOutputJsonSchema } from './schemas';
+
+// Output schema for form state
+const formStateOutputSchema = z.object({
+  formData: z.object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    email: z.string().optional(),
+    age: z.string().optional(),
+    country: z.string().optional(),
+    newsletter: z.boolean().optional(),
+    plan: z.string().optional(),
+    message: z.string().optional(),
+  }),
+  fieldCount: z.number(),
+  filledFields: z.number(),
+});
 
 /**
  * MCP Tool: Get complete form state
@@ -15,7 +31,7 @@ export function useFormStateTool(formData: FormData) {
       type: 'object',
       properties: {},
     },
-    outputSchema: formStateOutputJsonSchema,
+    outputSchema: formStateOutputSchema.toJSONSchema(),
     handler: async () => {
       const result = {
         formData,

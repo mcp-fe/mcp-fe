@@ -1,6 +1,22 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
-import { formValidationOutputJsonSchema } from './schemas';
+
+// Output schema for form validation
+const formValidationOutputSchema = z.object({
+  isValid: z.boolean(),
+  errors: z.record(z.string(), z.string()),
+  errorCount: z.number(),
+  validFields: z.array(z.string()),
+  invalidFields: z.array(z.string()),
+  fieldStatuses: z.record(
+    z.string(),
+    z.object({
+      isValid: z.boolean(),
+      error: z.string().optional(),
+    }),
+  ),
+});
 
 /**
  * MCP Tool: Validate form
@@ -18,7 +34,7 @@ export function useValidateFormTool(
       type: 'object',
       properties: {},
     },
-    outputSchema: formValidationOutputJsonSchema,
+    outputSchema: formValidationOutputSchema.toJSONSchema(),
     handler: async () => {
       const errors = validateForm(formData);
       const validFields = Object.keys(formData).filter(

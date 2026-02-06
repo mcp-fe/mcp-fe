@@ -1,6 +1,15 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
-import { fillFieldOutputJsonSchema } from './schemas';
+
+// Output schema for fill field result
+const fillFieldOutputSchema = z.object({
+  success: z.boolean(),
+  fieldName: z.string(),
+  newValue: z.union([z.string(), z.boolean()]),
+  previousValue: z.union([z.string(), z.boolean()]),
+  message: z.string(),
+});
 
 /**
  * MCP Tool: Fill specific field
@@ -38,7 +47,7 @@ export function useFillFieldTool(
       },
       required: ['fieldName', 'value'],
     },
-    outputSchema: fillFieldOutputJsonSchema,
+    outputSchema: fillFieldOutputSchema.toJSONSchema(),
     handler: async (args: unknown) => {
       const { fieldName, value } = args as {
         fieldName: keyof FormData;

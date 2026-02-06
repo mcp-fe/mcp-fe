@@ -1,6 +1,25 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
+import { z } from 'zod';
 import { FormData } from '../types';
-import { submitFormOutputJsonSchema } from './schemas';
+
+// Output schema for form submission
+const submitFormOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  errors: z.record(z.string(), z.string()).optional(),
+  submittedData: z
+    .object({
+      firstName: z.string(),
+      lastName: z.string(),
+      email: z.string(),
+      age: z.string(),
+      country: z.string(),
+      newsletter: z.boolean(),
+      plan: z.string(),
+      message: z.string(),
+    })
+    .optional(),
+});
 
 /**
  * MCP Tool: Submit form
@@ -20,7 +39,7 @@ export function useSubmitFormTool(
       type: 'object',
       properties: {},
     },
-    outputSchema: submitFormOutputJsonSchema,
+    outputSchema: submitFormOutputSchema.toJSONSchema(),
     handler: async () => {
       const errors = validateForm(formData);
       setValidationErrors(errors);
