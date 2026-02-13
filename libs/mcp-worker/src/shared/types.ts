@@ -1,6 +1,5 @@
 /**
- * Dynamic tool registry for MCP server
- * Manages tool definitions and their handlers
+ * Shared types between client and worker
  */
 
 // Icon for tools, prompts, resources, and implementations (from MCP spec)
@@ -25,7 +24,7 @@ export interface ToolExecution {
   taskSupport?: 'optional' | 'required' | 'forbidden';
 }
 
-// Dynamic tool registry types
+// Tool definition
 export interface ToolDefinition {
   name: string;
   description?: string;
@@ -38,40 +37,39 @@ export interface ToolDefinition {
   title?: string;
 }
 
+// Tool handler
 export interface ToolHandler {
   (args: unknown): Promise<{
     content: Array<{ type: string; text: string }>;
   }>;
 }
 
-// Dynamic tool registry
-export class ToolRegistry {
-  private tools = new Map<string, ToolDefinition>();
-  private handlers = new Map<string, ToolHandler>();
-
-  register(definition: ToolDefinition, handler: ToolHandler): void {
-    this.tools.set(definition.name, definition);
-    this.handlers.set(definition.name, handler);
-  }
-
-  unregister(name: string): boolean {
-    const deleted = this.tools.delete(name);
-    this.handlers.delete(name);
-    return deleted;
-  }
-
-  getTools(): ToolDefinition[] {
-    return Array.from(this.tools.values());
-  }
-
-  getHandler(name: string): ToolHandler | undefined {
-    return this.handlers.get(name);
-  }
-
-  clear(): void {
-    this.tools.clear();
-    this.handlers.clear();
-  }
+// User event types
+export interface UserEvent {
+  id: string;
+  type: 'navigation' | 'click' | 'input' | 'custom';
+  timestamp: number;
+  path?: string;
+  from?: string;
+  to?: string;
+  element?: string;
+  elementId?: string;
+  elementClass?: string;
+  elementText?: string;
+  metadata?: Record<string, unknown>;
 }
 
-export const toolRegistry = new ToolRegistry();
+export interface EventFilters {
+  type?: string;
+  startTime?: number;
+  endTime?: number;
+  path?: string;
+  limit?: number;
+}
+
+// Tab information
+export interface TabInfo {
+  url: string;
+  title: string;
+  lastSeen: number;
+}

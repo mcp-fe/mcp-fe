@@ -7,10 +7,11 @@
  * Supports dynamic tool registration via handleRegisterTool and handleUnregisterTool.
  */
 
-import { storeEvent, queryEvents, UserEvent } from './database';
+import { storeEvent, queryEvents } from './database';
+import type { UserEvent } from '../shared/types';
 import { mcpServer } from './mcp-server';
 import { WebSocketTransport } from './websocket-transport';
-import { logger } from './logger';
+import { logger } from '../shared/logger';
 import { toolRegistry } from './tool-registry';
 import { TabManager } from './tab-manager';
 import { registerTabManagementTool } from './built-in-tools';

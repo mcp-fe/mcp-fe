@@ -37,7 +37,7 @@
  *
  */
 
-import { logger } from './logger';
+import { logger } from '../shared/logger';
 
 type WorkerKind = 'shared' | 'service';
 

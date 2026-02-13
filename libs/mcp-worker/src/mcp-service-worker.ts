@@ -7,9 +7,9 @@
 
 declare const self: ServiceWorkerGlobalScope;
 
-import type { UserEvent } from './lib/database';
-import { MCPController, isToolCallResult } from './lib/mcp-controller';
-import { logger } from './lib/logger';
+import type { UserEvent } from './shared/types';
+import { MCPController, isToolCallResult } from './worker/mcp-controller';
+import { logger } from './shared/logger';
 
 // Controller is only created after INIT with backendUrl. Client must send INIT.
 let controller: MCPController | null = null;
