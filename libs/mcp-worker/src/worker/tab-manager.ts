@@ -5,13 +5,11 @@
  * Provides intelligent routing logic for multi-tab scenarios.
  */
 
-import { logger } from './logger';
+import { logger } from '../shared/logger';
+import type { TabInfo } from '../shared/types';
 
-export interface TabInfo {
-  url: string;
-  title: string;
-  lastSeen: number;
-}
+// Re-export TabInfo type
+export type { TabInfo } from '../shared/types';
 
 export class TabManager {
   // Registry of all active tabs

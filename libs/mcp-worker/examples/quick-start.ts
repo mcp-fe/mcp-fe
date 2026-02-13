@@ -28,7 +28,7 @@
 // import { workerClient } from '@mcp-fe/mcp-worker';
 //
 // This example uses direct import for demonstration:
-import type { WorkerClient } from '../src/lib/worker-client';
+import type { WorkerClient } from '../src/client/worker-client';
 
 /**
  * Example 1: Simple tool without parameters

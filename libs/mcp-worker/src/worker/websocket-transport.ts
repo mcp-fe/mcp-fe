@@ -5,7 +5,6 @@ import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
  * Custom MCP Transport for WebSocket in Service Worker
  */
 export class WebSocketTransport implements Transport {
-
   onclose?: () => void;
   onerror?: (error: Error) => void;
   onmessage?: (message: JSONRPCMessage) => void;

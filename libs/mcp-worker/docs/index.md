@@ -12,6 +12,7 @@ Complete guide to all documentation and examples in the MCP Worker library.
 | **Complete API reference** | [API Reference](./api.md) |
 | **Multi-tab applications** | [Multi-Tab Guide](./multi-tab.md) |
 | **Worker implementation** | [Worker Details](./worker-details.md) |
+| **Understand codebase structure** | [Project Structure](./project-structure.md) |
 | **Use with React** | [React Hooks Guide](../../react-event-tracker/REACT_MCP_TOOLS.md) |
 | **Understand architecture** | [Architecture](./architecture.md) |
 | **Handle initialization** | [Initialization](./initialization.md) |
@@ -29,16 +30,26 @@ libs/mcp-worker/
 │   ├── multi-tab.md                       ← Multi-tab support
 │   ├── worker-details.md                  ← Worker implementation
 │   ├── architecture.md                    ← Technical architecture
-│   └── initialization.md                  ← Init handling
+│   ├── initialization.md                  ← Init handling
+│   ├── project-structure.md               ← Codebase organization
+│   └── tab-manager.md                     ← Tab management
 │
 ├── examples/                              ← Code examples
 │   ├── README.md                          ← Examples guide
 │   ├── quick-start.ts                     ← Simple examples
-│   └── dynamic-tools.ts                   ← Advanced patterns
+│   ├── dynamic-tools.ts                   ← Advanced patterns
+│   └── structured-output.ts               ← Structured outputs
 │
 └── src/                                   ← Source code
-    └── lib/
-        └── worker-client.ts
+    ├── client/                            ← Application runtime
+    │   └── worker-client.ts
+    ├── worker/                            ← Worker implementation
+    │   ├── mcp-controller.ts
+    │   └── ...
+    └── shared/                            ← Shared utilities
+        ├── types.ts
+        ├── logger.ts
+        └── database.ts
 
 libs/react-event-tracker/
 ├── REACT_MCP_TOOLS.md                     ← React hooks docs

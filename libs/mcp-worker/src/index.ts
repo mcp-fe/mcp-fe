@@ -14,22 +14,9 @@
  * limitations under the License.
  */
 
-import { WorkerClient } from './lib/worker-client';
+// Re-export everything from client (main entry point for applications)
+export * from './client/index';
 
-export {
-  WorkerClient,
-  type WorkerClientInitOptions,
-} from './lib/worker-client';
-export { queryEvents, type UserEvent } from './lib/database';
-export {
-  type ToolHandler,
-  type ToolDefinition,
-  type Icon,
-  type ToolAnnotations,
-  type ToolExecution,
-} from './lib/tool-registry';
-export { TabManager, type TabInfo } from './lib/tab-manager';
-export { logger } from './lib/logger';
-
-// WorkerClient global singleton
-export const workerClient = new WorkerClient();
+// Re-export shared types and utilities
+export * from './shared/types';
+export { queryEvents, storeEvent } from './shared/database';

@@ -14,7 +14,7 @@
  * - ../docs/structured-output.md - Complete documentation
  */
 
-import { WorkerClient } from '../src/lib/worker-client';
+import { WorkerClient } from '../src/client/worker-client';
 
 // Initialize the worker client
 async function initializeWorkerClient() {

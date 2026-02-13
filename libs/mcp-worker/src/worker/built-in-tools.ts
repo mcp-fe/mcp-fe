@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { queryEvents } from './database';
+import { queryEvents } from '../shared/database';
 import {
   toolRegistry,
   type ToolDefinition,
