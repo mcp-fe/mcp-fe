@@ -28,6 +28,13 @@ export {
   type ToolAnnotations,
   type ToolExecution,
 } from './lib/tool-registry';
+export {
+  ClientToolRegistry,
+  type ToolMetadata,
+  type ToolInfo,
+  type PendingRegistration,
+  type ToolChangeCallback,
+} from './lib/client-tool-registry';
 export { TabManager, type TabInfo } from './lib/tab-manager';
 export { logger } from './lib/logger';
 
