@@ -20,7 +20,7 @@ describe('ToolRegistry', () => {
         },
       };
 
-      const handler: ToolHandler = async (args) => ({
+      const handler: ToolHandler = async () => ({
         content: [{ type: 'text', text: 'result' }],
       });
 
@@ -55,7 +55,7 @@ describe('ToolRegistry', () => {
       expect(tools.map((t) => t.name)).toEqual(['tool-1', 'tool-2']);
     });
 
-    it('should update existing tool on re-registration', () => {
+    it('should throw error when registering tool with duplicate name', () => {
       const toolDef1: ToolDefinition = {
         name: 'test-tool',
         description: 'Original description',
@@ -68,6 +68,101 @@ describe('ToolRegistry', () => {
         inputSchema: { type: 'object' },
       };
 
+      const handler: ToolHandler = async () => ({
+        content: [{ type: 'text', text: 'result' }],
+      });
+
+      registry.register(toolDef1, handler);
+
+      expect(() => registry.register(toolDef2, handler)).toThrow(
+        "Tool 'test-tool' is already registered. Use update() to modify an existing tool.",
+      );
+
+      // Original tool should remain unchanged
+      const tools = registry.getTools();
+      expect(tools).toHaveLength(1);
+      expect(tools[0].description).toBe('Original description');
+    });
+
+    it('should register tool with all optional fields', () => {
+      const toolDef: ToolDefinition = {
+        name: 'complex-tool',
+        description: 'A complex tool',
+        inputSchema: { type: 'object' },
+        outputSchema: { type: 'object' },
+        annotations: {
+          title: 'Complex Tool',
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
+        execution: {
+          taskSupport: 'optional',
+        },
+        _meta: {
+          customField: 'customValue',
+        },
+        icons: [
+          {
+            src: 'icon.png',
+            mimeType: 'image/png',
+            sizes: ['16x16', '32x32'],
+            theme: 'light',
+          },
+        ],
+        title: 'Complex Tool',
+      };
+
+      const handler: ToolHandler = async () => ({
+        content: [{ type: 'text', text: 'result' }],
+      });
+
+      registry.register(toolDef, handler);
+
+      const tools = registry.getTools();
+      expect(tools).toHaveLength(1);
+      expect(tools[0].name).toBe('complex-tool');
+      expect(tools[0].annotations?.readOnlyHint).toBe(true);
+      expect(tools[0].execution?.taskSupport).toBe('optional');
+      expect(tools[0]._meta?.['customField']).toBe('customValue');
+      expect(tools[0].icons).toHaveLength(1);
+      expect(tools[0].icons?.[0].src).toBe('icon.png');
+    });
+  });
+
+  describe('Tool Update', () => {
+    it('should update existing tool definition', () => {
+      const toolDef1: ToolDefinition = {
+        name: 'test-tool',
+        description: 'Original description',
+        inputSchema: { type: 'object' },
+      };
+
+      const toolDef2: ToolDefinition = {
+        name: 'test-tool',
+        description: 'Updated description',
+        inputSchema: { type: 'object' },
+      };
+
+      const handler: ToolHandler = async () => ({
+        content: [{ type: 'text', text: 'result' }],
+      });
+
+      registry.register(toolDef1, handler);
+      registry.update(toolDef2, handler);
+
+      const tools = registry.getTools();
+      expect(tools).toHaveLength(1);
+      expect(tools[0].description).toBe('Updated description');
+    });
+
+    it('should update existing tool handler', () => {
+      const toolDef: ToolDefinition = {
+        name: 'test-tool',
+        inputSchema: { type: 'object' },
+      };
+
       const handler1: ToolHandler = async () => ({
         content: [{ type: 'text', text: 'original' }],
       });
@@ -76,15 +171,81 @@ describe('ToolRegistry', () => {
         content: [{ type: 'text', text: 'updated' }],
       });
 
-      registry.register(toolDef1, handler1);
-      registry.register(toolDef2, handler2);
-
-      const tools = registry.getTools();
-      expect(tools).toHaveLength(1);
-      expect(tools[0].description).toBe('Updated description');
+      registry.register(toolDef, handler1);
+      registry.update(toolDef, handler2);
 
       const handler = registry.getHandler('test-tool');
       expect(handler).toBe(handler2);
+    });
+
+    it('should throw error when updating non-existent tool', () => {
+      const toolDef: ToolDefinition = {
+        name: 'non-existent',
+        inputSchema: { type: 'object' },
+      };
+
+      const handler: ToolHandler = async () => ({
+        content: [{ type: 'text', text: 'result' }],
+      });
+
+      expect(() => registry.update(toolDef, handler)).toThrow(
+        "Tool 'non-existent' not found. Use register() to add a new tool.",
+      );
+    });
+
+    it('should update only the specified tool', () => {
+      const toolDef1: ToolDefinition = {
+        name: 'tool-1',
+        description: 'Tool 1',
+        inputSchema: { type: 'object' },
+      };
+
+      const toolDef2: ToolDefinition = {
+        name: 'tool-2',
+        description: 'Tool 2',
+        inputSchema: { type: 'object' },
+      };
+
+      const toolDef2Updated: ToolDefinition = {
+        name: 'tool-2',
+        description: 'Tool 2 Updated',
+        inputSchema: { type: 'object' },
+      };
+
+      const handler: ToolHandler = async () => ({
+        content: [{ type: 'text', text: 'result' }],
+      });
+
+      registry.register(toolDef1, handler);
+      registry.register(toolDef2, handler);
+      registry.update(toolDef2Updated, handler);
+
+      const tools = registry.getTools();
+      expect(tools).toHaveLength(2);
+      expect(tools.find((t) => t.name === 'tool-1')?.description).toBe(
+        'Tool 1',
+      );
+      expect(tools.find((t) => t.name === 'tool-2')?.description).toBe(
+        'Tool 2 Updated',
+      );
+    });
+
+    it('should allow updating tool multiple times', () => {
+      const toolDef: ToolDefinition = {
+        name: 'test-tool',
+        inputSchema: { type: 'object' },
+      };
+
+      const handler: ToolHandler = async () => ({
+        content: [{ type: 'text', text: 'result' }],
+      });
+
+      registry.register({ ...toolDef, description: 'v1' }, handler);
+      registry.update({ ...toolDef, description: 'v2' }, handler);
+      registry.update({ ...toolDef, description: 'v3' }, handler);
+
+      const tools = registry.getTools();
+      expect(tools[0].description).toBe('v3');
     });
   });
 
@@ -233,7 +394,7 @@ describe('ToolRegistry', () => {
       });
 
       registry.register(toolDef, handler1);
-      registry.register(toolDef, handler2);
+      registry.update(toolDef, handler2);
 
       const retrievedHandler = registry.getHandler('test-tool');
       expect(retrievedHandler).toBe(handler2);
@@ -254,7 +415,8 @@ describe('ToolRegistry', () => {
       const retrievedHandler = registry.getHandler('echo-tool');
       expect(retrievedHandler).toBeDefined();
 
-      const result = await retrievedHandler!({ message: 'hello' });
+      if (!retrievedHandler) return;
+      const result = await retrievedHandler({ message: 'hello' });
       expect(result.content).toHaveLength(1);
       expect(result.content[0].type).toBe('text');
       expect(result.content[0].text).toBe('echo: {"message":"hello"}');
@@ -408,7 +570,8 @@ describe('ToolRegistry', () => {
       registry.register(toolDef, handler);
 
       const retrievedHandler = registry.getHandler('multi-content-tool');
-      const result = await retrievedHandler!({});
+      if (!retrievedHandler) return;
+      const result = await retrievedHandler({});
 
       expect(result.content).toHaveLength(3);
       expect(result.content[0].text).toBe('First result');
@@ -429,7 +592,8 @@ describe('ToolRegistry', () => {
       registry.register(toolDef, handler);
 
       const retrievedHandler = registry.getHandler('error-tool');
-      await expect(retrievedHandler!({})).rejects.toThrow('Handler error');
+      if (!retrievedHandler) return;
+      await expect(retrievedHandler({})).rejects.toThrow('Handler error');
     });
 
     it('should handle all annotation hints', () => {
@@ -519,7 +683,8 @@ describe('ToolRegistry', () => {
       const retrievedHandler = registry.getHandler('workflow-tool');
       expect(retrievedHandler).toBeDefined();
 
-      const result = await retrievedHandler!({ test: 'data' });
+      if (!retrievedHandler) return;
+      const result = await retrievedHandler({ test: 'data' });
       expect(result.content[0].text).toBe('Processed: {"test":"data"}');
 
       // Unregister
@@ -529,12 +694,28 @@ describe('ToolRegistry', () => {
     });
 
     it('should handle multiple tools with different handlers', async () => {
-      const addHandler: ToolHandler = async (args: any) => ({
-        content: [{ type: 'text', text: String(args.a + args.b) }],
+      const addHandler: ToolHandler = async (args: unknown) => ({
+        content: [
+          {
+            type: 'text',
+            text: String(
+              (args as { a: number; b: number }).a +
+                (args as { a: number; b: number }).b,
+            ),
+          },
+        ],
       });
 
-      const multiplyHandler: ToolHandler = async (args: any) => ({
-        content: [{ type: 'text', text: String(args.a * args.b) }],
+      const multiplyHandler: ToolHandler = async (args: unknown) => ({
+        content: [
+          {
+            type: 'text',
+            text: String(
+              (args as { a: number; b: number }).a *
+                (args as { a: number; b: number }).b,
+            ),
+          },
+        ],
       });
 
       registry.register(
@@ -550,8 +731,9 @@ describe('ToolRegistry', () => {
       const add = registry.getHandler('add');
       const multiply = registry.getHandler('multiply');
 
-      const addResult = await add!({ a: 5, b: 3 });
-      const multiplyResult = await multiply!({ a: 5, b: 3 });
+      if (!add || !multiply) return;
+      const addResult = await add({ a: 5, b: 3 });
+      const multiplyResult = await multiply({ a: 5, b: 3 });
 
       expect(addResult.content[0].text).toBe('8');
       expect(multiplyResult.content[0].text).toBe('15');

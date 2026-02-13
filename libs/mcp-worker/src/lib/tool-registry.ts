@@ -50,6 +50,21 @@ export class ToolRegistry {
   private handlers = new Map<string, ToolHandler>();
 
   register(definition: ToolDefinition, handler: ToolHandler): void {
+    if (this.tools.has(definition.name)) {
+      throw new Error(
+        `Tool '${definition.name}' is already registered. Use update() to modify an existing tool.`,
+      );
+    }
+    this.tools.set(definition.name, definition);
+    this.handlers.set(definition.name, handler);
+  }
+
+  update(definition: ToolDefinition, handler: ToolHandler): void {
+    if (!this.tools.has(definition.name)) {
+      throw new Error(
+        `Tool '${definition.name}' not found. Use register() to add a new tool.`,
+      );
+    }
     this.tools.set(definition.name, definition);
     this.handlers.set(definition.name, handler);
   }
