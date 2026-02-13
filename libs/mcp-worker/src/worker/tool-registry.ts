@@ -5,6 +5,15 @@
 
 import type { ToolDefinition, ToolHandler } from '../shared/types';
 
+// Re-export types from shared
+export type {
+  Icon,
+  ToolAnnotations,
+  ToolExecution,
+  ToolDefinition,
+  ToolHandler,
+} from '../shared/types';
+
 // Dynamic tool registry
 export class ToolRegistry {
   private tools = new Map<string, ToolDefinition>();

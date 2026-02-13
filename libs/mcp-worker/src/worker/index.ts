@@ -22,4 +22,4 @@ export {
   registerBuiltInTools,
   registerTabManagementTool,
 } from './built-in-tools';
-export { storeEvent, queryEvents, initDB } from './database';
+export { storeEvent, queryEvents, initDB } from '../shared/database';

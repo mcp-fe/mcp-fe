@@ -7,7 +7,7 @@
  * Supports dynamic tool registration via handleRegisterTool and handleUnregisterTool.
  */
 
-import { storeEvent, queryEvents } from './database';
+import { storeEvent, queryEvents } from '../shared/database';
 import type { UserEvent } from '../shared/types';
 import { mcpServer } from './mcp-server';
 import { WebSocketTransport } from './websocket-transport';

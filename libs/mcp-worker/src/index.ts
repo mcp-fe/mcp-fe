@@ -17,7 +17,6 @@
 // Re-export everything from client (main entry point for applications)
 export * from './client/index';
 
-// Re-export shared types
+// Re-export shared types and utilities
 export * from './shared/types';
-
-export { queryEvents } from './worker/database';
+export { queryEvents, storeEvent } from './shared/database';
