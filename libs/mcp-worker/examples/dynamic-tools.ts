@@ -29,7 +29,7 @@
 // import { workerClient } from '@mcp-fe/mcp-worker';
 //
 // This example uses direct import for demonstration:
-import { WorkerClient } from '../src/lib/worker-client';
+import { WorkerClient } from '../src/client/worker-client';
 
 // Initialize the worker client
 async function initializeWorkerClient() {

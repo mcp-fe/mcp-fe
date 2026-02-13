@@ -67,6 +67,31 @@ Frontend App ←→ WorkerClient ←→ Web Worker ←→ WebSocket ←→ MCP P
 5. **MCP Proxy** - Bridges browser with AI agents
 6. **AI Agent** - Queries your app via MCP protocol
 
+### Project Structure
+
+The library is organized into three main directories:
+
+```
+libs/mcp-worker/src/
+├── client/              # Client-side code (application runtime)
+│   ├── worker-client.ts # Main WorkerClient class
+│   └── index.ts         # Client API exports
+├── worker/              # Worker-side code (background processing)
+│   ├── mcp-controller.ts    # MCP server controller
+│   ├── mcp-server.ts        # MCP server setup
+│   ├── tab-manager.ts       # Multi-tab coordination
+│   ├── tool-registry.ts     # Dynamic tool management
+│   └── built-in-tools.ts    # Default MCP tools
+└── shared/              # Shared code (both contexts)
+    ├── types.ts         # TypeScript type definitions
+    ├── logger.ts        # Logging utilities
+    └── database.ts      # IndexedDB operations
+```
+
+**Entry points:**
+- `mcp-shared-worker.ts` - SharedWorker implementation (preferred)
+- `mcp-service-worker.ts` - ServiceWorker fallback
+
 ## Quick Start
 
 ### Installation
@@ -130,6 +155,7 @@ await workerClient.registerTool(
 
 - **[Quick Start Guide](./docs/guide.md)** - Complete guide to dynamic tool registration
 - **[API Reference](./docs/api.md)** - Full API documentation
+- **[Project Structure](./docs/project-structure.md)** - Codebase organization explained
 - **[Worker Details](./docs/worker-details.md)** - Implementation details
 - **[Architecture](./docs/architecture.md)** - How the proxy pattern works
 - **[Initialization](./docs/initialization.md)** - Init queue handling

@@ -182,7 +182,7 @@ For contributors:
 - Queues are processed in order (FIFO)
 
 See source code for implementation details:
-- `libs/mcp-worker/src/lib/worker-client.ts`
-- `libs/mcp-worker/src/lib/mcp-controller.ts`
+- `libs/mcp-worker/src/client/worker-client.ts`
+- `libs/mcp-worker/src/worker/mcp-controller.ts`
 
 
