@@ -2,7 +2,7 @@
  * IndexedDB operations for storing and querying user events
  */
 
-import type { UserEvent, EventFilters } from '../shared/types';
+import type { UserEvent, EventFilters } from './types';
 
 const DB_NAME = 'user-activity-db';
 const DB_VERSION = 1;
