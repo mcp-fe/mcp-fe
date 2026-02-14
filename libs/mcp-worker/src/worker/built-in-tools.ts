@@ -3,7 +3,6 @@
  * These tools are automatically registered when the MCP server initializes
  */
 
-import { z } from 'zod';
 import { queryEvents } from '../shared/database';
 import {
   toolRegistry,
@@ -11,6 +10,11 @@ import {
   type ToolHandler,
 } from './tool-registry';
 import type { TabManager } from './tab-manager';
+import {
+  isGetUserEventsArgs,
+  isGetNavigationHistoryArgs,
+  isGetClickEventsArgs,
+} from './validation';
 
 // Built-in tool definitions and handlers
 const builtInTools: Array<{
@@ -51,16 +55,19 @@ const builtInTools: Array<{
       },
     },
     handler: async (args: unknown) => {
-      const schema = z.object({
-        type: z.enum(['navigation', 'click', 'input', 'custom']).optional(),
-        startTime: z.number().optional(),
-        endTime: z.number().optional(),
-        path: z.string().optional(),
-        limit: z.number().optional().default(100),
-      });
+      if (!isGetUserEventsArgs(args)) {
+        throw new Error('Invalid arguments for get_user_events');
+      }
 
-      const validatedArgs = schema.parse(args || {});
-      const events = await queryEvents(validatedArgs);
+      const { type, startTime, endTime, path, limit = 100 } = args || {};
+
+      const events = await queryEvents({
+        type,
+        startTime,
+        endTime,
+        path,
+        limit,
+      });
 
       return {
         content: [
@@ -90,14 +97,15 @@ const builtInTools: Array<{
       },
     },
     handler: async (args: unknown) => {
-      const schema = z.object({
-        limit: z.number().optional().default(50),
-      });
+      if (!isGetNavigationHistoryArgs(args)) {
+        throw new Error('Invalid arguments for get_navigation_history');
+      }
 
-      const validatedArgs = schema.parse(args || {});
+      const { limit = 50 } = args || {};
+
       const events = await queryEvents({
         type: 'navigation',
-        limit: validatedArgs.limit,
+        limit,
       });
 
       return {
@@ -143,20 +151,20 @@ const builtInTools: Array<{
       },
     },
     handler: async (args: unknown) => {
-      const schema = z.object({
-        element: z.string().optional(),
-        limit: z.number().optional().default(100),
-      });
+      if (!isGetClickEventsArgs(args)) {
+        throw new Error('Invalid arguments for get_click_events');
+      }
 
-      const validatedArgs = schema.parse(args || {});
+      const { element, limit = 100 } = args || {};
+
       const events = await queryEvents({
         type: 'click',
-        limit: validatedArgs.limit,
+        limit,
       });
 
       let filteredEvents = events;
-      if (validatedArgs.element) {
-        const elementFilter = validatedArgs.element.toLowerCase();
+      if (element) {
+        const elementFilter = element.toLowerCase();
         filteredEvents = events.filter(
           (e) =>
             e.element?.toLowerCase().includes(elementFilter) ||
