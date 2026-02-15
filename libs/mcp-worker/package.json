@@ -11,7 +11,7 @@
   "private": false,
   "type": "module",
   "main": "./index.js",
-  "types": "./index.d.ts",
+  "types": "./src/index.d.ts",
   "dependencies": {},
   "publishConfig": {
     "access": "public"

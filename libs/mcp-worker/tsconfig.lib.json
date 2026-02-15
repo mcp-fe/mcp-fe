@@ -1,7 +1,8 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "../dist/out-tsc",
+    "rootDir": "src",
+    "outDir": "../../dist/libs/mcp-worker",
     "module": "esnext",
     "moduleResolution": "bundler",
     "target": "es2022",
