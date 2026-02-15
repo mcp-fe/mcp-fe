@@ -1,3 +1,32 @@
+## Unreleased
+
+### 🚀 Features
+
+- **MCP Tool Utilities**: New utility functions for accessing tool registry
+  - **`getRegisteredTools()`**: Get list of all currently registered tool names
+  - **`getToolInfo(name)`**: Get basic registration info (refCount, isRegistered)
+  - **`getToolDetails(name)`**: Get complete ToolDefinition with all metadata
+  - Exported from `@mcp-fe/react-tools` for easy access
+
+### 🔄 Refactoring
+
+- **Type Consolidation**: Unified tool type usage across codebase
+  - `WorkerClient.toolRegistry` now uses `ToolDefinition` type instead of duplicating structure
+  - `WorkerClient.getToolDetails()` returns `ToolDefinition & { refCount, isRegistered }`
+  - Reduced code duplication and improved type safety
+
+### 📦 Updated Components
+
+- **WorkerClient**: Added `getToolDetails()` method for complete tool information
+- **react-tools**: New exports for tool utilities in dedicated module
+
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
+---
+
 ## 0.1.8 (2026-02-14)
 
 This was a version bump only, there were no code changes.
