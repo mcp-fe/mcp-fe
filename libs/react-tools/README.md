@@ -4,6 +4,8 @@
 
 Simplify dynamic MCP tool integration in React applications with automatic lifecycle management, reference counting, and full access to React features.
 
+> 🔗 **Requires**: [@mcp-fe/mcp-worker](https://www.npmjs.com/package/@mcp-fe/mcp-worker) - The browser-based MCP server that powers these React hooks.
+
 ## ✨ Key Features
 
 - 🔄 **Automatic Lifecycle** - Register on mount, unregister on unmount
@@ -13,21 +15,48 @@ Simplify dynamic MCP tool integration in React applications with automatic lifec
 - 🔌 **Optional Context** - Works standalone or with Provider
 - 📘 **TypeScript First** - Complete type safety out of the box
 
-## 📦 Installation
+## ⚠️ Prerequisites
+
+This library requires **[@mcp-fe/mcp-worker](https://www.npmjs.com/package/@mcp-fe/mcp-worker)** to function. The worker library runs an MCP server in your browser that enables AI agents to interact with your application.
+
+**You must install and initialize the worker library first:**
 
 ```bash
-npm install @mcp-fe/react-tools
+npm install @mcp-fe/mcp-worker @mcp-fe/react-tools
 ```
 
 ```bash
-pnpm add @mcp-fe/react-tools
+pnpm add @mcp-fe/mcp-worker @mcp-fe/react-tools
 ```
 
 ```bash
-yarn add @mcp-fe/react-tools
+yarn add @mcp-fe/mcp-worker @mcp-fe/react-tools
 ```
+
+> 💡 **New to MCP Worker?** Check out the [@mcp-fe/mcp-worker documentation](https://www.npmjs.com/package/@mcp-fe/mcp-worker) to set up the browser-based MCP server first.
+
 
 ## 🚀 Quick Example
+
+**Step 1:** Wrap your app with `MCPToolsProvider`:
+
+```tsx
+import { MCPToolsProvider } from '@mcp-fe/react-tools';
+
+function App() {
+  return (
+    <MCPToolsProvider 
+      backendWsUrl="ws://localhost:3001"
+      authToken="your-auth-token" 
+      onInitialized={() => console.log('MCP ready!')}
+    >
+      <MyApp />
+    </MCPToolsProvider>
+  );
+}
+```
+
+**Step 2:** Register tools with React hooks in your components:
 
 ```tsx
 import { useMCPTool } from '@mcp-fe/react-tools';
@@ -57,6 +86,10 @@ function MyComponent() {
   return <div>Profile tool is active!</div>;
 }
 ```
+
+> 💡 **Alternative:** You can also initialize the worker client manually outside React. See the [Getting Started Guide](./docs/getting-started.md) for details.
+
+> 📖 **Need more details?** See the [Complete Setup Guide](./docs/getting-started.md) for step-by-step instructions.
 
 ## 📚 Documentation
 

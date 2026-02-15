@@ -338,26 +338,3 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     unregister,
   };
 }
-
-/**
- * Utility function to check if a tool is registered
- */
-export function isToolRegistered(name: string): boolean {
-  return workerClient.isToolRegistered(name);
-}
-
-/**
- * Utility function to get all registered tools
- */
-export function getRegisteredTools(): string[] {
-  return workerClient.getRegisteredTools();
-}
-
-/**
- * Utility function to get tool info
- */
-export function getToolInfo(
-  name: string,
-): { refCount: number; isRegistered: boolean } | null {
-  return workerClient.getToolInfo(name);
-}

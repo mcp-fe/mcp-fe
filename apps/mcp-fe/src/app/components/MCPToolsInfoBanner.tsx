@@ -1,7 +1,8 @@
 /**
  * MCPToolsInfoBanner - Generic component for displaying available MCP tools
  */
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import { getRegisteredTools, getToolDetails } from '@mcp-fe/react-tools';
 
 export interface MCPTool {
   name: string;
@@ -13,7 +14,8 @@ export interface MCPToolsInfoBannerProps {
   description?: string | ReactNode;
   icon?: string;
   iconLabel?: string;
-  tools: MCPTool[];
+  tools?: MCPTool[]; // Optional - if not provided, will fetch from registry
+  filterPattern?: RegExp; // Optional - filter tools by name pattern
 }
 
 export const MCPToolsInfoBanner = ({
@@ -21,8 +23,55 @@ export const MCPToolsInfoBanner = ({
   description,
   icon = '🔧',
   iconLabel = 'tools',
-  tools,
+  tools: providedTools,
+  filterPattern,
 }: MCPToolsInfoBannerProps) => {
+  const [tools, setTools] = useState<MCPTool[]>(providedTools || []);
+
+  useEffect(() => {
+    // If tools are provided explicitly, use them
+    if (providedTools) {
+      setTools(providedTools);
+      return;
+    }
+
+    // Otherwise, fetch from registry
+    const fetchTools = () => {
+      const registeredToolNames = getRegisteredTools();
+
+      const toolDetails = registeredToolNames
+        .map((name) => {
+          const details = getToolDetails(name);
+          if (!details) return null;
+
+          // Apply filter if provided
+          if (filterPattern && !filterPattern.test(name)) {
+            return null;
+          }
+
+          return {
+            name: details.name,
+            description: details.description || 'No description available',
+          };
+        })
+        .filter((tool): tool is MCPTool => tool !== null);
+
+      setTools(toolDetails);
+    };
+
+    // Fetch initially
+    fetchTools();
+
+    // Set up polling to keep tools updated
+    const interval = setInterval(fetchTools, 1000);
+
+    return () => clearInterval(interval);
+  }, [providedTools, filterPattern]);
+
+  // Don't render if no tools
+  if (tools.length === 0) {
+    return null;
+  }
   return (
     <div
       className="mcp-tools-info"

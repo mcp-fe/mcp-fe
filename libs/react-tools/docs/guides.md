@@ -262,65 +262,33 @@ function Counter() {
 }
 ```
 
----
-
-## Conditional Tools
-
-Register different tools based on application state:
-
-```tsx
-function FeatureFlags() {
-  const { features } = useFeatureFlags();
-  
-  // Tool only registered when feature is enabled
-  if (features.experimentalFeature) {
-    useMCPAction(
-      'experimental_action',
-      'Experimental feature action',
-      { data: { type: 'string' } },
-      async (args) => {
-        // Handle experimental action
-        return { success: true };
-      }
-    );
-  }
-  
-  return <div>Features loaded</div>;
-}
-```
 
 ---
 
 ## Tool Monitoring
 
-Monitor tool status in real-time:
+Get information about registered tools:
 
 ```tsx
+import { getRegisteredTools, getToolDetails } from '@mcp-fe/react-tools';
+
 function ToolMonitor() {
-  const { registeredTools } = useMCPToolsContext();
-  const [toolStats, setToolStats] = useState<Record<string, any>>({});
-  
-  useEffect(() => {
-    const stats = registeredTools.reduce((acc, name) => {
-      const info = getToolInfo(name);
-      if (info) {
-        acc[name] = info;
-      }
-      return acc;
-    }, {} as Record<string, any>);
-    
-    setToolStats(stats);
-  }, [registeredTools]);
+  const tools = getRegisteredTools();
   
   return (
     <div>
-      <h3>Active Tools: {registeredTools.length}</h3>
+      <h3>Active Tools: {tools.length}</h3>
       <ul>
-        {registeredTools.map(name => (
-          <li key={name}>
-            {name} - Refs: {toolStats[name]?.refCount || 0}
-          </li>
-        ))}
+        {tools.map(name => {
+          const details = getToolDetails(name);
+          return (
+            <li key={name}>
+              <strong>{name}</strong> - {details?.description || 'No description'}
+              <br />
+              <small>Refs: {details?.refCount}</small>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -386,23 +354,10 @@ function DataFetcher() {
 
 ---
 
+
 ## Best Practices
 
-### 1. Tool Naming
-
-Use **snake_case** for tool names:
-
-```tsx
-// ✅ Good
-useMCPTool({ name: 'get_user_profile', ... });
-useMCPTool({ name: 'create_todo_item', ... });
-
-// ❌ Bad
-useMCPTool({ name: 'getUserProfile', ... });
-useMCPTool({ name: 'CreateTodoItem', ... });
-```
-
-### 2. Clear Descriptions
+### 1. Clear Descriptions
 
 Be specific - AI uses descriptions to understand tools:
 
@@ -422,7 +377,7 @@ useMCPGetter(
 );
 ```
 
-### 3. Input Validation
+### 2. Input Validation
 
 Always validate inputs:
 
@@ -442,7 +397,7 @@ useMCPAction(
 );
 ```
 
-### 4. Return Useful Data
+### 3. Return Useful Data
 
 Return structured, useful data:
 

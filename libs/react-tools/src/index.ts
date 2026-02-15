@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 // MCP Tools hooks
+export { useMCPTool } from './hooks/useMCPTool';
+export type { UseMCPToolOptions, UseMCPToolResult } from './hooks/useMCPTool';
+// MCP Tool utilities
 export {
-  useMCPTool,
   isToolRegistered,
   getRegisteredTools,
   getToolInfo,
-} from './hooks/useMCPTool';
-export type { UseMCPToolOptions, UseMCPToolResult } from './hooks/useMCPTool';
+  getToolDetails,
+} from './utils';
 // MCP Tool helper hooks
 export { useMCPGetter, useMCPAction } from './hooks/useMCPToolHelpers';
 // MCP Tools Context (optional)
