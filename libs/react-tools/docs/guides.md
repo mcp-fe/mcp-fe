@@ -267,34 +267,28 @@ function Counter() {
 
 ## Tool Monitoring
 
-Monitor tool status in real-time:
+Get information about registered tools:
 
 ```tsx
+import { getRegisteredTools, getToolDetails } from '@mcp-fe/react-tools';
+
 function ToolMonitor() {
-  const { registeredTools } = useMCPToolsContext();
-  const [toolStats, setToolStats] = useState<Record<string, any>>({});
-  
-  useEffect(() => {
-    const stats = registeredTools.reduce((acc, name) => {
-      const info = getToolInfo(name);
-      if (info) {
-        acc[name] = info;
-      }
-      return acc;
-    }, {} as Record<string, any>);
-    
-    setToolStats(stats);
-  }, [registeredTools]);
+  const tools = getRegisteredTools();
   
   return (
     <div>
-      <h3>Active Tools: {registeredTools.length}</h3>
+      <h3>Active Tools: {tools.length}</h3>
       <ul>
-        {registeredTools.map(name => (
-          <li key={name}>
-            {name} - Refs: {toolStats[name]?.refCount || 0}
-          </li>
-        ))}
+        {tools.map(name => {
+          const details = getToolDetails(name);
+          return (
+            <li key={name}>
+              <strong>{name}</strong> - {details?.description || 'No description'}
+              <br />
+              <small>Refs: {details?.refCount}</small>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -359,6 +353,7 @@ function DataFetcher() {
 ```
 
 ---
+
 
 ## Best Practices
 
