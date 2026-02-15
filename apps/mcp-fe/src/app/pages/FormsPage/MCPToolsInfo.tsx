@@ -13,7 +13,6 @@ export const MCPToolsInfo = () => {
           use to inspect the form state in real-time:
         </>
       }
-      filterPattern={/^(get_form_|submit_form|validate_form|fill_field)/}
     />
   );
 };
