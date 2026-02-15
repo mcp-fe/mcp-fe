@@ -63,6 +63,11 @@ export interface MCPToolsProviderProps {
   backendWsUrl?: string;
 
   /**
+   * Authentication token for MCP server
+   */
+  authToken?: string | null;
+
+  /**
    * Other worker client init options
    */
   initOptions?: WorkerClientInitOptions;
@@ -92,20 +97,22 @@ export interface MCPToolsProviderProps {
  * }
  * ```
  *
- * @example With callbacks:
+ * @example With authentication token:
  * ```tsx
  * function App() {
+ *   const token = getAuthToken(); // get token from your auth provider
+ *
  *   return (
  *     <MCPToolsProvider
  *       backendWsUrl="ws://localhost:3001"
- *       onInitialized={() => console.log('MCP Tools ready!')}
- *       onInitError={(err) => console.error('MCP init failed:', err)}
+ *       authToken={token}
  *     >
  *       <YourApp />
  *     </MCPToolsProvider>
  *   );
  * }
  * ```
+ *
  *
  * @example Manual initialization:
  * ```tsx
@@ -132,6 +139,7 @@ export function MCPToolsProvider({
   children,
   autoInit = true,
   backendWsUrl = 'ws://localhost:3001',
+  authToken,
   initOptions,
   onInitialized,
   onInitError,
@@ -152,6 +160,11 @@ export function MCPToolsProvider({
 
         console.log('[MCPToolsProvider] Initializing worker client...', opts);
         await workerClient.init(opts);
+
+        if (authToken) {
+          console.log('[MCPToolsProvider] Setting auth token...');
+          workerClient.setAuthToken(authToken);
+        }
 
         setIsInitialized(true);
 
@@ -174,7 +187,14 @@ export function MCPToolsProvider({
         throw error;
       }
     },
-    [isInitialized, initOptions, backendWsUrl, onInitialized, onInitError],
+    [
+      isInitialized,
+      initOptions,
+      backendWsUrl,
+      authToken,
+      onInitialized,
+      onInitError,
+    ],
   );
 
   const getConnectionStatus = useCallback(async () => {
@@ -191,6 +211,14 @@ export function MCPToolsProvider({
       });
     }
   }, [autoInit, initialize]);
+
+  // Update auth token when it changes
+  useEffect(() => {
+    if (isInitialized && authToken) {
+      console.log('[MCPToolsProvider] Auth token changed, updating...');
+      workerClient.setAuthToken(authToken);
+    }
+  }, [authToken, isInitialized]);
 
   // Poll for registered tools (for debugging/monitoring)
   useEffect(() => {
