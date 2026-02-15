@@ -38,6 +38,7 @@
  */
 
 import { logger } from '../shared/logger';
+import type { ToolDefinition } from '../shared/types';
 
 type WorkerKind = 'shared' | 'service';
 
@@ -118,29 +119,8 @@ export class WorkerClient {
   // Tool registry for tracking registrations and reference counting
   private toolRegistry = new Map<
     string,
-    {
+    ToolDefinition & {
       refCount: number;
-      description?: string;
-      inputSchema: Record<string, unknown>;
-      outputSchema?: Record<string, unknown>;
-      annotations?: {
-        title?: string;
-        readOnlyHint?: boolean;
-        destructiveHint?: boolean;
-        idempotentHint?: boolean;
-        openWorldHint?: boolean;
-      };
-      execution?: {
-        taskSupport?: 'optional' | 'required' | 'forbidden';
-      };
-      _meta?: Record<string, unknown>;
-      icons?: Array<{
-        src: string;
-        mimeType?: string;
-        sizes?: string[];
-        theme?: 'light' | 'dark';
-      }>;
-      title?: string;
       isRegistered: boolean;
     }
   >();
@@ -1205,7 +1185,7 @@ export class WorkerClient {
 
     // Add to registry
     this.toolRegistry.set(name, {
-      refCount: 1,
+      name,
       description,
       inputSchema: enhancedSchema,
       outputSchema: options?.outputSchema,
@@ -1214,6 +1194,7 @@ export class WorkerClient {
       _meta: options?._meta,
       icons: options?.icons,
       title: options?.title,
+      refCount: 1,
       isRegistered: true,
     });
 
@@ -1345,6 +1326,21 @@ export class WorkerClient {
       refCount: info.refCount,
       isRegistered: info.isRegistered,
     };
+  }
+
+  /**
+   * Get complete tool details from registry
+   */
+  public getToolDetails(toolName: string):
+    | (ToolDefinition & {
+        refCount: number;
+        isRegistered: boolean;
+      })
+    | null {
+    const info = this.toolRegistry.get(toolName);
+    if (!info) return null;
+
+    return info;
   }
 
   /**

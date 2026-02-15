@@ -17,6 +17,7 @@ import {
   type Icon,
   type ToolAnnotations,
   type ToolExecution,
+  type ToolDefinition,
 } from '@mcp-fe/mcp-worker';
 
 export interface UseMCPToolOptions {
@@ -360,4 +361,16 @@ export function getToolInfo(
   name: string,
 ): { refCount: number; isRegistered: boolean } | null {
   return workerClient.getToolInfo(name);
+}
+
+/**
+ * Utility function to get complete tool details
+ */
+export function getToolDetails(name: string):
+  | (ToolDefinition & {
+      refCount: number;
+      isRegistered: boolean;
+    })
+  | null {
+  return workerClient.getToolDetails(name);
 }

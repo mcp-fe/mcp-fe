@@ -19,6 +19,7 @@ export {
   isToolRegistered,
   getRegisteredTools,
   getToolInfo,
+  getToolDetails,
 } from './hooks/useMCPTool';
 export type { UseMCPToolOptions, UseMCPToolResult } from './hooks/useMCPTool';
 // MCP Tool helper hooks
