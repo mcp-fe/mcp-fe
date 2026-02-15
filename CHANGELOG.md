@@ -1,3 +1,13 @@
+## 0.1.10 (2026-02-15)
+
+### 🩹 Fixes
+
+- Fix the types path ([ae07146](https://github.com/mcp-fe/mcp-fe/commit/ae07146))
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
 ## 0.1.9 (2026-02-15)
 
 ### 🚀 Features
