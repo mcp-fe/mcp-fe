@@ -17,7 +17,6 @@ import {
   type Icon,
   type ToolAnnotations,
   type ToolExecution,
-  type ToolDefinition,
 } from '@mcp-fe/mcp-worker';
 
 export interface UseMCPToolOptions {
@@ -338,39 +337,4 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     register,
     unregister,
   };
-}
-
-/**
- * Utility function to check if a tool is registered
- */
-export function isToolRegistered(name: string): boolean {
-  return workerClient.isToolRegistered(name);
-}
-
-/**
- * Utility function to get all registered tools
- */
-export function getRegisteredTools(): string[] {
-  return workerClient.getRegisteredTools();
-}
-
-/**
- * Utility function to get tool info
- */
-export function getToolInfo(
-  name: string,
-): { refCount: number; isRegistered: boolean } | null {
-  return workerClient.getToolInfo(name);
-}
-
-/**
- * Utility function to get complete tool details
- */
-export function getToolDetails(name: string):
-  | (ToolDefinition & {
-      refCount: number;
-      isRegistered: boolean;
-    })
-  | null {
-  return workerClient.getToolDetails(name);
 }
