@@ -272,7 +272,8 @@ Provider component for centralized management and monitoring of MCP tools.
 interface MCPToolsProviderProps {
   children: React.ReactNode;
   autoInit?: boolean;                      // Auto-initialize on mount (default: true)
-  backendWsUrl?: string;                   // Backend WebSocket URL
+  backendWsUrl?: string;                   // Backend WebSocket URL (default: 'ws://localhost:3001')
+  authToken?: string | null;               // Authentication token for MCP server
   initOptions?: WorkerClientInitOptions;   // Custom initialization options
   onInitialized?: () => void;              // Callback when initialized
   onInitError?: (error: Error) => void;    // Callback on init error
@@ -286,11 +287,56 @@ function App() {
   return (
     <MCPToolsProvider 
       backendWsUrl="ws://localhost:3001"
+      authToken="your-auth-token"
       onInitialized={() => console.log('MCP Tools ready!')}
       onInitError={(err) => console.error('Init failed:', err)}
     >
       <YourApp />
     </MCPToolsProvider>
+  );
+}
+```
+
+#### Example: With Dynamic Auth Token
+
+```tsx
+function App() {
+  const [token, setToken] = useState<string>();
+
+  useEffect(() => {
+    // Token automatically updates when state changes
+    authService.getToken().then(setToken);
+  }, []);
+
+  return (
+    <MCPToolsProvider 
+      backendWsUrl="ws://localhost:3001"
+      authToken={token}
+    >
+      <YourApp />
+    </MCPToolsProvider>
+  );
+}
+```
+
+#### Example: Manual Initialization
+
+```tsx
+function App() {
+  return (
+    <MCPToolsProvider autoInit={false}>
+      <YourApp />
+    </MCPToolsProvider>
+  );
+}
+
+function YourApp() {
+  const { initialize } = useMCPToolsContext();
+
+  return (
+    <button onClick={() => initialize({ backendWsUrl: 'ws://localhost:3001' })}>
+      Initialize MCP
+    </button>
   );
 }
 ```
@@ -304,7 +350,7 @@ Hook to access MCP Tools context state and methods.
 #### Parameters
 
 ```typescript
-useMCPToolsContext(strict?: boolean) // default: true
+useMCPToolsContext(strict?: boolean) // default: false
 ```
 
 If `strict` is `true`, throws an error when used outside `MCPToolsProvider`.
@@ -412,7 +458,7 @@ console.log('Registered tools:', tools);
 
 ### `getToolInfo(name)`
 
-Get detailed information about a specific tool.
+Get basic registration information about a specific tool.
 
 #### Parameters
 
@@ -437,6 +483,83 @@ import { getToolInfo } from '@mcp-fe/react-tools';
 const info = getToolInfo('my_tool');
 if (info) {
   console.log(`Tool is used by ${info.refCount} component(s)`);
+  console.log(`Is registered: ${info.isRegistered}`);
+}
+```
+
+---
+
+### `getToolDetails(name)`
+
+Get complete tool definition including description, schema, annotations, and metadata.
+
+#### Parameters
+
+```typescript
+getToolDetails(name: string): ToolDetails | null
+```
+
+#### Returns
+
+```typescript
+interface ToolDetails extends ToolDefinition {
+  refCount: number;      // Number of active references
+  isRegistered: boolean; // Registration status
+}
+
+// ToolDefinition includes:
+// - name: string
+// - description?: string
+// - inputSchema: Record<string, unknown>
+// - outputSchema?: Record<string, unknown>
+// - annotations?: { readOnlyHint?, destructiveHint?, ... }
+// - execution?: { taskSupport?: 'optional' | 'required' | 'forbidden' }
+// - icons?: Array<{ src, mimeType?, ... }>
+// - title?: string
+// - _meta?: Record<string, unknown>
+```
+
+#### Example
+
+```tsx
+import { getToolDetails } from '@mcp-fe/react-tools';
+
+const details = getToolDetails('my_tool');
+if (details) {
+  console.log('Name:', details.name);
+  console.log('Description:', details.description);
+  console.log('Ref count:', details.refCount);
+  console.log('Input schema:', details.inputSchema);
+  console.log('Is read-only:', details.annotations?.readOnlyHint);
+  console.log('Icons:', details.icons);
+}
+```
+
+#### Example: Building Tool Monitor
+
+```tsx
+import { getRegisteredTools, getToolDetails } from '@mcp-fe/react-tools';
+
+function ToolMonitor() {
+  const tools = getRegisteredTools();
+  
+  return (
+    <div>
+      <h3>Active Tools: {tools.length}</h3>
+      <ul>
+        {tools.map(name => {
+          const details = getToolDetails(name);
+          return (
+            <li key={name}>
+              <strong>{name}</strong> - {details?.description}
+              <br />
+              <small>Refs: {details?.refCount}</small>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 ```
 
