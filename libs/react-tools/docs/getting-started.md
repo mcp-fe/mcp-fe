@@ -49,10 +49,16 @@ The easiest way to get started is to wrap your app with `MCPToolsProvider`. This
 import { MCPToolsProvider } from '@mcp-fe/react-tools';
 
 function App() {
+  const [token, setToken] = useState<string>();
+
+  useEffect(() => {
+    authService.getToken().then(setToken);
+  }, []);
+  
   return (
     <MCPToolsProvider 
       backendWsUrl="ws://localhost:3001"
-      authToken="your-auth-token" // optional
+      authToken={token}
       onInitialized={() => console.log('MCP ready!')}
       onInitError={(err) => console.error('MCP init failed:', err)}
     >
@@ -69,27 +75,6 @@ function App() {
 - ✅ Centralized error handling
 - ✅ No manual setup required
 
-**With dynamic auth token:**
-
-```tsx
-function App() {
-  const [token, setToken] = useState<string>();
-
-  useEffect(() => {
-    // Token automatically updates when state changes
-    authService.getToken().then(setToken);
-  }, []);
-
-  return (
-    <MCPToolsProvider 
-      backendWsUrl="ws://localhost:3001"
-      authToken={token}
-    >
-      <MyApp />
-    </MCPToolsProvider>
-  );
-}
-```
 
 ---
 
@@ -106,7 +91,7 @@ async function initMCP() {
     backendWsUrl: 'ws://localhost:3001'
   });
   
-  // Optional: Set auth token
+  // Set auth token
   workerClient.setAuthToken('your-auth-token');
   
   console.log('MCP Worker initialized');
@@ -158,103 +143,10 @@ function MyComponent() {
     }
   });
   
-  return <div>Tool registered!</div>;
+  return <div>Profile tool is active!</div>;
 }
 ```
 
-## 🚀 Usage Patterns
-
-### Pattern 1: With MCPToolsProvider (Recommended)
-
-Use `MCPToolsProvider` to handle initialization and provide context to your entire app:
-
-```tsx
-import { MCPToolsProvider, useMCPTool } from '@mcp-fe/react-tools';
-
-// 1. Wrap your app with the Provider
-function App() {
-  return (
-    <MCPToolsProvider 
-      backendWsUrl="ws://localhost:3001" 
-      authToken="Bearer 123"
-    >
-      <MyApp />
-    </MCPToolsProvider>
-  );
-}
-
-// 2. Use hooks in your components
-function MyComponent() {
-  useMCPTool({
-    name: 'my_tool',
-    description: 'My awesome tool',
-    inputSchema: { 
-      type: 'object', 
-      properties: {} 
-    },
-    handler: async () => ({ 
-      content: [{ 
-        type: 'text', 
-        text: 'Hello from MCP!' 
-      }] 
-    })
-  });
-  
-  return <div>Tool is active!</div>;
-}
-```
-
-### Pattern 2: Manual Initialization
-
-Initialize the worker client manually before React mounts, then use hooks directly:
-
-```tsx
-// main.tsx
-import { workerClient } from '@mcp-fe/mcp-worker';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-
-async function bootstrap() {
-  // Initialize MCP Worker before React or inside the services layer
-  await workerClient.init({
-    backendWsUrl: 'ws://localhost:3001'
-  });
-  
-  // Render React app
-  ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
-}
-
-bootstrap();
-```
-
-```tsx
-// MyComponent.tsx
-import { useMCPTool } from '@mcp-fe/react-tools';
-
-function MyComponent() {
-  const user = useUser(); // React hook
-  
-  useMCPTool({
-    name: 'get_user_profile',
-    description: 'Get current user profile',
-    inputSchema: {
-      type: 'object',
-      properties: {}
-    },
-    handler: async () => {
-      // Full access to React state/props/hooks!
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ user })
-        }]
-      };
-    }
-  });
-  
-  return <div>Tool registered!</div>;
-}
-```
 
 ## 🎯 Simple Examples
 
