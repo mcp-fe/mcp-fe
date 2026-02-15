@@ -262,32 +262,6 @@ function Counter() {
 }
 ```
 
----
-
-## Conditional Tools
-
-Register different tools based on application state:
-
-```tsx
-function FeatureFlags() {
-  const { features } = useFeatureFlags();
-  
-  // Tool only registered when feature is enabled
-  if (features.experimentalFeature) {
-    useMCPAction(
-      'experimental_action',
-      'Experimental feature action',
-      { data: { type: 'string' } },
-      async (args) => {
-        // Handle experimental action
-        return { success: true };
-      }
-    );
-  }
-  
-  return <div>Features loaded</div>;
-}
-```
 
 ---
 
@@ -388,21 +362,7 @@ function DataFetcher() {
 
 ## Best Practices
 
-### 1. Tool Naming
-
-Use **snake_case** for tool names:
-
-```tsx
-// ✅ Good
-useMCPTool({ name: 'get_user_profile', ... });
-useMCPTool({ name: 'create_todo_item', ... });
-
-// ❌ Bad
-useMCPTool({ name: 'getUserProfile', ... });
-useMCPTool({ name: 'CreateTodoItem', ... });
-```
-
-### 2. Clear Descriptions
+### 1. Clear Descriptions
 
 Be specific - AI uses descriptions to understand tools:
 
@@ -422,7 +382,7 @@ useMCPGetter(
 );
 ```
 
-### 3. Input Validation
+### 2. Input Validation
 
 Always validate inputs:
 
@@ -442,7 +402,7 @@ useMCPAction(
 );
 ```
 
-### 4. Return Useful Data
+### 3. Return Useful Data
 
 Return structured, useful data:
 
