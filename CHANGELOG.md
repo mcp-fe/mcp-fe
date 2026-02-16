@@ -1,3 +1,31 @@
+## Unreleased
+
+### 🔄 Refactoring
+
+- **ToolRegistry**: Extracted into separate class for better separation of concerns
+  - New `ToolRegistry` class manages tool lifecycle (registration, ref counting, subscriptions)
+  - `WorkerClient` delegates tool management to `ToolRegistry`
+  - Simplified logic - tools register locally immediately, sync to worker after init
+  - Removed pending registration queue - no longer needed
+
+### 🐛 Fixes
+
+- **useMCPTool**: Fixed double registration in React StrictMode
+  - Added guard pattern with refs to prevent concurrent registrations
+  - Tool now registers only once even with repeated effect calls
+
+### ✅ Testing
+
+- **ToolRegistry**: Complete unit tests
+  - All public methods covered including edge cases
+  - Error handling in callback subscriptions
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
+---
+
 ## 0.1.10 (2026-02-15)
 
 ### 🩹 Fixes

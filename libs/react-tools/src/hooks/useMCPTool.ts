@@ -264,7 +264,6 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     const currentIcons = iconsRef.current;
     const currentTitle = titleRef.current;
 
-    console.log(`[useMCPTool] Registering tool '${currentName}'...`);
     try {
       await workerClient.registerTool(
         currentName,
