@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.11 (2026-02-16)
 
 ### 🔄 Refactoring
 
