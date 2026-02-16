@@ -223,15 +223,22 @@ export class ToolRegistry {
     const listeners = this.toolChangeListeners.get(toolName)!;
     listeners.add(callback);
 
-    // Immediately call with current value
-    const current = this.toolRegistry.get(toolName);
-    if (current) {
-      callback({
-        refCount: current.refCount,
-        isRegistered: current.isRegistered,
-      });
-    } else {
-      callback(null);
+    // Immediately call with current value (with error handling)
+    try {
+      const current = this.toolRegistry.get(toolName);
+      if (current) {
+        callback({
+          refCount: current.refCount,
+          isRegistered: current.isRegistered,
+        });
+      } else {
+        callback(null);
+      }
+    } catch (error) {
+      logger.error(
+        '[ToolRegistry] Error in tool change listener (initial call):',
+        error,
+      );
     }
 
     // Return unsubscribe function
