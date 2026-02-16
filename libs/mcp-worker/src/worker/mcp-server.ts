@@ -72,5 +72,19 @@ export function createMCPServer(options: MCPServerOptions = {}): Server {
   return server;
 }
 
+/**
+ * Send tools/list_changed notification to MCP client
+ * Call this whenever tools are added or removed from the registry
+ */
+export function notifyToolsChanged(server: Server): void {
+  try {
+    server.notification({
+      method: 'notifications/tools/list_changed',
+    });
+  } catch {
+    // Silently ignore - client might not be connected yet
+  }
+}
+
 // Default server instance
 export const mcpServer = createMCPServer();

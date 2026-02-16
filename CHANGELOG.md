@@ -13,10 +13,13 @@
 - **useMCPTool**: Fixed double registration in React StrictMode
   - Added guard pattern with refs to prevent concurrent registrations
   - Tool now registers only once even with repeated effect calls
+- **MCP Notifications**: Fixed missing tool list change notifications
+  - MCPController now sends `notifications/tools/list_changed` when tools are added/removed
+  - MCP clients will be properly notified about dynamic tool changes
 
 ### ✅ Testing
 
-- **ToolRegistry**: Complete unit tests
+- **ToolRegistry**: Complete unit tests (32 tests)
   - All public methods covered including edge cases
   - Error handling in callback subscriptions
 
