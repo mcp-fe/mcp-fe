@@ -9,7 +9,7 @@
 
 import { storeEvent, queryEvents } from '../shared/database';
 import type { UserEvent } from '../shared/types';
-import { mcpServer } from './mcp-server';
+import { mcpServer, notifyToolsChanged } from './mcp-server';
 import { WebSocketTransport } from './websocket-transport';
 import { logger } from '../shared/logger';
 import { toolRegistry } from './tool-registry';
@@ -516,6 +516,9 @@ export class MCPController {
       logger.log(
         `[MCPController] Registered proxy tool: ${name} with smart multi-tab routing`,
       );
+
+      // Notify MCP client that tools list has changed
+      notifyToolsChanged(mcpServer);
     }
   }
 
@@ -613,6 +616,9 @@ export class MCPController {
         logger.log(
           `[MCPController] Unregistered tool from MCP: ${toolName} (no tabs remaining)`,
         );
+
+        // Notify MCP client that tools list has changed
+        notifyToolsChanged(mcpServer);
       }
 
       return success;
