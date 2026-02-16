@@ -204,7 +204,10 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
   const iconsRef = useRef(icons);
   const titleRef = useRef(title);
   const isMountedRef = useRef(true);
-  const hasRegisteredRef = useRef(false);
+
+  // Track registration state to prevent double registration in StrictMode
+  const registrationInProgressRef = useRef(false);
+  const isRegisteredRef = useRef(false);
 
   // Update refs when values change
   useEffect(() => {
@@ -241,6 +244,17 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
    */
   const register = useCallback(async () => {
     const currentName = nameRef.current;
+
+    // Prevent double registration (StrictMode protection)
+    if (registrationInProgressRef.current || isRegisteredRef.current) {
+      console.log(
+        `[useMCPTool] Skipping registration for '${currentName}' (already registered or in progress)`,
+      );
+      return;
+    }
+
+    registrationInProgressRef.current = true;
+
     const currentDescription = descriptionRef.current;
     const currentInputSchema = inputSchemaRef.current;
     const currentOutputSchema = outputSchemaRef.current;
@@ -250,6 +264,7 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     const currentIcons = iconsRef.current;
     const currentTitle = titleRef.current;
 
+    console.log(`[useMCPTool] Registering tool '${currentName}'...`);
     try {
       await workerClient.registerTool(
         currentName,
@@ -266,7 +281,7 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
         },
       );
 
-      hasRegisteredRef.current = true;
+      isRegisteredRef.current = true;
       console.log(`[useMCPTool] Registered tool '${currentName}'`);
     } catch (error) {
       console.error(
@@ -274,6 +289,8 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
         error,
       );
       throw error;
+    } finally {
+      registrationInProgressRef.current = false;
     }
   }, [stableHandler]);
 
@@ -283,9 +300,16 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
   const unregister = useCallback(async () => {
     const currentName = nameRef.current;
 
+    if (!isRegisteredRef.current) {
+      console.log(
+        `[useMCPTool] Skipping unregistration for '${currentName}' (not registered)`,
+      );
+      return;
+    }
+
     try {
       await workerClient.unregisterTool(currentName);
-      hasRegisteredRef.current = false;
+      isRegisteredRef.current = false;
       console.log(`[useMCPTool] Unregistered tool '${currentName}'`);
     } catch (error) {
       console.error(
@@ -304,7 +328,7 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     return unsubscribe;
   }, [name]);
 
-  // Auto-register on mount (only once!)
+  // Auto-register on mount (StrictMode safe)
   useEffect(() => {
     if (autoRegister) {
       register().catch((error) => {
@@ -318,8 +342,8 @@ export function useMCPTool(options: UseMCPToolOptions): UseMCPToolResult {
     return () => {
       isMountedRef.current = false;
 
-      // Auto-unregister on unmount (only once!)
-      if (autoUnregister && hasRegisteredRef.current) {
+      // Auto-unregister on unmount (only if actually registered)
+      if (autoUnregister && isRegisteredRef.current) {
         unregister().catch((error) => {
           console.error(
             `[useMCPTool] Auto-unregister failed for '${name}':`,
