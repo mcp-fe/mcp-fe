@@ -39,6 +39,11 @@
 
 import { logger } from '../shared/logger';
 import type { ToolDefinition } from '../shared/types';
+import {
+  ToolRegistry,
+  type ToolHandler,
+  type ToolOptions,
+} from './tool-registry';
 
 type WorkerKind = 'shared' | 'service';
 
@@ -75,61 +80,8 @@ export class WorkerClient {
   private isInitialized = false;
   private initResolvers: Array<() => void> = [];
 
-  // Queue for operations that need to wait for initialization
-  private pendingRegistrations: Array<{
-    name: string;
-    description?: string;
-    inputSchema: Record<string, unknown>;
-    handler: (args: unknown) => Promise<{
-      content: Array<{ type: string; text: string }>;
-    }>;
-    options?: {
-      outputSchema?: Record<string, unknown>;
-      annotations?: {
-        title?: string;
-        readOnlyHint?: boolean;
-        destructiveHint?: boolean;
-        idempotentHint?: boolean;
-        openWorldHint?: boolean;
-      };
-      execution?: {
-        taskSupport?: 'optional' | 'required' | 'forbidden';
-      };
-      _meta?: Record<string, unknown>;
-      icons?: Array<{
-        src: string;
-        mimeType?: string;
-        sizes?: string[];
-        theme?: 'light' | 'dark';
-      }>;
-      title?: string;
-    };
-    resolve: () => void;
-    reject: (error: Error) => void;
-  }> = [];
-
-  // Map to store tool handlers in main thread
-  private toolHandlers = new Map<
-    string,
-    (args: unknown) => Promise<{
-      content: Array<{ type: string; text: string }>;
-    }>
-  >();
-
-  // Tool registry for tracking registrations and reference counting
-  private toolRegistry = new Map<
-    string,
-    ToolDefinition & {
-      refCount: number;
-      isRegistered: boolean;
-    }
-  >();
-
-  // Subscribers for tool changes (for React hooks reactivity)
-  private toolChangeListeners = new Map<
-    string,
-    Set<(info: { refCount: number; isRegistered: boolean } | null) => void>
-  >();
+  // Tool registry for managing tool lifecycle
+  private toolRegistry = new ToolRegistry();
 
   // Tab tracking for multi-tab support
   private tabId: string;
@@ -260,7 +212,7 @@ export class WorkerClient {
    * @private
    */
   private cleanupAllTools(): void {
-    const toolNames = Array.from(this.toolRegistry.keys());
+    const toolNames = this.toolRegistry.getAllToolNames();
 
     if (toolNames.length === 0) {
       return;
@@ -272,12 +224,8 @@ export class WorkerClient {
 
     // Unregister each tool properly (respecting refCount)
     toolNames.forEach((toolName) => {
-      const existing = this.toolRegistry.get(toolName);
+      const existing = this.toolRegistry.getInfo(toolName);
       if (!existing) return;
-
-      // Set refCount to 1 and then unregister (forces cleanup)
-      // This is acceptable because page is unloading anyway
-      existing.refCount = 1;
 
       try {
         // Use synchronous post for unload events
@@ -288,9 +236,10 @@ export class WorkerClient {
           // Ignore errors during cleanup
         });
 
-        // Clean up local state
-        this.toolHandlers.delete(toolName);
-        this.toolRegistry.delete(toolName);
+        // Clean up local state - force unregister
+        while (this.toolRegistry.isRegistered(toolName)) {
+          this.toolRegistry.unregister(toolName);
+        }
       } catch (error) {
         logger.warn(
           `[WorkerClient] Failed to unregister '${toolName}' during cleanup:`,
@@ -392,14 +341,12 @@ export class WorkerClient {
   }
 
   /**
-   * Mark worker as initialized and process pending registrations
+   * Mark worker as initialized and sync all registered tools to worker
    * @private
    */
   private markAsInitialized(): void {
     this.isInitialized = true;
-    logger.log(
-      '[WorkerClient] Worker initialized, processing pending operations',
-    );
+    logger.log('[WorkerClient] Worker initialized, syncing tools to worker');
 
     // Register this tab with the worker
     this.registerTab();
@@ -410,33 +357,53 @@ export class WorkerClient {
     this.initResolvers.forEach((resolve) => resolve());
     this.initResolvers = [];
 
-    // Process pending registrations
-    const pending = [...this.pendingRegistrations];
-    this.pendingRegistrations = [];
+    // Sync all locally registered tools to worker
+    this.syncToolsToWorker().catch((error) => {
+      logger.error('[WorkerClient] Error syncing tools to worker:', error);
+    });
+  }
 
-    pending.forEach(
-      async ({
-        name,
-        description,
-        inputSchema,
-        handler,
-        options,
-        resolve,
-        reject,
-      }) => {
+  /**
+   * Synchronize all locally registered tools to worker
+   * @private
+   */
+  private async syncToolsToWorker(): Promise<void> {
+    const toolNames = this.toolRegistry.getRegisteredTools();
+
+    if (toolNames.length === 0) {
+      logger.log('[WorkerClient] No tools to sync');
+      return;
+    }
+
+    logger.log(`[WorkerClient] Syncing ${toolNames.length} tool(s) to worker`);
+
+    // Sync all tools in parallel for better performance
+    await Promise.all(
+      toolNames.map(async (toolName) => {
+        const details = this.toolRegistry.getDetails(toolName);
+        if (!details) return;
+
         try {
-          await this.registerToolInternal(
-            name,
-            description,
-            inputSchema,
-            handler,
-            options,
+          await this.registerToolInWorker(
+            details.name,
+            details.description,
+            details.inputSchema,
+            {
+              outputSchema: details.outputSchema,
+              annotations: details.annotations,
+              execution: details.execution,
+              _meta: details._meta,
+              icons: details.icons,
+              title: details.title,
+            },
           );
-          resolve();
         } catch (error) {
-          reject(error instanceof Error ? error : new Error(String(error)));
+          logger.error(
+            `[WorkerClient] Failed to sync tool '${toolName}' to worker:`,
+            error,
+          );
         }
-      },
+      }),
     );
   }
 
@@ -1032,58 +999,30 @@ export class WorkerClient {
     name: string,
     description: string | undefined,
     inputSchema: Record<string, unknown>,
-    handler: (args: unknown) => Promise<{
-      content: Array<{ type: string; text: string }>;
-    }>,
-    options?: {
-      outputSchema?: Record<string, unknown>;
-      annotations?: {
-        title?: string;
-        readOnlyHint?: boolean;
-        destructiveHint?: boolean;
-        idempotentHint?: boolean;
-        openWorldHint?: boolean;
-      };
-      execution?: {
-        taskSupport?: 'optional' | 'required' | 'forbidden';
-      };
-      _meta?: Record<string, unknown>;
-      icons?: Array<{
-        src: string;
-        mimeType?: string;
-        sizes?: string[];
-        theme?: 'light' | 'dark';
-      }>;
-      title?: string;
-    },
+    handler: ToolHandler,
+    options?: ToolOptions,
   ): Promise<void> {
-    // If not initialized, queue the registration
-    if (!this.isInitialized) {
-      logger.log(
-        `[WorkerClient] Queueing tool registration '${name}' (worker not initialized yet)`,
-      );
-
-      return new Promise<void>((resolve, reject) => {
-        this.pendingRegistrations.push({
-          name,
-          description,
-          inputSchema,
-          handler,
-          options,
-          resolve,
-          reject,
-        });
-      });
-    }
-
-    // Already initialized - register immediately
-    return this.registerToolInternal(
+    // Always register locally first (immediately, no waiting)
+    const isNew = this.toolRegistry.register(
       name,
       description,
       inputSchema,
       handler,
       options,
     );
+
+    // If worker is not initialized yet, just return - will sync later
+    if (!this.isInitialized) {
+      logger.log(
+        `[WorkerClient] Registered '${name}' locally (will sync to worker after init)`,
+      );
+      return;
+    }
+
+    // If tool is new and worker is ready, sync to worker immediately
+    if (isNew) {
+      await this.registerToolInWorker(name, description, inputSchema, options);
+    }
   }
 
   /**
@@ -1112,59 +1051,15 @@ export class WorkerClient {
   }
 
   /**
-   * Internal method to register tool (assumes worker is initialized)
+   * Register tool in worker only (assumes already registered in ToolRegistry)
    * @private
    */
-  private async registerToolInternal(
+  private async registerToolInWorker(
     name: string,
     description: string | undefined,
     inputSchema: Record<string, unknown>,
-    handler: (args: unknown) => Promise<{
-      content: Array<{ type: string; text: string }>;
-    }>,
-    options?: {
-      outputSchema?: Record<string, unknown>;
-      annotations?: {
-        title?: string;
-        readOnlyHint?: boolean;
-        destructiveHint?: boolean;
-        idempotentHint?: boolean;
-        openWorldHint?: boolean;
-      };
-      execution?: {
-        taskSupport?: 'optional' | 'required' | 'forbidden';
-      };
-      _meta?: Record<string, unknown>;
-      icons?: Array<{
-        src: string;
-        mimeType?: string;
-        sizes?: string[];
-        theme?: 'light' | 'dark';
-      }>;
-      title?: string;
-    },
+    options?: ToolOptions,
   ): Promise<void> {
-    // Check if tool already exists (for reference counting)
-    const existing = this.toolRegistry.get(name);
-
-    if (existing) {
-      // Increment ref count
-      existing.refCount++;
-      logger.log(
-        `[WorkerClient] Incremented ref count for '${name}': ${existing.refCount}`,
-      );
-
-      // Update handler to latest version
-      this.toolHandlers.set(name, handler);
-
-      // Notify listeners
-      this.notifyToolChange(name);
-      return;
-    }
-
-    // Store handler in main thread
-    this.toolHandlers.set(name, handler);
-
     // Enhance schema with optional tabId parameter for multi-tab support
     const enhancedSchema = this.enhanceSchemaWithTabId(inputSchema);
 
@@ -1183,27 +1078,9 @@ export class WorkerClient {
       tabId: this.tabId, // Tell worker which tab registered this
     });
 
-    // Add to registry
-    this.toolRegistry.set(name, {
-      name,
-      description,
-      inputSchema: enhancedSchema,
-      outputSchema: options?.outputSchema,
-      annotations: options?.annotations,
-      execution: options?.execution,
-      _meta: options?._meta,
-      icons: options?.icons,
-      title: options?.title,
-      refCount: 1,
-      isRegistered: true,
-    });
-
     logger.log(
       `[WorkerClient] Registered tool '${name}' with main-thread handler`,
     );
-
-    // Notify listeners
-    this.notifyToolChange(name);
   }
 
   /**
@@ -1212,42 +1089,25 @@ export class WorkerClient {
    * @returns Promise that resolves to true if tool was found and removed
    */
   public async unregisterTool(name: string): Promise<boolean> {
-    const existing = this.toolRegistry.get(name);
-    if (!existing) {
-      logger.warn(`[WorkerClient] Cannot unregister '${name}': not found`);
+    const result = this.toolRegistry.unregister(name);
+
+    if (result === null) {
+      // Tool not found
       return false;
     }
 
-    // Decrement ref count
-    existing.refCount--;
-    logger.log(
-      `[WorkerClient] Decremented ref count for '${name}': ${existing.refCount}`,
-    );
-
-    if (existing.refCount <= 0) {
-      // Last reference - actually unregister
-      // Remove from local handlers
-      this.toolHandlers.delete(name);
-
-      // Unregister from worker (include tabId so worker can track properly)
-      const result = await this.request<{ success?: boolean }>(
+    if (result) {
+      // Last reference removed - unregister from worker
+      const workerResult = await this.request<{ success?: boolean }>(
         'UNREGISTER_TOOL',
         { name, tabId: this.tabId },
       );
 
-      // Remove from registry
-      this.toolRegistry.delete(name);
-
       logger.log(`[WorkerClient] Unregistered tool '${name}'`);
-
-      // Notify listeners (with null = tool removed)
-      this.notifyToolChange(name);
-
-      return result?.success ?? false;
+      return workerResult?.success ?? false;
     }
 
-    // Still has references - just notify count change
-    this.notifyToolChange(name);
+    // result === false: Still has references
     return true;
   }
 
@@ -1261,56 +1121,7 @@ export class WorkerClient {
       info: { refCount: number; isRegistered: boolean } | null,
     ) => void,
   ): () => void {
-    if (!this.toolChangeListeners.has(toolName)) {
-      this.toolChangeListeners.set(toolName, new Set());
-    }
-
-    const listeners = this.toolChangeListeners.get(toolName)!;
-    listeners.add(callback);
-
-    // Immediately call with current value
-    const current = this.toolRegistry.get(toolName);
-    if (current) {
-      callback({
-        refCount: current.refCount,
-        isRegistered: current.isRegistered,
-      });
-    } else {
-      callback(null);
-    }
-
-    // Return unsubscribe function
-    return () => {
-      listeners.delete(callback);
-      if (listeners.size === 0) {
-        this.toolChangeListeners.delete(toolName);
-      }
-    };
-  }
-
-  /**
-   * Notify all listeners about tool changes
-   * @private
-   */
-  private notifyToolChange(toolName: string): void {
-    const listeners = this.toolChangeListeners.get(toolName);
-    if (!listeners || listeners.size === 0) return;
-
-    const info = this.toolRegistry.get(toolName);
-    const payload = info
-      ? {
-          refCount: info.refCount,
-          isRegistered: info.isRegistered,
-        }
-      : null;
-
-    listeners.forEach((callback) => {
-      try {
-        callback(payload);
-      } catch (error) {
-        logger.error('[WorkerClient] Error in tool change listener:', error);
-      }
-    });
+    return this.toolRegistry.onToolChange(toolName, callback);
   }
 
   /**
@@ -1319,13 +1130,7 @@ export class WorkerClient {
   public getToolInfo(
     toolName: string,
   ): { refCount: number; isRegistered: boolean } | null {
-    const info = this.toolRegistry.get(toolName);
-    if (!info) return null;
-
-    return {
-      refCount: info.refCount,
-      isRegistered: info.isRegistered,
-    };
+    return this.toolRegistry.getInfo(toolName);
   }
 
   /**
@@ -1337,26 +1142,21 @@ export class WorkerClient {
         isRegistered: boolean;
       })
     | null {
-    const info = this.toolRegistry.get(toolName);
-    if (!info) return null;
-
-    return info;
+    return this.toolRegistry.getDetails(toolName);
   }
 
   /**
    * Get all registered tool names
    */
   public getRegisteredTools(): string[] {
-    return Array.from(this.toolRegistry.keys()).filter(
-      (name) => this.toolRegistry.get(name)?.isRegistered,
-    );
+    return this.toolRegistry.getRegisteredTools();
   }
 
   /**
    * Check if a tool is registered
    */
   public isToolRegistered(toolName: string): boolean {
-    return this.toolRegistry.get(toolName)?.isRegistered ?? false;
+    return this.toolRegistry.isRegistered(toolName);
   }
 
   /**
@@ -1374,7 +1174,7 @@ export class WorkerClient {
     });
 
     try {
-      const handler = this.toolHandlers.get(toolName);
+      const handler = this.toolRegistry.getHandler(toolName);
 
       if (!handler) {
         throw new Error(`Tool handler not found: ${toolName}`);
