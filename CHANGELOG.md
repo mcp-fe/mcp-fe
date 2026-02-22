@@ -1,3 +1,30 @@
+## unreleased
+
+### 🚀 Features
+
+- **WebMCP Support**: Native browser integration via [`navigator.modelContext`](https://webmachinelearning.github.io/webmcp/)
+  - Tools registered with `registerTool()` are now automatically available to browser-native agents too
+  - **Enabled by default** — auto-detects browser support, no configuration needed
+  - One `registerTool()` call → two delivery channels (proxy + browser)
+  - Opt-out via `enableWebMcp: false` or `setWebMcpEnabled(false)` at runtime
+
+### 📦 New Files
+
+- `web-mcp-types.ts` — TypeScript types matching the W3C WebMCP spec
+- `web-mcp-adapter.ts` — `WebMcpAdapter` class bridging ToolRegistry ↔ `navigator.modelContext`
+
+### 🔄 API Changes
+
+- `WorkerClientInitOptions`: new `enableWebMcp` option (default: `true`)
+- `WorkerClient`: new methods `isWebMcpSupported()`, `isWebMcpAvailable()`, `setWebMcpEnabled()`, `isToolRegisteredViaWebMcp()`, `getWebMcpRegisteredTools()`
+
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
+---
+
 ## 0.1.11 (2026-02-16)
 
 ### 🔄 Refactoring
