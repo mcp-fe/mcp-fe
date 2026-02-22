@@ -1,17 +1,18 @@
-/**
- * NativeMcpAdapter Unit Tests
+﻿/**
+ * WebMcpAdapter Unit Tests
  *
- * Tests adapted to the WebMCP specification:
- * - navigator.modelContext (not navigator.mcp)
+ * Tests for the WebMCP specification adapter:
+ * - navigator.modelContext
  * - Synchronous registerTool(tool) / unregisterTool(name) / clearContext()
  * - ModelContextTool dictionary with execute callback
+ * - Enabled by default (auto-detects browser support)
  *
  * @see https://webmachinelearning.github.io/webmcp/
  */
 
-import { NativeMcpAdapter } from './native-mcp-adapter';
+import { WebMcpAdapter } from './web-mcp-adapter';
 import type { ToolHandler } from './tool-registry';
-import type { ModelContext } from './native-mcp-types';
+import type { ModelContext } from './web-mcp-types';
 
 // Mock logger to avoid console noise
 jest.mock('../shared/logger', () => ({
@@ -23,21 +24,21 @@ jest.mock('../shared/logger', () => ({
   },
 }));
 
-describe('NativeMcpAdapter', () => {
-  let adapter: NativeMcpAdapter;
+describe('WebMcpAdapter', () => {
+  let adapter: WebMcpAdapter;
   let mockHandler: ToolHandler;
 
   beforeEach(() => {
-    adapter = new NativeMcpAdapter();
+    adapter = new WebMcpAdapter();
     mockHandler = jest.fn(async (args: unknown) => ({
       content: [{ type: 'text', text: JSON.stringify(args) }],
     }));
     // Clean up navigator.modelContext mock if set
-    delete (globalThis.navigator as Record<string, unknown>).modelContext;
+    delete (globalThis.navigator as any).modelContext;
   });
 
   afterEach(() => {
-    delete (globalThis.navigator as Record<string, unknown>).modelContext;
+    delete (globalThis.navigator as any).modelContext;
   });
 
   // ---------------------------------------------------------------------------
@@ -46,30 +47,30 @@ describe('NativeMcpAdapter', () => {
 
   describe('isSupported()', () => {
     it('should return false when navigator.modelContext does not exist', () => {
-      expect(NativeMcpAdapter.isSupported()).toBe(false);
+      expect(WebMcpAdapter.isSupported()).toBe(false);
     });
 
     it('should return false when navigator.modelContext exists but has no registerTool', () => {
-      (globalThis.navigator as Record<string, unknown>).modelContext = {
+      (globalThis.navigator as any).modelContext = {
         clearContext: jest.fn(),
       };
-      expect(NativeMcpAdapter.isSupported()).toBe(false);
+      expect(WebMcpAdapter.isSupported()).toBe(false);
     });
 
     it('should return true when navigator.modelContext.registerTool is a function', () => {
-      (globalThis.navigator as Record<string, unknown>).modelContext = {
+      (globalThis.navigator as any).modelContext = {
         registerTool: jest.fn(),
         unregisterTool: jest.fn(),
         clearContext: jest.fn(),
         provideContext: jest.fn(),
       };
-      expect(NativeMcpAdapter.isSupported()).toBe(true);
+      expect(WebMcpAdapter.isSupported()).toBe(true);
     });
   });
 
   describe('isAvailable()', () => {
     it('should return false when explicitly disabled', () => {
-      (globalThis.navigator as Record<string, unknown>).modelContext = {
+      (globalThis.navigator as any).modelContext = {
         registerTool: jest.fn(),
         unregisterTool: jest.fn(),
         clearContext: jest.fn(),
@@ -85,13 +86,13 @@ describe('NativeMcpAdapter', () => {
     });
 
     it('should return true by default when API is present', () => {
-      (globalThis.navigator as Record<string, unknown>).modelContext = {
+      (globalThis.navigator as any).modelContext = {
         registerTool: jest.fn(),
         unregisterTool: jest.fn(),
         clearContext: jest.fn(),
         provideContext: jest.fn(),
       };
-      // enabled by default — no setEnabled(true) needed
+      // enabled by default â€” no setEnabled(true) needed
       expect(adapter.isAvailable()).toBe(true);
     });
   });
@@ -110,7 +111,7 @@ describe('NativeMcpAdapter', () => {
         clearContext: jest.fn(),
         provideContext: jest.fn(),
       };
-      (globalThis.navigator as Record<string, unknown>).modelContext =
+      (globalThis.navigator as any).modelContext =
         mockModelContext;
     });
 
@@ -124,12 +125,10 @@ describe('NativeMcpAdapter', () => {
       );
 
       expect(mockModelContext.registerTool).not.toHaveBeenCalled();
-      expect(adapter.isRegisteredNatively('test-tool')).toBe(false);
+      expect(adapter.isRegistered('test-tool')).toBe(false);
     });
 
     it('should register tool via navigator.modelContext.registerTool() by default when API is present', () => {
-      // enabled by default — no setEnabled(true) needed
-
       adapter.registerTool(
         'test-tool',
         'A test tool',
@@ -153,29 +152,23 @@ describe('NativeMcpAdapter', () => {
           annotations: { readOnlyHint: true },
         }),
       );
-      expect(adapter.isRegisteredNatively('test-tool')).toBe(true);
+      expect(adapter.isRegistered('test-tool')).toBe(true);
     });
 
     it('should call unregisterTool before re-registering same tool name', () => {
-      // First registration
       adapter.registerTool('test-tool', 'v1', { type: 'object' }, mockHandler);
-
-      // Second registration (update)
       adapter.registerTool('test-tool', 'v2', { type: 'object' }, mockHandler);
 
-      // unregisterTool should have been called for the first one
       expect(mockModelContext.unregisterTool).toHaveBeenCalledWith('test-tool');
-      // registerTool should have been called twice
       expect(mockModelContext.registerTool).toHaveBeenCalledTimes(2);
-      expect(adapter.isRegisteredNatively('test-tool')).toBe(true);
+      expect(adapter.isRegistered('test-tool')).toBe(true);
     });
 
-    it('should handle native API errors gracefully', () => {
+    it('should handle API errors gracefully', () => {
       (mockModelContext.registerTool as jest.Mock).mockImplementation(() => {
-        throw new Error('Native API error');
+        throw new Error('WebMCP API error');
       });
 
-      // Should not throw
       adapter.registerTool(
         'failing-tool',
         'desc',
@@ -183,7 +176,7 @@ describe('NativeMcpAdapter', () => {
         mockHandler,
       );
 
-      expect(adapter.isRegisteredNatively('failing-tool')).toBe(false);
+      expect(adapter.isRegistered('failing-tool')).toBe(false);
     });
 
     it('should use tool name as description fallback when description is undefined', () => {
@@ -197,7 +190,7 @@ describe('NativeMcpAdapter', () => {
       expect(mockModelContext.registerTool).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'my-tool',
-          description: 'my-tool', // fallback
+          description: 'my-tool',
         }),
       );
     });
@@ -210,15 +203,11 @@ describe('NativeMcpAdapter', () => {
         mockHandler,
       );
 
-      // Extract the ModelContextTool passed to registerTool
       const registeredTool = (mockModelContext.registerTool as jest.Mock).mock
         .calls[0][0];
       expect(registeredTool.execute).toBeDefined();
 
-      // Call the execute callback with a mock client
-      const mockClient = {
-        requestUserInteraction: jest.fn(),
-      };
+      const mockClient = { requestUserInteraction: jest.fn() };
       const result = await registeredTool.execute({ foo: 'bar' }, mockClient);
 
       expect(mockHandler).toHaveBeenCalledWith({ foo: 'bar' });
@@ -242,7 +231,7 @@ describe('NativeMcpAdapter', () => {
         clearContext: jest.fn(),
         provideContext: jest.fn(),
       };
-      (globalThis.navigator as Record<string, unknown>).modelContext =
+      (globalThis.navigator as any).modelContext =
         mockModelContext;
       adapter.registerTool(
         'test-tool',
@@ -252,11 +241,11 @@ describe('NativeMcpAdapter', () => {
       );
     });
 
-    it('should unregister a natively registered tool', () => {
+    it('should unregister a tool registered via WebMCP', () => {
       const result = adapter.unregisterTool('test-tool');
       expect(result).toBe(true);
       expect(mockModelContext.unregisterTool).toHaveBeenCalledWith('test-tool');
-      expect(adapter.isRegisteredNatively('test-tool')).toBe(false);
+      expect(adapter.isRegistered('test-tool')).toBe(false);
     });
 
     it('should return false for unknown tool', () => {
@@ -270,8 +259,7 @@ describe('NativeMcpAdapter', () => {
       });
       const result = adapter.unregisterTool('test-tool');
       expect(result).toBe(false);
-      // Should remove from local tracking even on failure
-      expect(adapter.isRegisteredNatively('test-tool')).toBe(false);
+      expect(adapter.isRegistered('test-tool')).toBe(false);
     });
   });
 
@@ -280,31 +268,30 @@ describe('NativeMcpAdapter', () => {
   // ---------------------------------------------------------------------------
 
   describe('clearAll()', () => {
-    it('should call clearContext() to unregister all native tools', () => {
+    it('should call clearContext() to unregister all tools', () => {
       const mockModelContext: ModelContext = {
         registerTool: jest.fn(),
         unregisterTool: jest.fn(),
         clearContext: jest.fn(),
         provideContext: jest.fn(),
       };
-      (globalThis.navigator as Record<string, unknown>).modelContext =
+      (globalThis.navigator as any).modelContext =
         mockModelContext;
 
       adapter.registerTool('tool-1', 'desc', { type: 'object' }, mockHandler);
       adapter.registerTool('tool-2', 'desc', { type: 'object' }, mockHandler);
 
-      expect(adapter.getNativelyRegisteredTools()).toHaveLength(2);
+      expect(adapter.getRegisteredTools()).toHaveLength(2);
 
       adapter.clearAll();
 
       expect(mockModelContext.clearContext).toHaveBeenCalled();
-      expect(adapter.getNativelyRegisteredTools()).toHaveLength(0);
+      expect(adapter.getRegisteredTools()).toHaveLength(0);
     });
 
     it('should handle empty state gracefully', () => {
-      // Should not throw
       adapter.clearAll();
-      expect(adapter.getNativelyRegisteredTools()).toHaveLength(0);
+      expect(adapter.getRegisteredTools()).toHaveLength(0);
     });
 
     it('should fall back to individual unregisterTool if clearContext throws', () => {
@@ -316,16 +303,15 @@ describe('NativeMcpAdapter', () => {
         }),
         provideContext: jest.fn(),
       };
-      (globalThis.navigator as Record<string, unknown>).modelContext =
+      (globalThis.navigator as any).modelContext =
         mockModelContext;
 
       adapter.registerTool('tool-a', 'desc', { type: 'object' }, mockHandler);
 
       adapter.clearAll();
 
-      // Should have attempted individual unregister as fallback
       expect(mockModelContext.unregisterTool).toHaveBeenCalledWith('tool-a');
-      expect(adapter.getNativelyRegisteredTools()).toHaveLength(0);
+      expect(adapter.getRegisteredTools()).toHaveLength(0);
     });
   });
 
@@ -334,21 +320,20 @@ describe('NativeMcpAdapter', () => {
   // ---------------------------------------------------------------------------
 
   describe('query methods', () => {
-    it('getNativelyRegisteredTools() returns registered tool names', () => {
+    it('getRegisteredTools() returns tool names registered via WebMCP', () => {
       const mockModelContext: ModelContext = {
         registerTool: jest.fn(),
         unregisterTool: jest.fn(),
         clearContext: jest.fn(),
         provideContext: jest.fn(),
       };
-      (globalThis.navigator as Record<string, unknown>).modelContext =
+      (globalThis.navigator as any).modelContext =
         mockModelContext;
-      adapter.setEnabled(true);
 
       adapter.registerTool('tool-a', 'desc', { type: 'object' }, mockHandler);
       adapter.registerTool('tool-b', 'desc', { type: 'object' }, mockHandler);
 
-      const names = adapter.getNativelyRegisteredTools();
+      const names = adapter.getRegisteredTools();
       expect(names).toContain('tool-a');
       expect(names).toContain('tool-b');
       expect(names).toHaveLength(2);
@@ -361,7 +346,7 @@ describe('NativeMcpAdapter', () => {
 
   describe('toModelContextTool()', () => {
     it('should convert ToolDefinition + handler to ModelContextTool', async () => {
-      const result = NativeMcpAdapter.toModelContextTool(
+      const result = WebMcpAdapter.toModelContextTool(
         {
           name: 'my-tool',
           description: 'My tool',
@@ -386,7 +371,6 @@ describe('NativeMcpAdapter', () => {
       expect(result.annotations).toEqual({ readOnlyHint: true });
       expect(result.execute).toBeDefined();
 
-      // Verify execute wraps the handler
       const execResult = await result.execute(
         { x: 42 },
         { requestUserInteraction: jest.fn() },
@@ -398,7 +382,7 @@ describe('NativeMcpAdapter', () => {
     });
 
     it('should use tool name as description fallback', () => {
-      const result = NativeMcpAdapter.toModelContextTool(
+      const result = WebMcpAdapter.toModelContextTool(
         {
           name: 'no-desc-tool',
           inputSchema: { type: 'object' },

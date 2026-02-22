@@ -5,8 +5,8 @@
 
 export { WorkerClient, type WorkerClientInitOptions } from './worker-client';
 
-// Native WebMCP adapter and types
-export { NativeMcpAdapter } from './native-mcp-adapter';
+// WebMCP adapter and types
+export { WebMcpAdapter } from './web-mcp-adapter';
 export type {
   ModelContext,
   ModelContextTool,
@@ -15,7 +15,7 @@ export type {
   ToolExecuteCallback,
   UserInteractionCallback,
   WebMcpToolAnnotations,
-} from './native-mcp-types';
+} from './web-mcp-types';
 
 // Re-export shared types that client applications need
 export type {

@@ -44,7 +44,7 @@ import {
   type ToolHandler,
   type ToolOptions,
 } from './tool-registry';
-import { NativeMcpAdapter } from './native-mcp-adapter';
+import { WebMcpAdapter } from './web-mcp-adapter';
 
 type WorkerKind = 'shared' | 'service';
 
@@ -57,13 +57,13 @@ export type WorkerClientInitOptions = {
   /** Backend WebSocket URL to configure inside the worker (optional) */
   backendWsUrl?: string;
   /**
-   * Enable native WebMCP API registration via `navigator.modelContext`.
+   * Enable WebMCP API registration via `navigator.modelContext`.
    * When `true` (default) and the browser supports the WebMCP spec, tools will be
-   * registered both in the worker transport AND via the native browser API.
-   * Set to `false` to explicitly disable native registration.
+   * registered both in the worker transport AND via the browser API.
+   * Set to `false` to explicitly disable WebMCP registration.
    * Defaults to `true`.
    */
-  enableNativeMcp?: boolean;
+  enableWebMcp?: boolean;
 };
 
 export class WorkerClient {
@@ -92,8 +92,8 @@ export class WorkerClient {
   // Tool registry for managing tool lifecycle
   private toolRegistry = new ToolRegistry();
 
-  // Native WebMCP adapter for browser-level tool registration
-  private nativeMcpAdapter = new NativeMcpAdapter();
+  // WebMCP adapter for browser-level tool registration via navigator.modelContext
+  private webMcpAdapter = new WebMcpAdapter();
 
   // Tab tracking for multi-tab support
   private tabId: string;
@@ -234,8 +234,8 @@ export class WorkerClient {
       `[WorkerClient] Page unloading, cleaning up ${toolNames.length} tool(s)`,
     );
 
-    // Cleanup all native WebMCP registrations (synchronous per spec)
-    this.nativeMcpAdapter.clearAll();
+    // Cleanup all WebMCP registrations (synchronous per spec)
+    this.webMcpAdapter.clearAll();
 
     // Unregister each tool properly (respecting refCount)
     toolNames.forEach((toolName) => {
@@ -291,15 +291,15 @@ export class WorkerClient {
       if (opts.sharedWorkerUrl) this.sharedWorkerUrl = opts.sharedWorkerUrl;
       if (opts.serviceWorkerUrl) this.serviceWorkerUrl = opts.serviceWorkerUrl;
       if (opts.backendWsUrl) this.backendWsUrl = opts.backendWsUrl;
-      if (opts.enableNativeMcp !== undefined) {
-        this.nativeMcpAdapter.setEnabled(opts.enableNativeMcp);
+      if (opts.enableWebMcp !== undefined) {
+        this.webMcpAdapter.setEnabled(opts.enableWebMcp);
       }
     }
 
-    // Log native WebMCP status (auto-enabled by default)
-    if (this.nativeMcpAdapter.isAvailable()) {
+    // Log WebMCP status (auto-enabled by default)
+    if (this.webMcpAdapter.isAvailable()) {
       logger.log(
-        '[WorkerClient] Native WebMCP: auto-enabled (navigator.modelContext detected)',
+        '[WorkerClient] WebMCP: auto-enabled (navigator.modelContext detected)',
       );
     }
 
@@ -425,9 +425,9 @@ export class WorkerClient {
             },
           );
 
-          // Also register with native WebMCP API if available
+          // Also register with WebMCP API if available
           if (handler) {
-            this.nativeMcpAdapter.registerTool(
+            this.webMcpAdapter.registerTool(
               details.name,
               details.description,
               details.inputSchema,
@@ -1068,8 +1068,8 @@ export class WorkerClient {
     if (isNew) {
       await this.registerToolInWorker(name, description, inputSchema, options);
 
-      // Also register with native WebMCP API if available
-      this.nativeMcpAdapter.registerTool(
+      // Also register with WebMCP API if available
+      this.webMcpAdapter.registerTool(
         name,
         description,
         inputSchema,
@@ -1157,8 +1157,8 @@ export class WorkerClient {
         { name, tabId: this.tabId },
       );
 
-      // Also unregister from native WebMCP API
-      this.nativeMcpAdapter.unregisterTool(name);
+      // Also unregister from WebMCP API
+      this.webMcpAdapter.unregisterTool(name);
 
       logger.log(`[WorkerClient] Unregistered tool '${name}'`);
       return workerResult?.success ?? false;
@@ -1217,40 +1217,40 @@ export class WorkerClient {
   }
 
   // --------------------------------------------------------------------------
-  // Native WebMCP API
+  // WebMCP API
   // --------------------------------------------------------------------------
 
   /**
-   * Check if the browser supports the native WebMCP API.
+   * Check if the browser supports the WebMCP API (`navigator.modelContext`).
    */
-  public static isNativeMcpSupported(): boolean {
-    return NativeMcpAdapter.isSupported();
+  public static isWebMcpSupported(): boolean {
+    return WebMcpAdapter.isSupported();
   }
 
   /**
-   * Check if native WebMCP is both enabled AND supported.
+   * Check if WebMCP is both enabled AND supported.
    */
-  public isNativeMcpAvailable(): boolean {
-    return this.nativeMcpAdapter.isAvailable();
+  public isWebMcpAvailable(): boolean {
+    return this.webMcpAdapter.isAvailable();
   }
 
   /**
-   * Enable or disable native WebMCP registration at runtime.
+   * Enable or disable WebMCP registration at runtime.
    * When enabled and the browser supports it, newly registered tools will also
    * be advertised via `navigator.modelContext`. Existing tools are synced immediately.
    */
-  public setNativeMcpEnabled(enabled: boolean): void {
-    this.nativeMcpAdapter.setEnabled(enabled);
+  public setWebMcpEnabled(enabled: boolean): void {
+    this.webMcpAdapter.setEnabled(enabled);
 
-    if (enabled && NativeMcpAdapter.isSupported() && this.isInitialized) {
-      // Sync all existing tools to native API
+    if (enabled && WebMcpAdapter.isSupported() && this.isInitialized) {
+      // Sync all existing tools to WebMCP
       const toolNames = this.toolRegistry.getRegisteredTools();
       toolNames.forEach((toolName) => {
         const details = this.toolRegistry.getDetails(toolName);
         const handler = this.toolRegistry.getHandler(toolName);
         if (!details || !handler) return;
 
-        this.nativeMcpAdapter.registerTool(
+        this.webMcpAdapter.registerTool(
           details.name,
           details.description,
           details.inputSchema,
@@ -1266,23 +1266,23 @@ export class WorkerClient {
         );
       });
     } else if (!enabled) {
-      // Cleanup native registrations
-      this.nativeMcpAdapter.clearAll();
+      // Cleanup WebMCP registrations
+      this.webMcpAdapter.clearAll();
     }
   }
 
   /**
-   * Check if a specific tool is registered with the native WebMCP API.
+   * Check if a specific tool is registered via the WebMCP API.
    */
-  public isToolRegisteredNatively(toolName: string): boolean {
-    return this.nativeMcpAdapter.isRegisteredNatively(toolName);
+  public isToolRegisteredViaWebMcp(toolName: string): boolean {
+    return this.webMcpAdapter.isRegistered(toolName);
   }
 
   /**
-   * Get names of tools registered with the native WebMCP API.
+   * Get names of tools registered via the WebMCP API.
    */
-  public getNativelyRegisteredTools(): string[] {
-    return this.nativeMcpAdapter.getNativelyRegisteredTools();
+  public getWebMcpRegisteredTools(): string[] {
+    return this.webMcpAdapter.getRegisteredTools();
   }
 
   /**

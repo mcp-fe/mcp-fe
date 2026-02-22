@@ -11,7 +11,7 @@ Complete guide to all documentation and examples in the MCP Worker library.
 | **Learn step-by-step** | [Guide](./guide.md) |
 | **Complete API reference** | [API Reference](./api.md) |
 | **Multi-tab applications** | [Multi-Tab Guide](./multi-tab.md) |
-| **Native WebMCP support** | [Native WebMCP](./native-webmcp.md) |
+| **WebMCP integration** | [WebMCP](./native-webmcp.md) |
 | **Worker implementation** | [Worker Details](./worker-details.md) |
 | **Understand codebase structure** | [Project Structure](./project-structure.md) |
 | **Use with React** | [React Hooks Guide](../../react-event-tracker/REACT_MCP_TOOLS.md) |

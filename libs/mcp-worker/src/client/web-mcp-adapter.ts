@@ -1,18 +1,19 @@
 /**
- * NativeMcpAdapter — bridge between WorkerClient's tool system and the native WebMCP API.
+ * WebMcpAdapter — bridge between WorkerClient's tool system and the WebMCP API.
  *
  * Responsibilities:
  * - Feature-detect `navigator.modelContext` availability
- * - Map internal ToolDefinition + ToolHandler to the native ModelContextTool format
- * - Track which tools have been registered natively for cleanup
+ * - Map internal ToolDefinition + ToolHandler to the ModelContextTool format
+ * - Track which tools have been registered via WebMCP for cleanup
  * - Provide register / unregister / cleanup that are safe no-ops when API is absent
  *
  * Design principles:
  * - The adapter is ADDITIVE: the worker-based system remains the primary transport.
- *   Native registration is a secondary channel for browser-level tool discovery.
- * - All public methods are safe to call even when the native API is unavailable —
+ *   WebMCP registration is a secondary channel for browser-level tool discovery.
+ * - Enabled by default — auto-detects browser support. Can be explicitly disabled.
+ * - All public methods are safe to call even when the API is unavailable —
  *   they silently return without throwing.
- * - The native WebMCP API (§5.2) is synchronous: registerTool() and unregisterTool()
+ * - The WebMCP API (§5.2) is synchronous: registerTool() and unregisterTool()
  *   return `undefined`. The adapter wraps them in try/catch for safety.
  *
  * @see https://webmachinelearning.github.io/webmcp/
@@ -25,10 +26,10 @@ import type {
   ModelContext,
   ModelContextTool,
   WebMcpToolAnnotations,
-} from './native-mcp-types';
+} from './web-mcp-types';
 
-export class NativeMcpAdapter {
-  /** Tracks names of tools currently registered via native API */
+export class WebMcpAdapter {
+  /** Tracks names of tools currently registered via WebMCP API */
   private registeredTools = new Set<string>();
 
   /** Whether the adapter is enabled (enabled by default — auto-detects browser support) */
@@ -39,7 +40,7 @@ export class NativeMcpAdapter {
   // --------------------------------------------------------------------------
 
   /**
-   * Check if the browser exposes the native WebMCP API (`navigator.modelContext`).
+   * Check if the browser exposes the WebMCP API (`navigator.modelContext`).
    *
    * Safe to call in any environment (SSR, workers, older browsers).
    *
@@ -62,7 +63,7 @@ export class NativeMcpAdapter {
    * Convenience: instance-level check that also respects the `enabled` flag.
    */
   public isAvailable(): boolean {
-    return this.enabled && NativeMcpAdapter.isSupported();
+    return this.enabled && WebMcpAdapter.isSupported();
   }
 
   // --------------------------------------------------------------------------
@@ -70,14 +71,14 @@ export class NativeMcpAdapter {
   // --------------------------------------------------------------------------
 
   /**
-   * Enable or disable the native adapter.
+   * Enable or disable the WebMCP adapter.
    *
    * When disabled, `registerTool` / `unregisterTool` become silent no-ops
-   * even if the browser supports the native API.
+   * even if the browser supports the API.
    */
   public setEnabled(value: boolean): void {
     this.enabled = value;
-    logger.log(`[NativeMcpAdapter] Enabled: ${value}`);
+    logger.log(`[WebMcpAdapter] Enabled: ${value}`);
   }
 
   // --------------------------------------------------------------------------
@@ -85,9 +86,9 @@ export class NativeMcpAdapter {
   // --------------------------------------------------------------------------
 
   /**
-   * Register a tool with the native WebMCP API (`navigator.modelContext.registerTool()`).
+   * Register a tool with the WebMCP API (`navigator.modelContext.registerTool()`).
    *
-   * Silently returns if the native API is unavailable or the adapter is disabled.
+   * Silently returns if the API is unavailable or the adapter is disabled.
    * Per spec, `registerTool()` throws if a tool with the same name already exists,
    * so we unregister first if needed (idempotent update).
    *
@@ -134,21 +135,18 @@ export class NativeMcpAdapter {
       this.registeredTools.add(name);
 
       logger.log(
-        `[NativeMcpAdapter] Registered tool '${name}' via navigator.modelContext`,
+        `[WebMcpAdapter] Registered tool '${name}' via navigator.modelContext`,
       );
     } catch (error) {
-      // Non-fatal: native registration is best-effort
-      logger.warn(
-        `[NativeMcpAdapter] Failed to register '${name}' natively:`,
-        error,
-      );
+      // Non-fatal: WebMCP registration is best-effort
+      logger.warn(`[WebMcpAdapter] Failed to register '${name}':`, error);
     }
   }
 
   /**
-   * Unregister a tool from the native WebMCP API (`navigator.modelContext.unregisterTool()`).
+   * Unregister a tool from the WebMCP API (`navigator.modelContext.unregisterTool()`).
    *
-   * Safe to call even if the tool was never registered natively.
+   * Safe to call even if the tool was never registered via WebMCP.
    *
    * @param name - Tool name to unregister
    * @returns `true` if the tool was found and unregistered, `false` otherwise
@@ -159,7 +157,7 @@ export class NativeMcpAdapter {
     }
 
     try {
-      if (NativeMcpAdapter.isSupported()) {
+      if (WebMcpAdapter.isSupported()) {
         const modelContext = navigator.modelContext as ModelContext;
         // Synchronous call per spec — returns undefined
         modelContext.unregisterTool(name);
@@ -167,14 +165,11 @@ export class NativeMcpAdapter {
 
       this.registeredTools.delete(name);
       logger.log(
-        `[NativeMcpAdapter] Unregistered tool '${name}' from navigator.modelContext`,
+        `[WebMcpAdapter] Unregistered tool '${name}' from navigator.modelContext`,
       );
       return true;
     } catch (error) {
-      logger.warn(
-        `[NativeMcpAdapter] Failed to unregister '${name}' natively:`,
-        error,
-      );
+      logger.warn(`[WebMcpAdapter] Failed to unregister '${name}':`, error);
       // Remove from local tracking anyway to avoid stale state
       this.registeredTools.delete(name);
       return false;
@@ -182,7 +177,7 @@ export class NativeMcpAdapter {
   }
 
   /**
-   * Unregister ALL natively registered tools.
+   * Unregister ALL tools registered via WebMCP.
    *
    * Uses `navigator.modelContext.clearContext()` when available (per spec, clears
    * all tools at once), otherwise falls back to individual unregisterTool calls.
@@ -190,26 +185,24 @@ export class NativeMcpAdapter {
   public clearAll(): void {
     if (this.registeredTools.size === 0) return;
 
-    logger.log(
-      `[NativeMcpAdapter] Clearing ${this.registeredTools.size} native tool(s)`,
-    );
+    logger.log(`[WebMcpAdapter] Clearing ${this.registeredTools.size} tool(s)`);
 
     try {
-      if (NativeMcpAdapter.isSupported()) {
+      if (WebMcpAdapter.isSupported()) {
         const modelContext = navigator.modelContext as ModelContext;
         // Per spec §5.2: clearContext() unregisters all context (tools)
         modelContext.clearContext();
       }
     } catch (error) {
       logger.warn(
-        '[NativeMcpAdapter] clearContext() failed, falling back to individual unregister:',
+        '[WebMcpAdapter] clearContext() failed, falling back to individual unregister:',
         error,
       );
       // Fallback: unregister individually
       const names = Array.from(this.registeredTools);
       names.forEach((name) => {
         try {
-          if (NativeMcpAdapter.isSupported()) {
+          if (WebMcpAdapter.isSupported()) {
             (navigator.modelContext as ModelContext).unregisterTool(name);
           }
         } catch {
@@ -226,16 +219,16 @@ export class NativeMcpAdapter {
   // --------------------------------------------------------------------------
 
   /**
-   * Check if a tool is registered natively.
+   * Check if a tool is registered via WebMCP.
    */
-  public isRegisteredNatively(name: string): boolean {
+  public isRegistered(name: string): boolean {
     return this.registeredTools.has(name);
   }
 
   /**
-   * Get names of all natively registered tools.
+   * Get names of all tools registered via WebMCP.
    */
-  public getNativelyRegisteredTools(): string[] {
+  public getRegisteredTools(): string[] {
     return Array.from(this.registeredTools);
   }
 
@@ -258,7 +251,7 @@ export class NativeMcpAdapter {
   }
 
   /**
-   * Convert internal ToolDefinition to native ModelContextTool format (utility).
+   * Convert internal ToolDefinition to ModelContextTool format (utility).
    * Requires an execute callback to be provided separately.
    */
   public static toModelContextTool(

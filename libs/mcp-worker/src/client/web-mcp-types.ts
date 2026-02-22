@@ -1,16 +1,16 @@
 /**
- * Native WebMCP API type definitions
+ * WebMCP API type definitions
  *
- * These types model the native browser API (`navigator.modelContext`)
+ * These types model the browser API (`navigator.modelContext`)
  * based on the WebMCP specification (webmachinelearning.github.io/webmcp).
  *
- * The API allows web pages to register MCP tools natively with the browser/user-agent,
+ * The API allows web pages to register MCP tools with the browser/user-agent,
  * enabling AI agents, browser's agents, and assistive technologies to discover and
  * invoke them without relying on custom worker transports.
  *
- * When the native API is not available, the existing worker-based transport is used
- * as the sole registration path. When native API IS available, tools are registered
- * in BOTH systems (worker for backward compat + native for browser-level discovery).
+ * When the API is not available, the existing worker-based transport is used
+ * as the sole registration path. When the API IS available, tools are registered
+ * in BOTH systems (worker for backward compat + browser-level for discovery).
  *
  * @see https://webmachinelearning.github.io/webmcp/
  */
@@ -144,8 +144,8 @@ export interface ModelContext {
 declare global {
   interface Navigator {
     /**
-     * Native WebMCP API — available when the browser supports the WebMCP specification.
-     * Use `NativeMcpAdapter.isSupported()` for safe feature detection.
+     * WebMCP API — available when the browser supports the WebMCP specification.
+     * Use `WebMcpAdapter.isSupported()` for safe feature detection.
      *
      * @see https://webmachinelearning.github.io/webmcp/#navigator-extension
      */
