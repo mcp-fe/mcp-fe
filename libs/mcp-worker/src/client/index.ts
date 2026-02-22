@@ -5,6 +5,18 @@
 
 export { WorkerClient, type WorkerClientInitOptions } from './worker-client';
 
+// WebMCP adapter and types
+export { WebMcpAdapter } from './web-mcp-adapter';
+export type {
+  ModelContext,
+  ModelContextTool,
+  ModelContextOptions,
+  ModelContextClient,
+  ToolExecuteCallback,
+  UserInteractionCallback,
+  WebMcpToolAnnotations,
+} from './web-mcp-types';
+
 // Re-export shared types that client applications need
 export type {
   ToolHandler,

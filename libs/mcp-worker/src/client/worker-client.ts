@@ -44,6 +44,7 @@ import {
   type ToolHandler,
   type ToolOptions,
 } from './tool-registry';
+import { WebMcpAdapter } from './web-mcp-adapter';
 
 type WorkerKind = 'shared' | 'service';
 
@@ -55,6 +56,14 @@ export type WorkerClientInitOptions = {
   serviceWorkerUrl?: string;
   /** Backend WebSocket URL to configure inside the worker (optional) */
   backendWsUrl?: string;
+  /**
+   * Enable WebMCP API registration via `navigator.modelContext`.
+   * When `true` (default) and the browser supports the WebMCP spec, tools will be
+   * registered both in the worker transport AND via the browser API.
+   * Set to `false` to explicitly disable WebMCP registration.
+   * Defaults to `true`.
+   */
+  enableWebMcp?: boolean;
 };
 
 export class WorkerClient {
@@ -82,6 +91,9 @@ export class WorkerClient {
 
   // Tool registry for managing tool lifecycle
   private toolRegistry = new ToolRegistry();
+
+  // WebMCP adapter for browser-level tool registration via navigator.modelContext
+  private webMcpAdapter = new WebMcpAdapter();
 
   // Tab tracking for multi-tab support
   private tabId: string;
@@ -222,6 +234,9 @@ export class WorkerClient {
       `[WorkerClient] Page unloading, cleaning up ${toolNames.length} tool(s)`,
     );
 
+    // Cleanup all WebMCP registrations (synchronous per spec)
+    this.webMcpAdapter.clearAll();
+
     // Unregister each tool properly (respecting refCount)
     toolNames.forEach((toolName) => {
       const existing = this.toolRegistry.getInfo(toolName);
@@ -276,6 +291,16 @@ export class WorkerClient {
       if (opts.sharedWorkerUrl) this.sharedWorkerUrl = opts.sharedWorkerUrl;
       if (opts.serviceWorkerUrl) this.serviceWorkerUrl = opts.serviceWorkerUrl;
       if (opts.backendWsUrl) this.backendWsUrl = opts.backendWsUrl;
+      if (opts.enableWebMcp !== undefined) {
+        this.webMcpAdapter.setEnabled(opts.enableWebMcp);
+      }
+    }
+
+    // Log WebMCP status (auto-enabled by default)
+    if (this.webMcpAdapter.isAvailable()) {
+      logger.log(
+        '[WorkerClient] WebMCP: auto-enabled (navigator.modelContext detected)',
+      );
     }
 
     // If an init is already in progress, wait for it and optionally retry if caller provided a registration
@@ -383,6 +408,8 @@ export class WorkerClient {
         const details = this.toolRegistry.getDetails(toolName);
         if (!details) return;
 
+        const handler = this.toolRegistry.getHandler(toolName);
+
         try {
           await this.registerToolInWorker(
             details.name,
@@ -397,6 +424,24 @@ export class WorkerClient {
               title: details.title,
             },
           );
+
+          // Also register with WebMCP API if available
+          if (handler) {
+            this.webMcpAdapter.registerTool(
+              details.name,
+              details.description,
+              details.inputSchema,
+              handler,
+              {
+                outputSchema: details.outputSchema,
+                annotations: details.annotations,
+                execution: details.execution,
+                _meta: details._meta,
+                icons: details.icons,
+                title: details.title,
+              },
+            );
+          }
         } catch (error) {
           logger.error(
             `[WorkerClient] Failed to sync tool '${toolName}' to worker:`,
@@ -1022,6 +1067,15 @@ export class WorkerClient {
     // If tool is new and worker is ready, sync to worker immediately
     if (isNew) {
       await this.registerToolInWorker(name, description, inputSchema, options);
+
+      // Also register with WebMCP API if available
+      this.webMcpAdapter.registerTool(
+        name,
+        description,
+        inputSchema,
+        handler,
+        options,
+      );
     }
   }
 
@@ -1103,6 +1157,9 @@ export class WorkerClient {
         { name, tabId: this.tabId },
       );
 
+      // Also unregister from WebMCP API
+      this.webMcpAdapter.unregisterTool(name);
+
       logger.log(`[WorkerClient] Unregistered tool '${name}'`);
       return workerResult?.success ?? false;
     }
@@ -1157,6 +1214,75 @@ export class WorkerClient {
    */
   public isToolRegistered(toolName: string): boolean {
     return this.toolRegistry.isRegistered(toolName);
+  }
+
+  // --------------------------------------------------------------------------
+  // WebMCP API
+  // --------------------------------------------------------------------------
+
+  /**
+   * Check if the browser supports the WebMCP API (`navigator.modelContext`).
+   */
+  public static isWebMcpSupported(): boolean {
+    return WebMcpAdapter.isSupported();
+  }
+
+  /**
+   * Check if WebMCP is both enabled AND supported.
+   */
+  public isWebMcpAvailable(): boolean {
+    return this.webMcpAdapter.isAvailable();
+  }
+
+  /**
+   * Enable or disable WebMCP registration at runtime.
+   * When enabled and the browser supports it, newly registered tools will also
+   * be advertised via `navigator.modelContext`. Existing tools are synced immediately.
+   */
+  public setWebMcpEnabled(enabled: boolean): void {
+    this.webMcpAdapter.setEnabled(enabled);
+
+    if (enabled && WebMcpAdapter.isSupported() && this.isInitialized) {
+      // Sync all existing tools to WebMCP
+      const toolNames = this.toolRegistry.getRegisteredTools();
+      toolNames.forEach((toolName) => {
+        const details = this.toolRegistry.getDetails(toolName);
+        const handler = this.toolRegistry.getHandler(toolName);
+        if (!details || !handler) return;
+
+        this.webMcpAdapter.registerTool(
+          details.name,
+          details.description,
+          details.inputSchema,
+          handler,
+          {
+            outputSchema: details.outputSchema,
+            annotations: details.annotations,
+            execution: details.execution,
+            _meta: details._meta,
+            icons: details.icons,
+            title: details.title,
+          },
+        );
+      });
+    } else if (!enabled) {
+      // Cleanup WebMCP registrations
+      this.webMcpAdapter.clearAll();
+    }
+  }
+
+  /**
+   * Check if a specific tool is registered via the WebMCP API.
+   */
+  public isToolRegisteredViaWebMcp(toolName: string): boolean {
+    return this.webMcpAdapter.isRegistered(toolName);
+  }
+
+  /**
+   * Get names of tools registered via the WebMCP API.
+   */
+  public getWebMcpRegisteredTools(): string[] {
+    return this.webMcpAdapter.getRegisteredTools();
   }
 
   /**

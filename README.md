@@ -4,8 +4,9 @@
 Instead of continuously pushing analytics-style data, your frontend exposes **on-demand MCP tools** so an AI agent can ask questions about **what just happened** and **what the UI state is right now**.
 
 It bridges the gap between AI agents (e.g., Claude or Cursor) and the real-time state of your frontend application using:
-- a browser worker (SharedWorker / ServiceWorker) that stores events and routes tool calls, and
-- a Node.js proxy that exposes an MCP endpoint to remote agents.
+- a browser worker (SharedWorker / ServiceWorker) that stores events and routes tool calls,
+- a Node.js proxy that exposes an MCP endpoint to remote agents, and
+- **native [WebMCP](https://webmachinelearning.github.io/webmcp/) support** — when the browser implements `navigator.modelContext`, tools are automatically registered with the browser's built-in agent system too.
 
 ## Why MCP-FE?
 AI agents are often **runtime-blind**: they can read your code, but they can’t see the current DOM, the state of a Redux/Zustand store, or the exact interaction sequence that led to an error.
@@ -18,6 +19,7 @@ MCP-FE exposes the **browser runtime** as a first-class MCP Server so that conte
 - [Quick Start (Local Live Demo)](#quick-start-local-live-demo)
 - [How It Works](#how-it-works)
 - [Key Concepts](#key-concepts)
+- [WebMCP — Native Browser Integration](#webmcp--native-browser-integration)
 - [Packages](#packages)
 - [Using MCP-FE in Your App](#using-mcp-fe-in-your-app)
 - [Architecture](#architecture)
@@ -117,6 +119,63 @@ The MCP worker **never sends context proactively to the backend**. Context is sh
 
 ---
 
+## WebMCP — Native Browser Integration
+
+MCP-FE includes built-in support for the [**WebMCP specification**](https://webmachinelearning.github.io/webmcp/) (`navigator.modelContext`), an emerging W3C standard that allows web pages to register MCP tools directly with the browser. This means your tools are discoverable not only by remote AI agents (via the proxy), but also by **browser-native agents**, **extensions**, and **assistive technologies**.
+
+### How it fits together
+
+```
+Your App ──→ workerClient.registerTool('my-tool', ...)
+                │
+                ├── ① Worker transport ──→ Proxy ──→ Remote AI agents (Claude, Cursor, ...)
+                │
+                └── ② WebMCP adapter ──→ navigator.modelContext.registerTool()
+                                              └──→ Browser's built-in agent / extensions
+```
+
+**One `registerTool()` call → two delivery channels.** Your tool handlers are written once and automatically served to both remote agents (via WebSocket + MCP proxy) and the browser's native agent system (via `navigator.modelContext`).
+
+### Enabled by default
+
+WebMCP is **auto-detected** — if the browser supports `navigator.modelContext`, tools are registered there automatically. No configuration needed:
+
+```ts
+// This single call registers the tool in BOTH systems:
+await workerClient.registerTool(
+  'get_cart_items',
+  'Returns the current shopping cart contents',
+  { type: 'object', properties: {} },
+  async () => ({
+    content: [{ type: 'text', text: JSON.stringify(getCart()) }],
+  }),
+);
+// ✅ Available to remote agents via MCP proxy
+// ✅ Available to browser's agent via navigator.modelContext (if supported)
+```
+
+To explicitly disable WebMCP:
+
+```ts
+await workerClient.init({
+  backendWsUrl: 'ws://localhost:3001',
+  enableWebMcp: false,  // opt-out
+});
+```
+
+### Why this matters
+
+| Channel | Agent type | Transport | Requires proxy? |
+|---------|-----------|-----------|----------------|
+| **Worker + Proxy** | Remote AI agents (Claude, Cursor, etc.) | WebSocket → HTTP/SSE | Yes |
+| **WebMCP** | Browser's built-in agent, extensions, assistive tech | `navigator.modelContext` (in-process) | No |
+
+With WebMCP support, your frontend tools work even **without** a running proxy — the browser agent can invoke them directly. And when the proxy *is* running, remote agents get access too. Both channels coexist seamlessly.
+
+> 📖 For implementation details, see [`libs/mcp-worker/docs/native-webmcp.md`](./libs/mcp-worker/docs/native-webmcp.md)
+
+---
+
 ## 🛡️ Security by Design
 
 Unlike traditional analytics or logging tools that stream data to third-party servers, **MCP-FE is passive and restrictive**:
@@ -152,6 +211,7 @@ This is where your React/Vue/JS code lives.
 graph TD
     subgraph "AI Environment"
         Agent["🤖 AI Agent (Claude/Cursor)"]
+        BrowserAgent["🌐 Browser Agent / Extensions"]
     end
 
     subgraph "Server"
@@ -164,6 +224,7 @@ graph TD
             Hooks["React Tools (useMCPTool)"]
             State[("Live State / DOM")]
             Tracker["Event Tracker"]
+            WebMCP["WebMCP Adapter"]
         end
 
         subgraph "Worker Context"
@@ -179,11 +240,15 @@ graph TD
     Tracker -->|Log Events| Worker
     Worker <-->|Persistence| DB
     Hooks <-->|Direct Access| State
+    Hooks -->|Auto-register| WebMCP
+    WebMCP <-->|navigator.modelContext| BrowserAgent
 
     %% Styles
     style Agent fill:#f9f,stroke:#333,stroke-width:2px
+    style BrowserAgent fill:#f9f,stroke:#333,stroke-width:2px
     style Worker fill:#bbf,stroke:#333,stroke-width:2px
     style Proxy fill:#dfd,stroke:#333,stroke-width:2px
+    style WebMCP fill:#ffe0b2,stroke:#e65100,stroke-width:2px
     style State fill:#fff4dd,stroke:#d4a017
 ```
 
@@ -257,9 +322,10 @@ MCP-FE introduces a **worker-based MCP edge server** in the browser that enables
 
 - server-driven context access (pull model),
 - minimal frontend-to-server traffic,
-- clean separation between UI, transport, and agent logic.
+- clean separation between UI, transport, and agent logic,
+- **dual delivery** — tools are served to remote agents (via proxy) and browser-native agents (via [WebMCP](https://webmachinelearning.github.io/webmcp/)) simultaneously.
 
-It’s a **new frontend application of the Model Context Protocol**, not a new protocol.
+It's a **new frontend application of the Model Context Protocol**, not a new protocol.
 
 ---
 
