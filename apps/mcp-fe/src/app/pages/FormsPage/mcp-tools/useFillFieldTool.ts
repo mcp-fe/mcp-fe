@@ -14,15 +14,15 @@ const fillFieldInputSchema = z.object({
     'plan',
     'message',
   ]),
-  value: z.union([z.string(), z.boolean(), z.number()]),
+  value: z.string(),
 });
 
 // Output schema for fill field result
 const fillFieldOutputSchema = z.object({
   success: z.boolean(),
   fieldName: z.string(),
-  newValue: z.union([z.string(), z.boolean()]),
-  previousValue: z.union([z.string(), z.boolean()]),
+  newValue: z.string(),
+  previousValue: z.string(),
   message: z.string(),
 });
 
@@ -40,10 +40,23 @@ export function useFillFieldTool(
     inputSchema: fillFieldInputSchema.toJSONSchema(),
     outputSchema: fillFieldOutputSchema.toJSONSchema(),
     handler: async (args: unknown) => {
-      const { fieldName, value } = args as {
+      const { fieldName, value: valueArg } = args as {
         fieldName: keyof FormData;
-        value: string | boolean | number;
+        value: string;
       };
+
+      // Parse string value to correct type for the field (e.g. boolean for newsletter, number for age)
+      let value: string | boolean | number = valueArg;
+      if (fieldName === 'newsletter') {
+        const lower = valueArg.toLowerCase();
+        if (lower === 'true' || lower === '1' || lower === 'yes') value = true;
+        else if (lower === 'false' || lower === '0' || lower === 'no')
+          value = false;
+        else throw new Error('Field "newsletter" requires "true" or "false"');
+      } else if (fieldName === 'age' && valueArg.trim() !== '') {
+        const n = Number(valueArg);
+        if (!Number.isNaN(n)) value = n;
+      }
 
       // Validate field name
       const validFields: (keyof FormData)[] = [
@@ -61,19 +74,6 @@ export function useFillFieldTool(
         throw new Error(`Invalid field name: ${fieldName}`);
       }
 
-      // Type validation based on field
-      if (fieldName === 'newsletter' && typeof value !== 'boolean') {
-        throw new Error('Field "newsletter" requires a boolean value');
-      }
-
-      if (
-        fieldName === 'age' &&
-        typeof value !== 'string' &&
-        typeof value !== 'number'
-      ) {
-        throw new Error('Field "age" requires a string or number value');
-      }
-
       const previousValue = formData[fieldName];
 
       // Update the form data
@@ -87,8 +87,8 @@ export function useFillFieldTool(
       const result = {
         success: true,
         fieldName,
-        newValue,
-        previousValue,
+        newValue: String(newValue),
+        previousValue: String(previousValue),
         message: `Field "${fieldName}" has been set to: ${newValue}`,
       };
 

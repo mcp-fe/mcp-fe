@@ -19,7 +19,7 @@ const fieldInfoInputSchema = z.object({
 // Output schema for field info
 const fieldInfoOutputSchema = z.object({
   fieldName: z.string(),
-  value: z.union([z.string(), z.boolean()]),
+  value: z.string(),
   hasError: z.boolean(),
   errorMessage: z.string().nullable(),
   isFilled: z.boolean(),
@@ -49,7 +49,7 @@ export function useFieldInfoTool(
 
       const result = {
         fieldName,
-        value,
+        value: value === undefined || value === null ? '' : String(value),
         hasError: !!error,
         errorMessage: error || null,
         isFilled:
