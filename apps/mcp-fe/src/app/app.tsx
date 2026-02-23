@@ -3,20 +3,23 @@ import { MCPToolsProvider } from '@mcp-fe/react-tools';
 import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 import { useSessionManager } from './hooks/useSessionManager';
 // import styles from './app.module.scss';
-import { HomePage } from './pages/HomePage';
-import { HowItWorksPage } from './pages/HowItWorksPage';
-import { FormsPage } from './pages/FormsPage';
-import { DataTablePage } from './pages/DataTablePage';
-import { NavigationPage } from './pages/NavigationPage';
 import { Modal } from './components/Modal';
 import { AIAgentInstructions } from './components/AIAgentInstructions';
 import { ConnectionPanel } from './components/ConnectionPanel';
 import { Routes, Link, Route, useLocation } from 'react-router-dom';
 import { useStoredEvents } from './hooks/useStoredEvents';
+import { useAppNavigateTool } from './hooks/useAppNavigateTool';
+import { ROUTE_DEFINITIONS } from './config/routeDefinitions';
 import { useState } from 'react';
+
+/** Path for nav link (strip /* for splat routes) */
+function navPath(path: string) {
+  return path.replace(/\/\*$/, '') || '/';
+}
 
 export function App() {
   useReactRouterEventTracker();
+  useAppNavigateTool();
   const { token } = useSessionManager();
   const { events } = useStoredEvents(1000);
   const location = useLocation();
@@ -30,54 +33,23 @@ export function App() {
             <h1>MCP-FE Demo</h1>
             <nav className="header-nav">
               <ul>
-                <li>
-                  <Link
-                    to="/"
-                    className={location.pathname === '/' ? 'active' : ''}
-                  >
-                    Home
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/how-it-works"
-                    className={
-                      location.pathname === '/how-it-works' ? 'active' : ''
-                    }
-                  >
-                    How It Works
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/navigation"
-                    className={
-                      location.pathname.startsWith('/navigation')
-                        ? 'active'
-                        : ''
-                    }
-                  >
-                    Navigation
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/forms"
-                    className={location.pathname === '/forms' ? 'active' : ''}
-                  >
-                    Forms
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/data-table"
-                    className={
-                      location.pathname === '/data-table' ? 'active' : ''
-                    }
-                  >
-                    Data Table
-                  </Link>
-                </li>
+                {ROUTE_DEFINITIONS.map((def) => {
+                  const to = navPath(def.path);
+                  const isActive =
+                    def.path === '/navigation/*'
+                      ? location.pathname.startsWith('/navigation')
+                      : location.pathname === to;
+                  return (
+                    <li key={def.path}>
+                      <Link
+                        to={to}
+                        className={isActive ? 'active' : ''}
+                      >
+                        {def.label}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </nav>
           </div>
@@ -87,11 +59,13 @@ export function App() {
           <section className="content-area">
             <div className="card">
               <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/how-it-works" element={<HowItWorksPage />} />
-                <Route path="/forms" element={<FormsPage />} />
-                <Route path="/data-table" element={<DataTablePage />} />
-                <Route path="/navigation/*" element={<NavigationPage />} />
+                {ROUTE_DEFINITIONS.map((def) => (
+                  <Route
+                    key={def.path}
+                    path={def.path}
+                    element={def.element}
+                  />
+                ))}
               </Routes>
             </div>
           </section>
