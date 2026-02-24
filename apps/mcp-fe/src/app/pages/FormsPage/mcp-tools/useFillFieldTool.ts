@@ -14,7 +14,11 @@ const fillFieldInputSchema = z.object({
     'plan',
     'message',
   ]),
-  value: z.string(),
+  value: z
+    .string()
+    .describe(
+      "For country use strictly values 'cz', 'us', 'uk', 'ca', 'de', 'fr' or 'other'",
+    ),
 });
 
 // Output schema for fill field result
@@ -34,6 +38,7 @@ export function useFillFieldTool(
   formData: FormData,
   setFormData: React.Dispatch<React.SetStateAction<FormData>>,
 ) {
+  console.log(fillFieldInputSchema.toJSONSchema());
   useMCPTool({
     name: 'fill_field',
     description: 'Fill a specific form field with a value.',
