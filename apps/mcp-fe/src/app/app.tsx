@@ -24,6 +24,7 @@ export function App() {
   const { events } = useStoredEvents(1000);
   const location = useLocation();
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
     <MCPToolsProvider backendWsUrl="ws://localhost:3001" authToken={token}>
@@ -41,10 +42,7 @@ export function App() {
                       : location.pathname === to;
                   return (
                     <li key={def.path}>
-                      <Link
-                        to={to}
-                        className={isActive ? 'active' : ''}
-                      >
+                      <Link to={to} className={isActive ? 'active' : ''}>
                         {def.label}
                       </Link>
                     </li>
@@ -55,48 +53,61 @@ export function App() {
           </div>
         </header>
 
-        <main className="main-layout">
+        <main
+          className={`main-layout ${
+            isSidebarOpen ? 'layout-with-sidebar' : 'layout-no-sidebar'
+          }`}
+        >
           <section className="content-area">
             <div className="card">
               <Routes>
                 {ROUTE_DEFINITIONS.map((def) => (
-                  <Route
-                    key={def.path}
-                    path={def.path}
-                    element={def.element}
-                  />
+                  <Route key={def.path} path={def.path} element={def.element} />
                 ))}
               </Routes>
             </div>
           </section>
 
-          <aside className="sidebar">
-            <ConnectionPanel
-              onShowInstructions={() => setShowInstructions(true)}
-            />
+          <div className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
+            {isSidebarOpen && (
+              <aside className="sidebar-content">
+                <ConnectionPanel
+                  onShowInstructions={() => setShowInstructions(true)}
+                />
 
-            <div className="card event-log-card">
-              <h2>Live Event Log (IndexedDB)</h2>
-              <ul className="event-list">
-                {events.length === 0 && <li>No events tracked yet.</li>}
-                {events.map((event) => (
-                  <li key={event.id}>
-                    <span className="event-time">
-                      {new Date(event.timestamp).toLocaleTimeString()}
-                    </span>
-                    <span className="event-type">{event.type}</span>
-                    <span className="event-details">
-                      {event.type === 'navigation' && `to: ${event.to}`}
-                      {event.type === 'click' &&
-                        `on: ${event.element}${event.elementText ? ` ("${event.elementText}")` : ''}`}
-                      {event.type === 'input' &&
-                        `in: ${event.element}${event.metadata?.value ? ` (value: ${event.metadata.value})` : ''}`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
+                <div className="card event-log-card">
+                  <h2>Live Event Log (IndexedDB)</h2>
+                  <ul className="event-list">
+                    {events.length === 0 && <li>No events tracked yet.</li>}
+                    {events.map((event) => (
+                      <li key={event.id}>
+                        <span className="event-time">
+                          {new Date(event.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span className="event-type">{event.type}</span>
+                        <span className="event-details">
+                          {event.type === 'navigation' && `to: ${event.to}`}
+                          {event.type === 'click' &&
+                            `on: ${event.element}${event.elementText ? ` ("${event.elementText}")` : ''}`}
+                          {event.type === 'input' &&
+                            `in: ${event.element}${event.metadata?.value ? ` (value: ${event.metadata.value})` : ''}`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </aside>
+            )}
+            <button
+              className={`sidebar-toggle-btn ${
+                isSidebarOpen ? 'open' : 'closed'
+              }`}
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              aria-label={isSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            >
+              {isSidebarOpen ? '›' : '‹'}
+            </button>
+          </div>
         </main>
 
         {/* AI Agent Instructions Modal */}

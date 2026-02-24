@@ -19,8 +19,6 @@ export interface RouteDefinition {
 export const ROUTE_DEFINITIONS: RouteDefinition[] = [
   { path: '/', element: <HomePage />, label: 'Home' },
   { path: '/how-it-works', element: <HowItWorksPage />, label: 'How It Works' },
-  { path: '/forms', element: <FormsPage />, label: 'Forms' },
-  { path: '/data-table', element: <DataTablePage />, label: 'Data Table' },
   {
     path: '/navigation/*',
     element: <NavigationPage />,
@@ -29,9 +27,14 @@ export const ROUTE_DEFINITIONS: RouteDefinition[] = [
       { path: '/navigation', label: 'Navigation (Overview)' },
       { path: '/navigation/integration', label: 'Navigation – Integration' },
       { path: '/navigation/examples', label: 'Navigation – Examples' },
-      { path: '/navigation/troubleshooting', label: 'Navigation – Troubleshooting' },
+      {
+        path: '/navigation/troubleshooting',
+        label: 'Navigation – Troubleshooting',
+      },
     ],
   },
+  { path: '/forms', element: <FormsPage />, label: 'Forms' },
+  { path: '/data-table', element: <DataTablePage />, label: 'Data Table' },
 ];
 
 export interface NavigableRoute {
