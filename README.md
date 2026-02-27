@@ -36,7 +36,7 @@ This project is currently a **Proof of Concept**. While the architecture is stab
 - [Packages](#packages)
 - [Using MCP-FE in Your App](#using-mcp-fe-in-your-app)
 - [Architecture](#architecture)
-- [Security roadmap](#security-roadmap--known-limitations)
+- [Security roadmap](#-security-roadmap--known-limitations)
 - [License](#license)
 
 ---
