@@ -15,6 +15,19 @@ MCP-FE exposes the **browser runtime** as a first-class MCP Server so that conte
 
 ---
 
+## ⚠️ Project Status: Experimental (PoC)
+
+This project is currently a **Proof of Concept**. While the architecture is stable and demonstrates the power of MCP-FE, it is not yet intended for high-stakes production environments.
+
+**Current focus:**
+* Finalizing the SharedWorker/ServiceWorker fallback logic.
+* Refining the React hook lifecycle (auto-deregistration of tools).
+* Hardening the Proxy-to-Worker authentication flow.
+
+*See the security roadmap section below for more details.*
+
+---
+
 ## Table of Contents
 - [Quick Start (Local Live Demo)](#quick-start-local-live-demo)
 - [How It Works](#how-it-works)
@@ -23,6 +36,7 @@ MCP-FE exposes the **browser runtime** as a first-class MCP Server so that conte
 - [Packages](#packages)
 - [Using MCP-FE in Your App](#using-mcp-fe-in-your-app)
 - [Architecture](#architecture)
+- [Security roadmap](#security-roadmap--known-limitations)
 - [License](#license)
 
 ---
@@ -329,6 +343,24 @@ It's a **new frontend application of the Model Context Protocol**, not a new pro
 
 ---
 
+## 🚧 Security Roadmap & Known Limitations
+
+We are actively working on hardening the proxy and worker. Contributions and PRs for these are highly welcome!
+
+[ ] Strict JWT Verification: Currently, the Node proxy uses a "mock" decoded JWT (trusting the sub claim) to establish session IDs for the sake of easy local testing. Roadmap: Implement cryptographically secure jwtVerify() with proper issuer/audience validation.
+
+[ ] Secure Token Transport: WebSockets currently initiate using ?token=... in the URL query string, which can leak into server logs. Roadmap: Migrate WebSocket auth to headers (Sec-WebSocket-Protocol), initial payload messages, or secure cookies.
+
+[ ] Privacy-First Event Tracking: The default React trackInput() hook currently captures raw input values to IndexedDB to feed the agent context. Roadmap: Change the default behavior to only track value length/hashes, automatically ignore type="password", and introduce an explicit opt-in allowlist for sensitive data tracking.
+
+[ ] WebSocket Origin Validation: The WS server needs stricter host and origin allowlist enforcement to prevent cross-origin hijacking.
+
+[ ] Data Retention Limits: Add automatic TTLs and mechanisms to clear the local user-activity-db IndexedDB instance to minimize the impact of potential XSS attacks.
+
+Security Contributions: If you are a security-minded engineer, we would love your help! Feel free to pick up any of these items from our issue tracker or open a discussion on how to best secure the AI-to-UI bridge.
+
+---
+
 ## License
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -342,20 +374,6 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
----
-
-
-## ⚠️ Project Status: Experimental (PoC)
-
-This project is currently a **Proof of Concept**. While the architecture is stable and demonstrates the power of Frontend MCP, it is not yet intended for high-stakes production environments.
-
-**Current focus:**
-* Finalizing the SharedWorker/ServiceWorker fallback logic.
-* Refining the React hook lifecycle (auto-deregistration of tools).
-* Hardening the Proxy-to-Worker authentication flow.
-
-*Contributions and architectural discussions are welcome!*
 
 ---
 
