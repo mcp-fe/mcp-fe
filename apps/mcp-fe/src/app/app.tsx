@@ -27,7 +27,7 @@ export function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
-    <MCPToolsProvider backendWsUrl="ws://localhost:3001" authToken={token}>
+    <MCPToolsProvider backendWsUrl={process.env.MCP_WS_URL || 'ws://localhost:3001'} authToken={token}>
       <div className="app-container">
         <header className="app-header">
           <div className="header-left">
