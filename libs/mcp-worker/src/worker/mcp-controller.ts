@@ -191,10 +191,7 @@ export class MCPController {
     }
 
     return new Promise((resolve) => {
-      const url = this.authToken
-        ? `${this.backendUrl}?token=${this.authToken}`
-        : this.backendUrl;
-      this.socket = new WebSocket(url);
+      this.socket = new WebSocket(this.backendUrl);
 
       this.socket.onopen = async () => {
         logger.log('[MCPController] Connected to backend MCP server');
@@ -203,6 +200,20 @@ export class MCPController {
 
         try {
           if (this.socket) {
+            // Perform auth handshake before setting up MCP transport so that
+            // AUTH_OK is not forwarded to the MCP layer as a JSON-RPC message.
+            if (this.authToken) {
+              try {
+                await this.performAuthHandshake(this.socket, this.authToken);
+              } catch (error) {
+                logger.error('[MCPController] Auth handshake failed:', error);
+                this.broadcastFn({ type: 'CONNECTION_STATUS', connected: false });
+                this.socket.close(4001, 'Authentication failed');
+                resolve();
+                return;
+              }
+            }
+
             this.transport = new WebSocketTransport(this.socket);
             // start transport if available
             if (typeof this.transport.start === 'function') {
@@ -625,6 +636,41 @@ export class MCPController {
     }
 
     return true; // Still has tabs, so considered successful
+  }
+
+  /**
+   * Sends AUTH message and waits for AUTH_OK before MCP transport is started.
+   * Token is never sent in the URL — only in this initial payload message.
+   */
+  private performAuthHandshake(socket: WebSocket, token: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        socket.removeEventListener('message', handleMessage);
+        reject(new Error('Authentication timeout'));
+      }, 10_000);
+
+      const handleMessage = (event: MessageEvent) => {
+        let msg: { type: string; message?: string };
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+
+        if (msg.type === 'AUTH_OK') {
+          clearTimeout(timeout);
+          socket.removeEventListener('message', handleMessage);
+          resolve();
+        } else if (msg.type === 'AUTH_ERROR') {
+          clearTimeout(timeout);
+          socket.removeEventListener('message', handleMessage);
+          reject(new Error(msg.message || 'Authentication rejected by server'));
+        }
+      };
+
+      socket.addEventListener('message', handleMessage);
+      socket.send(JSON.stringify({ type: 'AUTH', token }));
+    });
   }
 
   public getConnectionStatus(): boolean {

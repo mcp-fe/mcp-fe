@@ -3,68 +3,87 @@ import { Server as HttpServer } from 'http';
 import { verifyToken } from './auth';
 import { WebSocketManager } from './websocket-manager';
 
-/**
- * Creates WebSocket authentication middleware
- */
-function createWSAuthMiddleware() {
-  return (
-    info: { origin: string; secure: boolean; req: any },
-    callback: (res: boolean, code?: number, message?: string) => void,
-  ) => {
-    const url = new URL(info.req.url || '', `http://${info.req.headers.host}`);
-    const token = url.searchParams.get('token');
-
-    verifyToken(token).then((sessionId) => {
-      if (!sessionId) {
-        console.warn(
-          `[WS Auth] Rejecting unauthorized connection from ${info.origin}`,
-        );
-        callback(false, 401, 'Unauthorized');
-      } else {
-        console.log(`[WS Auth] Verified session: ${sessionId}`);
-        // Attach sessionId to the request object so it can be used in the connection event
-        info.req.sessionId = sessionId;
-        callback(true);
-      }
-    });
-  };
-}
+const AUTH_TIMEOUT_MS = 10_000;
 
 /**
- * Sets up and starts the WebSocket server
+ * Sets up and starts the WebSocket server.
+ *
+ * Authentication flow
+ *  1. Client connects (no token in URL)
+ *  2. Client immediately sends: { type: 'AUTH', token: '<jwt>' }
+ *  3. Server verifies token → replies { type: 'AUTH_OK' } or closes with 4001
+ *  4. Normal MCP message exchange begins
+ *
+ * Connections that do not send AUTH within AUTH_TIMEOUT_MS are closed automatically.
  */
 export function setupWebSocketServer(
   httpServer: HttpServer,
   wsManager: WebSocketManager,
 ): WebSocketServer {
-  const wsAuthMiddleware = createWSAuthMiddleware();
+  const wss = new WebSocketServer({ server: httpServer });
 
-  const wss = new WebSocketServer({
-    server: httpServer,
-    verifyClient: wsAuthMiddleware,
-  });
+  wss.on('connection', (ws) => {
+    let sessionId: string | null = null;
+    let authenticated = false;
 
-  wss.on('connection', async (ws, req) => {
-    const sessionId = (req as any).sessionId || 'anonymous';
-
-    wsManager.registerSession(sessionId, ws);
+    const authTimeout = setTimeout(() => {
+      if (!authenticated) {
+        console.warn('[WS Auth] Closing unauthenticated connection (timeout)');
+        ws.close(4001, 'Authentication timeout');
+      }
+    }, AUTH_TIMEOUT_MS);
 
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString());
-        console.debug(
-          `[WS] Raw message from client (${sessionId}): ${JSON.stringify(message).substring(0, 100)}...`,
-        );
 
-        wsManager.handleMessage(sessionId, message);
+        // ── Auth handshake ────────────────────────────────────────────────
+        if (!authenticated) {
+          if (message.type !== 'AUTH') {
+            ws.close(4001, 'Authentication required');
+            return;
+          }
+
+          const resolvedId = await verifyToken(message.token);
+          if (!resolvedId) {
+            console.warn('[WS Auth] Rejecting connection: invalid token');
+            ws.send(
+              JSON.stringify({
+                type: 'AUTH_ERROR',
+                message: 'Invalid or expired token',
+              }),
+            );
+            ws.close(4001, 'Unauthorized');
+            return;
+          }
+
+          clearTimeout(authTimeout);
+          authenticated = true;
+          sessionId = resolvedId;
+          wsManager.registerSession(sessionId, ws);
+          ws.send(JSON.stringify({ type: 'AUTH_OK' }));
+          console.log(`[WS Auth] Authenticated session: ${sessionId}`);
+          return;
+        }
+
+        // ── Normal message handling ───────────────────────────────────────
+        if (message.type === 'ping') return;
+
+        console.debug(
+          `[WS] Message from client (${sessionId}): ${JSON.stringify(message).substring(0, 100)}...`,
+        );
+        wsManager.handleMessage(sessionId!, message);
       } catch (error) {
         console.error('[WS] Error processing message:', error);
       }
     });
 
-    ws.on('close', async () => {
-      wsManager.unregisterSession(sessionId);
-      console.log(`[WS] Connection closed for session: ${sessionId}`);
+    ws.on('close', () => {
+      clearTimeout(authTimeout);
+      if (sessionId) {
+        wsManager.unregisterSession(sessionId);
+        console.log(`[WS] Connection closed for session: ${sessionId}`);
+      }
     });
 
     ws.on('error', (error) => {
