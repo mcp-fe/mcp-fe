@@ -1,3 +1,44 @@
+## Unreleased
+
+### 🔐 Security
+
+- **Strict JWT Verification**: The proxy server now cryptographically verifies JWT signatures instead of blindly decoding the `sub` claim.
+  - Two modes via `AUTH_MODE` env variable:
+    - `local` (default) — server issues and verifies its own HS256-signed tokens via `POST /auth/token`. `JWT_SECRET` must be set in production; server refuses to start without it when `NODE_ENV=production`.
+    - `keycloak` — server validates tokens issued by Keycloak via JWKS (RS256/ES256). Required env vars: `KEYCLOAK_JWKS_URI`, `KEYCLOAK_ISSUER`, optionally `KEYCLOAK_AUDIENCE`.
+  - The JWT secret never leaves the server in either mode.
+  - Frontend (`mcp-fe`) now fetches its token from `POST /auth/token` instead of signing tokens client-side with a shared secret bundled in the JS bundle.
+
+- **Secure Token Transport**: WebSocket authentication no longer passes `?token=...` in the URL (which leaked into server logs, proxy logs, and browser history).
+  - Replaced with an initial payload handshake: client sends `{ "type": "AUTH", "token": "<jwt>" }` as the first WebSocket message after the connection is established.
+  - Server replies `{ "type": "AUTH_OK" }` on success, or `{ "type": "AUTH_ERROR" }` + close code `4001` on failure.
+  - Connections that do not complete the handshake within 10 seconds are automatically closed.
+
+- **Session TTL**: Server-side sessions now expire after a configurable inactivity period.
+  - Default changed from 5 minutes (hardcoded) to 30 minutes, configurable via `SESSION_TTL_MINUTES`.
+  - Expired sessions actively close their WebSocket connection with code `1001 Going Away` and free all resources.
+  - In Keycloak deployments, each token refresh triggers a WebSocket reconnect, automatically resetting the inactivity timer.
+
+- **CORS configuration**: HTTP server now sets `Access-Control-Allow-*` headers for browser clients.
+  - Configurable via `CORS_ORIGIN` (comma-separated origins or `*`). Defaults to `*` for local development.
+  - Handles `OPTIONS` preflight requests.
+
+### 🚀 Features
+
+- New `POST /auth/token` endpoint (local mode only) for obtaining a server-signed JWT.
+- New environment variables: `AUTH_MODE`, `JWT_SECRET`, `KEYCLOAK_JWKS_URI`, `KEYCLOAK_ISSUER`, `KEYCLOAK_AUDIENCE`, `SESSION_TTL_MINUTES`, `CORS_ORIGIN`.
+- New build-time variable `MCP_SERVER_URL` for `mcp-fe` (default: `http://localhost:3001`).
+
+### ✅ Testing
+
+- Unit tests for `websocket-server.ts`: full auth handshake flow, timeout behaviour, message routing, and session cleanup (10 tests).
+
+### ❤️ Thank You
+
+- Michal Kopecký
+
+---
+
 ## 0.2.0 (2026-02-22)
 
 ### 🚀 Features

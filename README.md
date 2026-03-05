@@ -347,17 +347,20 @@ It's a **new frontend application of the Model Context Protocol**, not a new pro
 
 We are actively working on hardening the proxy and worker. Contributions and PRs for these are highly welcome!
 
-[ ] Strict JWT Verification: Currently, the Node proxy uses a "mock" decoded JWT (trusting the sub claim) to establish session IDs for the sake of easy local testing. Roadmap: Implement cryptographically secure jwtVerify() with proper issuer/audience validation.
+**Resolved ✅**
 
-[ ] Secure Token Transport: WebSockets currently initiate using ?token=... in the URL query string, which can leak into server logs. Roadmap: Migrate WebSocket auth to headers (Sec-WebSocket-Protocol), initial payload messages, or secure cookies.
+- ~~**Strict JWT Verification:** The Node proxy used a "mock" decoded JWT (trusting the `sub` claim) without verifying the signature.~~ → Implemented `jwtVerify()` with HS256 (local mode) and JWKS-based RS256 validation (Keycloak mode). JWT secret never leaves the server. See `apps/mcp-server/README.md` for configuration.
 
-[ ] Privacy-First Event Tracking: The default React trackInput() hook currently captures raw input values to IndexedDB to feed the agent context. Roadmap: Change the default behavior to only track value length/hashes, automatically ignore type="password", and introduce an explicit opt-in allowlist for sensitive data tracking.
+- ~~**Secure Token Transport:** WebSockets initiated using `?token=...` in the URL query string, which could leak into server logs.~~ → Migrated to an initial payload handshake: client sends `{ type: "AUTH", token }` as the first WebSocket message. Token no longer appears in the URL, server logs, or browser history.
 
-[ ] WebSocket Origin Validation: The WS server needs stricter host and origin allowlist enforcement to prevent cross-origin hijacking.
+**Open**
 
-[ ] Data Retention Limits: Add automatic TTLs and mechanisms to clear the local user-activity-db IndexedDB instance to minimize the impact of potential XSS attacks.
+- [ ] **Privacy-First Event Tracking:** The default React `trackInput()` hook currently captures raw input values to IndexedDB. Roadmap: change the default to only track value length/hashes, automatically ignore `type="password"`, and introduce an explicit opt-in allowlist for sensitive fields.
 
-Security Contributions: If you are a security-minded engineer, we would love your help! Feel free to pick up any of these items from our issue tracker or open a discussion on how to best secure the AI-to-UI bridge.
+- [ ] **WebSocket Origin Validation:** Stricter origin allowlist enforcement beyond the current `CORS_ORIGIN` configuration to prevent cross-origin hijacking from unexpected origins.
+
+- [ ] **Data Retention Limits (client-side):** Session TTL is now configurable on the server (`SESSION_TTL_MINUTES`), but the local `user-activity-db` IndexedDB in the browser has no automatic TTL. Roadmap: add client-side event expiry to minimise the impact of potential XSS attacks.
+
 
 ---
 
