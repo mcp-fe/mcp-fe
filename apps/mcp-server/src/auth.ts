@@ -30,7 +30,10 @@ if (AUTH_MODE === 'keycloak') {
   console.log(`[Auth] Mode: keycloak | JWKS: ${KEYCLOAK_JWKS_URI} | Issuer: ${KEYCLOAK_ISSUER}`);
 } else {
   if (!process.env.JWT_SECRET) {
-    console.warn('[Auth] Mode: local | JWT_SECRET not set — using insecure development default');
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('[Auth] JWT_SECRET must be set in production');
+    }
+    console.warn('[Auth] Mode: local | JWT_SECRET not set — using insecure default. DO NOT use in production!');
   } else {
     console.log('[Auth] Mode: local');
   }
