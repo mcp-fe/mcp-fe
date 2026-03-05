@@ -6,6 +6,15 @@ const rspack = require('@rspack/core');
 module.exports = {
   output: {
     path: join(__dirname, '../../dist/apps/mcp-fe'),
+    filename: (pathData) => {
+      const name = pathData.chunk?.name;
+      if (name === 'mcp-service-worker' || name === 'mcp-shared-worker') {
+        return '[name].js';
+      }
+      return process.env['NODE_ENV'] === 'production'
+        ? '[name].[contenthash].js'
+        : '[name].js';
+    },
   },
   entry: {
     main: './src/main.tsx',
@@ -32,6 +41,7 @@ module.exports = {
       'process.env.MCP_WS_URL': JSON.stringify(
         process.env.MCP_WS_URL || 'ws://localhost:3001',
       ),
+      'process.env.MCP_BUILD_ID': JSON.stringify(Date.now().toString()),
     }),
     new NxAppRspackPlugin({
       tsConfig: './tsconfig.app.json',

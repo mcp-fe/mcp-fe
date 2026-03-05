@@ -27,7 +27,14 @@ export function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
-    <MCPToolsProvider backendWsUrl={process.env.MCP_WS_URL || 'ws://localhost:3001'} authToken={token}>
+    <MCPToolsProvider
+      backendWsUrl={process.env.MCP_WS_URL || 'ws://localhost:3001'}
+      authToken={token}
+      initOptions={{
+        sharedWorkerUrl: `/mcp-shared-worker.js?v=${process.env.MCP_BUILD_ID}`,
+        serviceWorkerUrl: `/mcp-service-worker.js?v=${process.env.MCP_BUILD_ID}`,
+      }}
+    >
       <div className="app-container">
         <header className="app-header">
           <div className="header-left">
