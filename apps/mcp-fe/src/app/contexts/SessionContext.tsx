@@ -1,24 +1,16 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
-import { SignJWT } from 'jose';
 
-// Shared secret key (must match server's SECRET_KEY in auth.ts)
-const SECRET_KEY = new TextEncoder().encode(
-  'mcp-mock-secret-key-do-not-use-in-production',
-);
+const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'http://localhost:3001';
 
-/**
- * Creates a properly signed mock JWT token with the given sessionId
- * Uses HS256 signature algorithm with a shared secret key
- * This is for development/demo purposes only
- */
-async function createMockJWT(sessionId: string): Promise<string> {
-  return await new SignJWT({
-    sub: sessionId,
-  })
-    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .setIssuedAt()
-    .setExpirationTime('1h')
-    .sign(SECRET_KEY);
+async function fetchToken(sessionUser: string): Promise<string> {
+  const res = await fetch(`${MCP_SERVER_URL}/auth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionUser }),
+  });
+  if (!res.ok) throw new Error(`Failed to obtain token: ${res.status}`);
+  const data = await res.json();
+  return data.token as string;
 }
 
 interface SessionContextType {
@@ -50,14 +42,13 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   useEffect(() => {
     localStorage.setItem('mcp_session_user', sessionUser);
-    // Create mock JWT token client-side asynchronously
-    createMockJWT(sessionUser)
-      .then((mockJwt) => {
-        localStorage.setItem('jwtTokenMock', mockJwt);
-        setToken(mockJwt);
+    fetchToken(sessionUser)
+      .then((jwt) => {
+        localStorage.setItem('jwtTokenMock', jwt);
+        setToken(jwt);
       })
       .catch((err) => {
-        console.error('Failed to create JWT token:', err);
+        console.error('Failed to obtain token from server:', err);
       });
   }, [sessionUser]);
 

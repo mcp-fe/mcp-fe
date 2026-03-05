@@ -2,7 +2,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { Server as HttpServer } from 'http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
-import { getSessionIdFromToken } from './auth';
+import { verifyToken, issueToken, AUTH_MODE } from './auth';
 import { SessionManager } from './session-manager';
 import { WebSocketManager } from './websocket-manager';
 
@@ -68,6 +68,31 @@ export function createHTTPServer(
     allowedHosts,
   });
 
+  // CORS – allow browser clients from configured origins
+  // Set CORS_ORIGIN to a comma-separated list of allowed origins, or * for any origin.
+  // Defaults to * in development and restricts to allowedDomains in production.
+  const rawCorsOrigin = process.env.CORS_ORIGIN;
+  const corsOrigins: string[] | '*' = rawCorsOrigin
+    ? rawCorsOrigin.split(',').map((o) => o.trim())
+    : '*';
+
+  app.use((req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    if (corsOrigins === '*') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else if (requestOrigin && corsOrigins.includes(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, mcp-session-id');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
+
   // Log all requests
   app.use((req, res, next) => {
     const query =
@@ -77,6 +102,25 @@ export function createHTTPServer(
     console.debug(`[HTTP] ${req.method} ${req.url}${query}`);
     next();
   });
+
+  // Token issuance – only available in local auth mode
+  // In keycloak mode clients use their Keycloak access token directly
+  if (AUTH_MODE === 'local') {
+    app.post('/auth/token', async (req, res) => {
+      const sessionUser = req.body?.sessionUser;
+      if (!sessionUser || typeof sessionUser !== 'string') {
+        res.status(400).json({ error: 'sessionUser is required' });
+        return;
+      }
+      try {
+        const token = await issueToken(sessionUser);
+        res.json({ token });
+      } catch (e) {
+        console.error('[HTTP] Failed to issue token:', e);
+        res.status(500).json({ error: 'Failed to issue token' });
+      }
+    });
+  }
 
   app.post('/mcp', async (req, res) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
@@ -104,7 +148,7 @@ export function createHTTPServer(
     } else if (!sessionId && isInitializeRequest(req.body)) {
       const token =
         (req.query.token as string) || req.headers.authorization?.split(' ')[1];
-      const authSessionId = getSessionIdFromToken(
+      const authSessionId = await verifyToken(
         token?.replaceAll('Bearer ', '') || null,
       );
 
@@ -282,10 +326,10 @@ export function createHTTPServer(
   });
 
   // Debug endpoint - show session status
-  app.get('/debug/sessions', (req, res) => {
+  app.get('/debug/sessions', async (req, res) => {
     const token =
       (req.query.token as string) || req.headers.authorization?.split(' ')[1];
-    const sessionId = getSessionIdFromToken(
+    const sessionId = await verifyToken(
       token?.replaceAll('Bearer ', '') || null,
     );
 

@@ -21,15 +21,21 @@ export interface SessionState {
 
 export class SessionManager {
   private sessions = new Map<string, SessionState>();
-  private readonly SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+  private readonly SESSION_TIMEOUT: number;
   private readonly MESSAGE_QUEUE_MAX = 100;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    // Periodically cleanup expired sessions every 30 seconds
+    const ttlMinutes = process.env.SESSION_TTL_MINUTES
+      ? parseInt(process.env.SESSION_TTL_MINUTES, 10)
+      : 30;
+    this.SESSION_TIMEOUT = ttlMinutes * 60 * 1000;
+    console.log(`[Session] TTL set to ${ttlMinutes} minutes`);
+
+    // Periodically cleanup expired sessions every 60 seconds
     this.cleanupInterval = setInterval(
       () => this.cleanupExpiredSessions(),
-      30000,
+      60_000,
     );
   }
 
@@ -266,6 +272,30 @@ export class SessionManager {
   }
 
   /**
+   * Close and remove a single session, releasing all associated resources
+   */
+  private closeSession(sessionId: string, session: SessionState): void {
+    if (session.ws) {
+      try {
+        session.ws.close(1001, 'Session expired');
+      } catch {
+        // ignore
+      }
+    }
+
+    if (session.mcpServer) {
+      try {
+        session.mcpServer.close();
+      } catch (error) {
+        console.warn(`[Session] Error closing MCP Server for session ${sessionId}:`, error);
+      }
+    }
+
+    this.sessions.delete(sessionId);
+    console.debug(`[Session] Closed session: ${sessionId}`);
+  }
+
+  /**
    * Cleanup expired sessions
    */
   private cleanupExpiredSessions(): void {
@@ -275,23 +305,7 @@ export class SessionManager {
     for (const [sessionId, session] of this.sessions.entries()) {
       if (now - session.lastActivity > this.SESSION_TIMEOUT) {
         expired.push(sessionId);
-
-        // Close MCP Server instance
-        if (session.mcpServer) {
-          try {
-            session.mcpServer.close();
-            console.debug(
-              `[Session] Closed MCP Server for expired session: ${sessionId}`,
-            );
-          } catch (error) {
-            console.warn(
-              `[Session] Error closing MCP Server for session ${sessionId}:`,
-              error,
-            );
-          }
-        }
-
-        this.sessions.delete(sessionId);
+        this.closeSession(sessionId, session);
       }
     }
 
@@ -318,23 +332,8 @@ export class SessionManager {
       this.cleanupInterval = null;
     }
 
-    // Close all MCP Server instances
     for (const [sessionId, session] of this.sessions.entries()) {
-      if (session.mcpServer) {
-        try {
-          session.mcpServer.close();
-          console.debug(
-            `[Session] Closed MCP Server for session: ${sessionId}`,
-          );
-        } catch (error) {
-          console.warn(
-            `[Session] Error closing MCP Server for session ${sessionId}:`,
-            error,
-          );
-        }
-      }
+      this.closeSession(sessionId, session);
     }
-
-    this.sessions.clear();
   }
 }
