@@ -30,9 +30,10 @@ interface SessionProviderProps {
 }
 
 export function SessionProvider({ children }: SessionProviderProps) {
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('jwtTokenMock');
-  });
+  // Always start with null — a fresh token is fetched from the server in the
+  // effect below. Using a cached token from localStorage risks sending an
+  // expired or client-signed token before the server issues a valid one.
+  const [token, setToken] = useState<string | null>(null);
   const [sessionUser, setSessionUser] = useState<string>(() => {
     return (
       localStorage.getItem('mcp_session_user') ||
@@ -42,9 +43,9 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   useEffect(() => {
     localStorage.setItem('mcp_session_user', sessionUser);
+    localStorage.removeItem('jwtTokenMock'); // remove any stale cached token
     fetchToken(sessionUser)
       .then((jwt) => {
-        localStorage.setItem('jwtTokenMock', jwt);
         setToken(jwt);
       })
       .catch((err) => {

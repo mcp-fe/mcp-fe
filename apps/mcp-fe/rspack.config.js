@@ -3,6 +3,15 @@ const { NxReactRspackPlugin } = require('@nx/rspack/react-plugin');
 const { join } = require('path');
 const rspack = require('@rspack/core');
 
+// Derive WebSocket URL from MCP_SERVER_URL if MCP_WS_URL is not explicitly set.
+// e.g. http://myhost:3001 → ws://myhost:3001, https://myhost → wss://myhost
+function deriveWsUrl(httpUrl) {
+  return httpUrl.replace(/^http(s?):\/\//, (_, s) => `ws${s}://`);
+}
+
+const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+const mcpWsUrl = process.env.MCP_WS_URL || deriveWsUrl(mcpServerUrl);
+
 module.exports = {
   output: {
     path: join(__dirname, '../../dist/apps/mcp-fe'),
@@ -35,12 +44,8 @@ module.exports = {
         process.env.NODE_ENV || 'development',
       ),
       'process.env.MCP_DEBUG': JSON.stringify(process.env.MCP_DEBUG || ''),
-      'process.env.MCP_SERVER_URL': JSON.stringify(
-        process.env.MCP_SERVER_URL || 'http://localhost:3001',
-      ),
-      'process.env.MCP_WS_URL': JSON.stringify(
-        process.env.MCP_WS_URL || 'ws://localhost:3001',
-      ),
+      'process.env.MCP_SERVER_URL': JSON.stringify(mcpServerUrl),
+      'process.env.MCP_WS_URL': JSON.stringify(mcpWsUrl),
       'process.env.MCP_BUILD_ID': JSON.stringify(Date.now().toString()),
     }),
     new NxAppRspackPlugin({
