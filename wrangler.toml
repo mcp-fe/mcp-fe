@@ -1,2 +1,6 @@
-name = "mcp-fe-demo"
-pages_build_output_dir = "apps/mcp-fe/dist"
+name = "mcp-fe"
+assets = { directory = "./dist/apps/mcp-fe" }
+pages_build_output_dir = "./dist/apps/mcp-fe"
+
+[site]
+bucket = "./dist/apps/mcp-fe" # Tady je ten trik pro statické soubory
