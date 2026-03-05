@@ -1,5 +1,2 @@
 name = "mcp-fe"
-assets = { directory = "./dist/apps/mcp-fe" }
-
-[site]
-bucket = "./dist/apps/mcp-fe"
+pages_build_output_dir = "./dist/apps/mcp-fe"

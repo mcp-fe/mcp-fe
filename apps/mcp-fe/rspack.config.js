@@ -5,7 +5,7 @@ const rspack = require('@rspack/core');
 
 module.exports = {
   output: {
-    path: join(__dirname, 'dist'),
+    path: join(__dirname, '../../dist/apps/mcp-fe'),
   },
   entry: {
     main: './src/main.tsx',
@@ -26,8 +26,12 @@ module.exports = {
         process.env.NODE_ENV || 'development',
       ),
       'process.env.MCP_DEBUG': JSON.stringify(process.env.MCP_DEBUG || ''),
-      'process.env.MCP_SERVER_URL': JSON.stringify(process.env.MCP_SERVER_URL || 'http://localhost:3001'),
-      'process.env.MCP_WS_URL': JSON.stringify(process.env.MCP_WS_URL || 'ws://localhost:3001'),
+      'process.env.MCP_SERVER_URL': JSON.stringify(
+        process.env.MCP_SERVER_URL || 'http://localhost:3001',
+      ),
+      'process.env.MCP_WS_URL': JSON.stringify(
+        process.env.MCP_WS_URL || 'ws://localhost:3001',
+      ),
     }),
     new NxAppRspackPlugin({
       tsConfig: './tsconfig.app.json',
