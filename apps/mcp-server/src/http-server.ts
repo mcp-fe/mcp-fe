@@ -2,7 +2,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { Server as HttpServer } from 'http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
-import { getSessionIdFromToken } from './auth';
+import { verifyToken, issueToken, AUTH_MODE } from './auth';
 import { SessionManager } from './session-manager';
 import { WebSocketManager } from './websocket-manager';
 
@@ -78,6 +78,25 @@ export function createHTTPServer(
     next();
   });
 
+  // Token issuance – only available in local auth mode
+  // In keycloak mode clients use their Keycloak access token directly
+  if (AUTH_MODE === 'local') {
+    app.post('/auth/token', async (req, res) => {
+      const sessionUser = req.body?.sessionUser;
+      if (!sessionUser || typeof sessionUser !== 'string') {
+        res.status(400).json({ error: 'sessionUser is required' });
+        return;
+      }
+      try {
+        const token = await issueToken(sessionUser);
+        res.json({ token });
+      } catch (e) {
+        console.error('[HTTP] Failed to issue token:', e);
+        res.status(500).json({ error: 'Failed to issue token' });
+      }
+    });
+  }
+
   app.post('/mcp', async (req, res) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     let transport: StreamableHTTPServerTransport;
@@ -104,7 +123,7 @@ export function createHTTPServer(
     } else if (!sessionId && isInitializeRequest(req.body)) {
       const token =
         (req.query.token as string) || req.headers.authorization?.split(' ')[1];
-      const authSessionId = getSessionIdFromToken(
+      const authSessionId = await verifyToken(
         token?.replaceAll('Bearer ', '') || null,
       );
 
@@ -282,10 +301,10 @@ export function createHTTPServer(
   });
 
   // Debug endpoint - show session status
-  app.get('/debug/sessions', (req, res) => {
+  app.get('/debug/sessions', async (req, res) => {
     const token =
       (req.query.token as string) || req.headers.authorization?.split(' ')[1];
-    const sessionId = getSessionIdFromToken(
+    const sessionId = await verifyToken(
       token?.replaceAll('Bearer ', '') || null,
     );
 

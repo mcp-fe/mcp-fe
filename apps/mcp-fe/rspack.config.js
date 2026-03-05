@@ -26,6 +26,7 @@ module.exports = {
         process.env.NODE_ENV || 'development',
       ),
       'process.env.MCP_DEBUG': JSON.stringify(process.env.MCP_DEBUG || ''),
+      'process.env.MCP_SERVER_URL': JSON.stringify(process.env.MCP_SERVER_URL || 'http://localhost:3001'),
     }),
     new NxAppRspackPlugin({
       tsConfig: './tsconfig.app.json',

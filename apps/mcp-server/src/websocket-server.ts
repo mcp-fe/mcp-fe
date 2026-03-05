@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 import { Server as HttpServer } from 'http';
-import { getSessionIdFromToken } from './auth';
+import { verifyToken } from './auth';
 import { WebSocketManager } from './websocket-manager';
 
 /**
@@ -13,19 +13,20 @@ function createWSAuthMiddleware() {
   ) => {
     const url = new URL(info.req.url || '', `http://${info.req.headers.host}`);
     const token = url.searchParams.get('token');
-    const sessionId = getSessionIdFromToken(token);
 
-    if (!sessionId) {
-      console.warn(
-        `[WS Auth] Rejecting unauthorized connection from ${info.origin}`,
-      );
-      callback(false, 401, 'Unauthorized');
-    } else {
-      console.log(`[WS Auth] Verified session: ${sessionId}`);
-      // Attach sessionId to the request object so it can be used in the connection event
-      info.req.sessionId = sessionId;
-      callback(true);
-    }
+    verifyToken(token).then((sessionId) => {
+      if (!sessionId) {
+        console.warn(
+          `[WS Auth] Rejecting unauthorized connection from ${info.origin}`,
+        );
+        callback(false, 401, 'Unauthorized');
+      } else {
+        console.log(`[WS Auth] Verified session: ${sessionId}`);
+        // Attach sessionId to the request object so it can be used in the connection event
+        info.req.sessionId = sessionId;
+        callback(true);
+      }
+    });
   };
 }
 
