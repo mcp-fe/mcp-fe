@@ -60,6 +60,9 @@ docker run -p 3001:3001 \
 - `ALLOWED_DOMAIN` - Domain name allowed for public access
   - Required for DNS rebinding protection when hosting publicly
   - Example: `api.yourcompany.com`
+- `CORS_ORIGIN` - Allowed CORS origins for browser clients (default: `*`)
+  - Comma-separated list of origins in production: `https://app.yourcompany.com`
+  - Leave unset (or `*`) for local development
 
 ## Authentication
 

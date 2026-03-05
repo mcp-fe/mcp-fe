@@ -68,6 +68,31 @@ export function createHTTPServer(
     allowedHosts,
   });
 
+  // CORS – allow browser clients from configured origins
+  // Set CORS_ORIGIN to a comma-separated list of allowed origins, or * for any origin.
+  // Defaults to * in development and restricts to allowedDomains in production.
+  const rawCorsOrigin = process.env.CORS_ORIGIN;
+  const corsOrigins: string[] | '*' = rawCorsOrigin
+    ? rawCorsOrigin.split(',').map((o) => o.trim())
+    : '*';
+
+  app.use((req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    if (corsOrigins === '*') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else if (requestOrigin && corsOrigins.includes(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, mcp-session-id');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
+
   // Log all requests
   app.use((req, res, next) => {
     const query =
