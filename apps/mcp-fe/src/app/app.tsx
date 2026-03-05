@@ -28,9 +28,9 @@ export function App() {
 
   return (
     <MCPToolsProvider
-      backendWsUrl={process.env.MCP_WS_URL || 'ws://localhost:3001'}
       authToken={token}
       initOptions={{
+        backendWsUrl: process.env.MCP_WS_URL,
         sharedWorkerUrl: `/mcp-shared-worker.js?v=${process.env.MCP_BUILD_ID}`,
         serviceWorkerUrl: `/mcp-service-worker.js?v=${process.env.MCP_BUILD_ID}`,
       }}
