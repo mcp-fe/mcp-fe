@@ -63,6 +63,9 @@ docker run -p 3001:3001 \
 - `CORS_ORIGIN` - Allowed CORS origins for browser clients (default: `*`)
   - Comma-separated list of origins in production: `https://app.yourcompany.com`
   - Leave unset (or `*`) for local development
+- `SESSION_TTL_MINUTES` - Idle session expiry in minutes (default: `30`)
+  - Sessions inactive longer than this are closed and their memory freed
+  - WebSocket connections are closed with code `1001` on expiry
 
 ## Authentication
 
