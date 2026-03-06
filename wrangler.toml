@@ -3,3 +3,4 @@ compatibility_date = "2026-03-05"
 
 [assets]
 directory = "./dist/apps/mcp-fe"
+not_found_handling = "single-page-application"
