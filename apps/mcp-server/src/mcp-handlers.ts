@@ -16,7 +16,9 @@ export function createMCPServer(): Server {
     },
     {
       capabilities: {
-        tools: {},
+        tools: {
+          listChanged: true,
+        },
       },
     },
   );
@@ -155,18 +157,4 @@ export function setupSessionMCPHandlers(
       throw error;
     }
   });
-}
-
-/**
- * Send tools/list_changed notification to MCP client
- */
-export function notifyToolsChanged(server: Server): void {
-  try {
-    server.notification({
-      method: 'notifications/tools/list_changed',
-    });
-    console.debug(`[MCP] Sent tools/list_changed notification`);
-  } catch (error) {
-    console.warn(`[MCP] Failed to send tools notification:`, error);
-  }
 }
