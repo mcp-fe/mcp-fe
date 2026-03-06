@@ -11,6 +11,8 @@ function deriveWsUrl(httpUrl) {
 
 const mcpServerUrl = process.env.MCP_SERVER_URL || 'http://localhost:3001';
 const mcpWsUrl = process.env.MCP_WS_URL || deriveWsUrl(mcpServerUrl);
+// Public-facing MCP URL shown to users (e.g. https://api.mcp-fe.ai). Falls back to mcpServerUrl.
+const mcpPublicUrl = process.env.MCP_PUBLIC_URL || mcpServerUrl;
 
 module.exports = {
   output: {
@@ -47,6 +49,7 @@ module.exports = {
       'process.env.MCP_SERVER_URL': JSON.stringify(mcpServerUrl),
       'process.env.MCP_WS_URL': JSON.stringify(mcpWsUrl),
       'process.env.MCP_BUILD_ID': JSON.stringify(Date.now().toString()),
+      'process.env.MCP_PUBLIC_URL': JSON.stringify(mcpPublicUrl),
     }),
     new NxAppRspackPlugin({
       tsConfig: './tsconfig.app.json',

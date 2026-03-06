@@ -148,7 +148,8 @@ h2 {
 
 .sidebar-content {
   flex: 1;
-  display: grid;
+  display: flex;
+  flex-flow: column;
   overflow: clip;
   height: 100%;
 }

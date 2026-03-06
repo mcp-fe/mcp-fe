@@ -1,8 +1,12 @@
 /**
- * JWT auth module – supports two modes controlled by AUTH_MODE env variable:
+ * JWT auth module – supports three modes controlled by AUTH_MODE env variable:
+ *
+ *  demo     – Any non-empty string token is accepted as-is and used directly as the session ID.
+ *             Intended for public demo deployments. No JWT signing or verification.
+ *             Users pass their token via ?token= query param in the MCP server URL.
  *
  *  local    – Server signs tokens with HS256 (JWT_SECRET). Use /auth/token to obtain a token.
- *             Suitable for demo / standalone deployments.
+ *             Suitable for standalone deployments.
  *
  *  keycloak – Server validates tokens issued by Keycloak via JWKS (RS256/ES256).
  *             Clients send their Keycloak access token directly – no /auth/token endpoint needed.
@@ -10,7 +14,7 @@
  */
 import { jwtVerify, SignJWT, createRemoteJWKSet } from 'jose';
 
-export const AUTH_MODE = (process.env.AUTH_MODE || 'local') as 'local' | 'keycloak';
+export const AUTH_MODE = (process.env.AUTH_MODE || 'local') as 'demo' | 'local' | 'keycloak';
 
 // ── Local mode ────────────────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'mcp-mock-secret-key-do-not-use-in-production';
@@ -23,7 +27,9 @@ const KEYCLOAK_AUDIENCE = process.env.KEYCLOAK_AUDIENCE;
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-if (AUTH_MODE === 'keycloak') {
+if (AUTH_MODE === 'demo') {
+  console.warn('[Auth] Mode: demo | Any non-empty token is accepted as session ID. DO NOT use in production!');
+} else if (AUTH_MODE === 'keycloak') {
   if (!KEYCLOAK_JWKS_URI) throw new Error('[Auth] KEYCLOAK_JWKS_URI is required when AUTH_MODE=keycloak');
   if (!KEYCLOAK_ISSUER) throw new Error('[Auth] KEYCLOAK_ISSUER is required when AUTH_MODE=keycloak');
   jwks = createRemoteJWKSet(new URL(KEYCLOAK_JWKS_URI));
@@ -42,18 +48,34 @@ if (AUTH_MODE === 'keycloak') {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Verifies a JWT token and returns the sessionId (sub claim), or null if invalid.
- * Works in both local and keycloak modes.
+ * Verifies a token and returns the sessionId, or null if invalid.
+ *
+ * demo mode:     any non-empty string is accepted as-is.
+ * local mode:    validates HS256 JWT, returns sub claim.
+ * keycloak mode: validates RS256/ES256 JWT via JWKS, returns sub claim.
  */
 export async function verifyToken(token?: string | string[] | null): Promise<string | null> {
   if (!token) return null;
   try {
     const tokenStr = Array.isArray(token) ? token[0] : token.toString();
 
+    if (AUTH_MODE === 'demo') {
+      if (tokenStr.length < 8) {
+        console.warn('[Auth] Demo token rejected: too short');
+        return null;
+      }
+      console.log(`[Auth] Demo session accepted for token: ${tokenStr}`);
+      return tokenStr;
+    }
+
     let sub: unknown;
 
     if (AUTH_MODE === 'keycloak') {
-      const { payload } = await jwtVerify(tokenStr, jwks!, {
+      if (!jwks) {
+        console.error('[Auth] JWKS not initialized');
+        return null;
+      }
+      const { payload } = await jwtVerify(tokenStr, jwks, {
         issuer: KEYCLOAK_ISSUER,
         ...(KEYCLOAK_AUDIENCE ? { audience: KEYCLOAK_AUDIENCE } : {}),
       });

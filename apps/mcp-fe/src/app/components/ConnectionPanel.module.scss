@@ -31,6 +31,58 @@
   }
 }
 
+.mcpUrl {
+  label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: #555;
+  }
+}
+
+.mcpUrlRow {
+  display: flex;
+  gap: 0.5rem;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 0.75rem;
+    font-family: monospace;
+    background-color: #f0f7ff;
+    box-sizing: border-box;
+    cursor: text;
+  }
+}
+
+.mcpUrlWarning {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #856404;
+}
+
+.copyButton {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+  background-color: #e8f0fe;
+  color: #0066cc;
+  border: 1px solid #b3d0f5;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: #cce0ff;
+  }
+}
+
 .statusBadge {
   display: flex;
   align-items: center;

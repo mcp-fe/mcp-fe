@@ -1,6 +1,22 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
 
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'http://localhost:3001';
+const TOKEN_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function getOrCreateSessionUser(): string {
+  const stored = localStorage.getItem('mcp_session_user');
+  const createdAt = parseInt(localStorage.getItem('mcp_session_user_created_at') || '0', 10);
+  const isExpired = !createdAt || Date.now() - createdAt > TOKEN_MAX_AGE_MS;
+
+  if (stored && !isExpired) {
+    return stored;
+  }
+
+  const newId = crypto.randomUUID();
+  localStorage.setItem('mcp_session_user', newId);
+  localStorage.setItem('mcp_session_user_created_at', Date.now().toString());
+  return newId;
+}
 
 async function fetchToken(sessionUser: string): Promise<string> {
   const res = await fetch(`${MCP_SERVER_URL}/auth/token`, {
@@ -34,15 +50,11 @@ export function SessionProvider({ children }: SessionProviderProps) {
   // effect below. Using a cached token from localStorage risks sending an
   // expired or client-signed token before the server issues a valid one.
   const [token, setToken] = useState<string | null>(null);
-  const [sessionUser, setSessionUser] = useState<string>(() => {
-    return (
-      localStorage.getItem('mcp_session_user') ||
-      'user_' + Math.random().toString(36).substring(7)
-    );
-  });
+  const [sessionUser, setSessionUser] = useState<string>(getOrCreateSessionUser);
 
   useEffect(() => {
     localStorage.setItem('mcp_session_user', sessionUser);
+    localStorage.setItem('mcp_session_user_created_at', Date.now().toString());
     localStorage.removeItem('jwtTokenMock'); // remove any stale cached token
     fetchToken(sessionUser)
       .then((jwt) => {
