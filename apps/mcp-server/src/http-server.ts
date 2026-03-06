@@ -103,13 +103,18 @@ export function createHTTPServer(
     next();
   });
 
-  // Token issuance – only available in local auth mode
+  // Token issuance – available in local and demo auth modes
+  // In demo mode the sessionUser is returned as-is (no JWT signing)
   // In keycloak mode clients use their Keycloak access token directly
-  if (AUTH_MODE === 'local') {
+  if (AUTH_MODE === 'local' || AUTH_MODE === 'demo') {
     app.post('/auth/token', async (req, res) => {
       const sessionUser = req.body?.sessionUser;
       if (!sessionUser || typeof sessionUser !== 'string') {
         res.status(400).json({ error: 'sessionUser is required' });
+        return;
+      }
+      if (AUTH_MODE === 'demo') {
+        res.json({ token: sessionUser });
         return;
       }
       try {
