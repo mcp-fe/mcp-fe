@@ -129,18 +129,22 @@ export class SessionManager {
    */
   async notifyToolsChange(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
-    if (session?.mcpServer) {
-      try {
-        await session.mcpServer.sendToolListChanged();
-        console.debug(
-          `[MCP] Sent tools/list_changed notification to session: ${sessionId}`,
-        );
-      } catch (error) {
-        console.warn(
-          `[MCP] Failed to send tools notification for session ${sessionId}:`,
-          error,
-        );
-      }
+    if (!session?.mcpServer || !session.transport) {
+      console.debug(
+        `[MCP] Skipping tools/list_changed – no active transport for session: ${sessionId}`,
+      );
+      return;
+    }
+    try {
+      await session.mcpServer.sendToolListChanged();
+      console.debug(
+        `[MCP] Sent tools/list_changed notification to session: ${sessionId}`,
+      );
+    } catch (error) {
+      console.warn(
+        `[MCP] Failed to send tools notification for session ${sessionId}:`,
+        error,
+      );
     }
   }
 

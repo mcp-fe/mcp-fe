@@ -5,6 +5,7 @@ import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js
 import { verifyToken, issueToken, AUTH_MODE } from './auth';
 import { SessionManager } from './session-manager';
 import { WebSocketManager } from './websocket-manager';
+import { SessionEventStore } from './session-event-store';
 
 /**
  * Checks if a request body is an MCP initialize request
@@ -171,6 +172,7 @@ export function createHTTPServer(
 
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => authSessionId,
+        eventStore: new SessionEventStore(),
         onsessioninitialized: (sessionId) => {
           sessionManager.attachTransport(sessionId, transport);
         },
