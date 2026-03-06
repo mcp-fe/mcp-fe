@@ -127,7 +127,7 @@ export class SessionManager {
   /**
    * Notify MCP client about tools list change
    */
-  private async notifyToolsChange(sessionId: string): Promise<void> {
+  async notifyToolsChange(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (session?.mcpServer) {
       try {

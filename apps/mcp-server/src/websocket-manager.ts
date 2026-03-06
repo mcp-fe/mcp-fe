@@ -49,35 +49,45 @@ export class WebSocketManager {
   }
 
   /**
-   * Handle a message from a service worker (typically a response to a request)
+   * Handle a message from a service worker (response or notification)
    */
   handleMessage(sessionId: string, message: any): void {
-    // Handle MCP protocol messages (JSON-RPC)
-    if (message.jsonrpc === '2.0' && message.id !== undefined) {
-      // Handle responses (result or error)
-      if (message.result !== undefined || message.error !== undefined) {
-        const handlerKey = `${sessionId}:${message.id}`;
-        const handler = this.pendingRequests.get(handlerKey);
+    if (message.jsonrpc !== '2.0') return;
 
-        if (handler) {
-          console.debug(
-            `[WS] Response handler found for session ${sessionId}, id: ${message.id}`,
+    // Notifications have no id – forward to the MCP session
+    if (message.id === undefined && message.method) {
+      if (message.method === 'notifications/tools/list_changed') {
+        console.debug(`[WS] Forwarding tools/list_changed notification for session ${sessionId}`);
+        this.sessionManager.notifyToolsChange(sessionId).catch((err) => {
+          console.warn(`[WS] Failed to forward tools/list_changed for ${sessionId}:`, err);
+        });
+      }
+      return;
+    }
+
+    // Responses (result or error)
+    if (message.id !== undefined && (message.result !== undefined || message.error !== undefined)) {
+      const handlerKey = `${sessionId}:${message.id}`;
+      const handler = this.pendingRequests.get(handlerKey);
+
+      if (handler) {
+        console.debug(
+          `[WS] Response handler found for session ${sessionId}, id: ${message.id}`,
+        );
+        if (message.error) {
+          handler.reject(
+            new Error(
+              message.error.message || 'Unknown error from Service Worker',
+            ),
           );
-          if (message.error) {
-            handler.reject(
-              new Error(
-                message.error.message || 'Unknown error from Service Worker',
-              ),
-            );
-          } else {
-            handler.resolve(message);
-          }
-          this.pendingRequests.delete(handlerKey);
         } else {
-          console.warn(
-            `[WS] No pending request handler found for session ${sessionId}, id: ${message.id}`,
-          );
+          handler.resolve(message);
         }
+        this.pendingRequests.delete(handlerKey);
+      } else {
+        console.warn(
+          `[WS] No pending request handler found for session ${sessionId}, id: ${message.id}`,
+        );
       }
     }
   }
