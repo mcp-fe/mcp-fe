@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Onboarding } from './Onboarding';
 
 export const HomePage = () => (
   <div>
@@ -12,6 +13,8 @@ export const HomePage = () => (
       frontend - agents can read component state, send data to components, and
       you can register custom tools directly from React components.
     </p>
+
+    <Onboarding />
 
     <div
       className="feature-highlight"

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { HomePage } from '../pages/HomePage';
+import { HomePage } from '../pages/HomePage/HomePage';
 import { HowItWorksPage } from '../pages/HowItWorksPage';
 import { FormsPage } from '../pages/FormsPage';
 import { DataTablePage } from '../pages/DataTablePage';
