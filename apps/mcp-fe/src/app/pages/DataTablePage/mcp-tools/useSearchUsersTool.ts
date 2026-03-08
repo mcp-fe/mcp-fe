@@ -1,7 +1,7 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
 import { User } from '../types';
 
-interface UseSearchUsersTool {
+interface UseSearchUsersToolProps {
   users: User[];
 }
 
@@ -13,7 +13,7 @@ interface UseSearchUsersTool {
  * - Role (Admin, User, Editor)
  * - Status (active, inactive, pending)
  */
-export const useSearchUsersTool = ({ users }: UseSearchUsersTool) => {
+export const useSearchUsersTool = (props: UseSearchUsersToolProps | null) => {
   useMCPTool({
     name: 'search_users_table',
     description: 'Search users in the data table by name or email',
@@ -38,6 +38,14 @@ export const useSearchUsersTool = ({ users }: UseSearchUsersTool) => {
       required: ['query'],
     },
     handler: async (args: unknown) => {
+      if (!props) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /data-table to use this tool.' }],
+        };
+      }
+
+      const { users } = props;
       const typedArgs = args as {
         query: string;
         role?: string;

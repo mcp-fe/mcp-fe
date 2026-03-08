@@ -1,7 +1,7 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
 import { User } from '../types';
 
-interface UseSelectedUsersTool {
+interface UseSelectedUsersToolProps {
   users: User[];
   selectedUsers: number[];
 }
@@ -12,10 +12,7 @@ interface UseSelectedUsersTool {
  * Provides AI agents access to the list of users
  * that are currently selected in the data table.
  */
-export const useSelectedUsersTool = ({
-  users,
-  selectedUsers,
-}: UseSelectedUsersTool) => {
+export const useSelectedUsersTool = (props: UseSelectedUsersToolProps | null) => {
   useMCPTool({
     name: 'get_selected_users',
     description: 'Get the list of currently selected users in the data table',
@@ -24,6 +21,14 @@ export const useSelectedUsersTool = ({
       properties: {},
     },
     handler: async () => {
+      if (!props) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /data-table to use this tool.' }],
+        };
+      }
+
+      const { users, selectedUsers } = props;
       const selected = users.filter((u) => selectedUsers.includes(u.id));
 
       return {

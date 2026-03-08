@@ -29,7 +29,7 @@ const formCompletionOutputSchema = z.object({
  * MCP Tool: Get form completion progress
  * Returns progress information and which fields are filled with structured output
  */
-export function useFormCompletionTool(formData: FormData) {
+export function useFormCompletionTool(formData: FormData | null) {
   useMCPTool({
     name: 'get_form_completion',
     description:
@@ -37,6 +37,13 @@ export function useFormCompletionTool(formData: FormData) {
     inputSchema: formCompletionInputSchema.toJSONSchema(),
     outputSchema: formCompletionOutputSchema.toJSONSchema(),
     handler: async () => {
+      if (!formData) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /forms to use this tool.' }],
+        };
+      }
+
       const requiredFields: (keyof FormData)[] = [
         'firstName',
         'lastName',

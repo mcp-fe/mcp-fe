@@ -285,6 +285,62 @@ export const HowItWorksPage = () => (
     </div>
 
     <div
+      className="design-decisions"
+      style={{
+        marginTop: '2rem',
+        padding: '1.5rem',
+        backgroundColor: '#fdf6ff',
+        border: '1px solid #c084fc',
+        borderRadius: '8px',
+      }}
+    >
+      <h3>Demo Design Decisions</h3>
+      <p>
+        Some implementation choices in this demo exist because of real-world
+        constraints with how MCP clients work today. Here's why things are built
+        the way they are.
+      </p>
+
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h4>⚡ Why are tools registered at startup, not per-page?</h4>
+        <p>
+          The MCP protocol lets a server notify clients when its tool list
+          changes via <code>notifications/tools/list_changed</code>. In theory,
+          page-specific tools could be registered lazily when a page mounts and
+          unregistered when it unmounts — and the connected AI agent would pick
+          up the change.
+        </p>
+        <p>
+          In practice,{' '}
+          <strong>many MCP clients don't re-fetch the tool list</strong> when
+          they receive this notification. They call <code>tools/list</code> once
+          at connection time and cache the result. If you connect your AI agent
+          before navigating to the Forms or Data Table page, those tools simply
+          won't be available for the rest of the session.
+        </p>
+        <p>
+          To work around this, all page-specific tools in this demo are
+          registered <strong>immediately at application startup</strong> and
+          stay registered permanently. When a tool is called while the user
+          isn't on the relevant page, it returns a clear error message instead
+          of crashing:
+        </p>
+        <pre
+          style={{
+            background: '#1e1e1e',
+            color: '#d4d4d4',
+            padding: '1rem',
+            borderRadius: '6px',
+            fontSize: '0.85rem',
+            overflowX: 'auto',
+          }}
+        >
+          {`{ "isError": true, "content": [{ "text": "Navigate to /forms to use this tool." }] }`}
+        </pre>
+      </div>
+    </div>
+
+    <div
       className="example-flow"
       style={{
         marginTop: '2rem',

@@ -29,10 +29,10 @@ const submitFormOutputSchema = z.object({
  * Validates and submits the registration form with structured output
  */
 export function useSubmitFormTool(
-  formData: FormData,
+  formData: FormData | null,
   validateForm: (data: FormData) => Partial<FormData>,
-  setValidationErrors: React.Dispatch<React.SetStateAction<Partial<FormData>>>,
-  setFormData: React.Dispatch<React.SetStateAction<FormData>>,
+  setValidationErrors: React.Dispatch<React.SetStateAction<Partial<FormData>>> | null,
+  setFormData: React.Dispatch<React.SetStateAction<FormData>> | null,
 ) {
   useMCPTool({
     name: 'submit_form',
@@ -41,6 +41,13 @@ export function useSubmitFormTool(
     inputSchema: submitFormInputSchema.toJSONSchema(),
     outputSchema: submitFormOutputSchema.toJSONSchema(),
     handler: async () => {
+      if (!formData || !setValidationErrors || !setFormData) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /forms to use this tool.' }],
+        };
+      }
+
       const errors = validateForm(formData);
       setValidationErrors(errors);
 

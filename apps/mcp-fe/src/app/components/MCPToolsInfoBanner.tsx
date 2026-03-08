@@ -15,6 +15,7 @@ export interface MCPToolsInfoBannerProps {
   icon?: string;
   iconLabel?: string;
   tools?: MCPTool[]; // Optional - if not provided, will fetch from registry
+  toolNames?: readonly string[]; // Optional - show only these specific tools from registry
   filterPattern?: RegExp; // Optional - filter tools by name pattern
 }
 
@@ -24,6 +25,7 @@ export const MCPToolsInfoBanner = ({
   icon = '🔧',
   iconLabel = 'tools',
   tools: providedTools,
+  toolNames,
   filterPattern,
 }: MCPToolsInfoBannerProps) => {
   const [tools, setTools] = useState<MCPTool[]>(providedTools || []);
@@ -44,7 +46,12 @@ export const MCPToolsInfoBanner = ({
           const details = getToolDetails(name);
           if (!details) return null;
 
-          // Apply filter if provided
+          // Apply toolNames allowlist if provided
+          if (toolNames && !toolNames.includes(name)) {
+            return null;
+          }
+
+          // Apply filter pattern if provided
           if (filterPattern && !filterPattern.test(name)) {
             return null;
           }
@@ -66,7 +73,7 @@ export const MCPToolsInfoBanner = ({
     const interval = setInterval(fetchTools, 1000);
 
     return () => clearInterval(interval);
-  }, [providedTools, filterPattern]);
+  }, [providedTools, toolNames, filterPattern]);
 
   // Don't render if no tools
   if (tools.length === 0) {

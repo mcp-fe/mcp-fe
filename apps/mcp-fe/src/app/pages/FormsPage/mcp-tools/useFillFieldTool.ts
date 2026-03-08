@@ -35,16 +35,22 @@ const fillFieldOutputSchema = z.object({
  * Allows AI to fill a specific form field with a value
  */
 export function useFillFieldTool(
-  formData: FormData,
-  setFormData: React.Dispatch<React.SetStateAction<FormData>>,
+  formData: FormData | null,
+  setFormData: React.Dispatch<React.SetStateAction<FormData>> | null,
 ) {
-  console.log(fillFieldInputSchema.toJSONSchema());
   useMCPTool({
     name: 'fill_field',
     description: 'Fill a specific form field with a value.',
     inputSchema: fillFieldInputSchema.toJSONSchema(),
     outputSchema: fillFieldOutputSchema.toJSONSchema(),
     handler: async (args: unknown) => {
+      if (!formData || !setFormData) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /forms to use this tool.' }],
+        };
+      }
+
       const { fieldName, value: valueArg } = args as {
         fieldName: keyof FormData;
         value: string;

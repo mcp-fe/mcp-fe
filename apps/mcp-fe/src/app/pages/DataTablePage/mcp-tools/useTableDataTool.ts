@@ -23,19 +23,7 @@ interface UseTableDataToolProps {
  * - Selected users count
  * - Optional: current filter settings
  */
-export const useTableDataTool = (props: UseTableDataToolProps) => {
-  const {
-    filteredAndSortedUsers,
-    currentPage,
-    itemsPerPage,
-    selectedUsers,
-    searchTerm,
-    filterRole,
-    filterStatus,
-    sortField,
-    sortDirection,
-  } = props;
-
+export const useTableDataTool = (props: UseTableDataToolProps | null) => {
   useMCPTool({
     name: 'get_users_table_data',
     description:
@@ -51,6 +39,24 @@ export const useTableDataTool = (props: UseTableDataToolProps) => {
       },
     },
     handler: async (args: unknown) => {
+      if (!props) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /data-table to use this tool.' }],
+        };
+      }
+
+      const {
+        filteredAndSortedUsers,
+        currentPage,
+        itemsPerPage,
+        selectedUsers,
+        searchTerm,
+        filterRole,
+        filterStatus,
+        sortField,
+        sortDirection,
+      } = props;
       const typedArgs = args as { includeFilters?: boolean };
       const tableData = {
         users: filteredAndSortedUsers,

@@ -3,15 +3,7 @@ import { FormData } from './types';
 import { validateForm } from './formValidation';
 import { MCPToolsInfo } from './MCPToolsInfo';
 import { RegistrationForm } from './RegistrationForm';
-import {
-  useFormStateTool,
-  useSubmitFormTool,
-  useFormCompletionTool,
-  useFieldInfoTool,
-  useValidateFormTool,
-  useFormAnalyticsTool,
-  useFillFieldTool,
-} from './mcp-tools';
+import { useFormsMCPTools } from './mcp-tools/useFormsMCPTools';
 
 export const FormsPage = () => {
   const [formData, setFormData] = useState<FormData>({
@@ -28,6 +20,8 @@ export const FormsPage = () => {
   const [validationErrors, setValidationErrors] = useState<Partial<FormData>>(
     {},
   );
+
+  useFormsMCPTools({ formData, validationErrors, setFormData, setValidationErrors });
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -72,16 +66,6 @@ export const FormsPage = () => {
       );
     }
   };
-
-  // ===== MCP Tools Integration =====
-  // Register all MCP tools for form state inspection
-  useFormStateTool(formData);
-  useSubmitFormTool(formData, validateForm, setValidationErrors, setFormData);
-  useFormCompletionTool(formData);
-  useFieldInfoTool(formData, validationErrors, validateForm);
-  useValidateFormTool(formData, validateForm);
-  useFormAnalyticsTool(formData);
-  useFillFieldTool(formData, setFormData);
 
   return (
     <div className="forms-page">

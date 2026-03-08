@@ -26,7 +26,7 @@ const formValidationOutputSchema = z.object({
  * Runs validation on the current form state and returns all errors without submitting
  */
 export function useValidateFormTool(
-  formData: FormData,
+  formData: FormData | null,
   validateForm: (data: FormData) => Partial<FormData>,
 ) {
   useMCPTool({
@@ -36,6 +36,13 @@ export function useValidateFormTool(
     inputSchema: validateFormInputSchema.toJSONSchema(),
     outputSchema: formValidationOutputSchema.toJSONSchema(),
     handler: async () => {
+      if (!formData) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /forms to use this tool.' }],
+        };
+      }
+
       const errors = validateForm(formData);
       const validFields = Object.keys(formData).filter(
         (field) => !errors[field as keyof FormData],

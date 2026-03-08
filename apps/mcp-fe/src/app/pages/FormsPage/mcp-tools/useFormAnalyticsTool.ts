@@ -37,13 +37,20 @@ const formAnalyticsOutputSchema = z.object({
  * MCP Tool: Get form analytics/statistics
  * Returns analytics and statistics about the form state with structured output
  */
-export function useFormAnalyticsTool(formData: FormData) {
+export function useFormAnalyticsTool(formData: FormData | null) {
   useMCPTool({
     name: 'get_form_analytics',
     description: 'Get analytics and statistics about the form state',
     inputSchema: formAnalyticsInputSchema.toJSONSchema(),
     outputSchema: formAnalyticsOutputSchema.toJSONSchema(),
     handler: async () => {
+      if (!formData) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /forms to use this tool.' }],
+        };
+      }
+
       const fieldLengths = {
         firstName: formData.firstName.length,
         lastName: formData.lastName.length,

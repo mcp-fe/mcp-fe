@@ -32,7 +32,6 @@ export const DataTablePage = () => {
     itemsPerPage,
   });
 
-  // Register MCP tools for AI agents
   useDataTableMCPTools({
     users,
     filteredAndSortedUsers,

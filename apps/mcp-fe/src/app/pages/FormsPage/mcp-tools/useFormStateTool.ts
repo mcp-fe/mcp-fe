@@ -25,7 +25,7 @@ const formStateOutputSchema = z.object({
  * MCP Tool: Get complete form state
  * Exposes the current state of all form fields with structured output
  */
-export function useFormStateTool(formData: FormData) {
+export function useFormStateTool(formData: FormData | null) {
   useMCPTool({
     name: 'get_form_state',
     description:
@@ -33,6 +33,13 @@ export function useFormStateTool(formData: FormData) {
     inputSchema: formStateInputSchema.toJSONSchema(),
     outputSchema: formStateOutputSchema.toJSONSchema(),
     handler: async () => {
+      if (!formData) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /forms to use this tool.' }],
+        };
+      }
+
       const result = {
         formData,
         fieldCount: Object.keys(formData).length,

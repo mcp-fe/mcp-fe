@@ -1,7 +1,7 @@
 import { useMCPTool } from '@mcp-fe/react-tools';
 import { User } from '../types';
 
-interface UseTableStatsTool {
+interface UseTableStatsToolProps {
   users: User[];
   filteredAndSortedUsers: User[];
   selectedUsers: number[];
@@ -21,18 +21,7 @@ interface UseTableStatsTool {
  * - Counts by status (active, inactive, pending)
  * - Current filter information
  */
-export const useTableStatsTool = (props: UseTableStatsTool) => {
-  const {
-    users,
-    filteredAndSortedUsers,
-    selectedUsers,
-    searchTerm,
-    filterRole,
-    filterStatus,
-    sortField,
-    sortDirection,
-  } = props;
-
+export const useTableStatsTool = (props: UseTableStatsToolProps | null) => {
   useMCPTool({
     name: 'get_users_table_stats',
     description:
@@ -42,6 +31,23 @@ export const useTableStatsTool = (props: UseTableStatsTool) => {
       properties: {},
     },
     handler: async () => {
+      if (!props) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /data-table to use this tool.' }],
+        };
+      }
+
+      const {
+        users,
+        filteredAndSortedUsers,
+        selectedUsers,
+        searchTerm,
+        filterRole,
+        filterStatus,
+        sortField,
+        sortDirection,
+      } = props;
       const stats = {
         total: users.length,
         filtered: filteredAndSortedUsers.length,

@@ -32,8 +32,8 @@ const fieldInfoOutputSchema = z.object({
  * Returns detailed information about a specific form field with structured output
  */
 export function useFieldInfoTool(
-  formData: FormData,
-  validationErrors: Partial<FormData>,
+  formData: FormData | null,
+  validationErrors: Partial<FormData> | null,
   validateForm: (data: FormData) => Partial<FormData>,
 ) {
   useMCPTool({
@@ -42,6 +42,13 @@ export function useFieldInfoTool(
     inputSchema: fieldInfoInputSchema.toJSONSchema(),
     outputSchema: fieldInfoOutputSchema.toJSONSchema(),
     handler: async (args: unknown) => {
+      if (!formData || !validationErrors) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Navigate to /forms to use this tool.' }],
+        };
+      }
+
       const { fieldName } = args as { fieldName: keyof FormData };
       const value = formData[fieldName];
       const error = validationErrors[fieldName];
