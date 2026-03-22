@@ -25,7 +25,9 @@ export function App() {
   const { events } = useStoredEvents(1000);
   const location = useLocation();
   const [showInstructions, setShowInstructions] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(
+    typeof window !== 'undefined' ? window.innerWidth > 768 : true,
+  );
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   return (
