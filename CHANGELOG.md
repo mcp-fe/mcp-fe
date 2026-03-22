@@ -1,5 +1,19 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- **ServiceWorker fallback broken after page reload** (`libs/mcp-worker`)
+  - `initServiceWorkerFallback` returned early when an existing registration was found, skipping both the message listener setup and the `INIT` message to the worker. On every subsequent page load the worker never received `backendUrl` → never connected to the backend, and the client never received `CALL_TOOL` or `CONNECTION_STATUS`.
+  - Fixed by merging the existing/new registration branches — the message listener and `INIT` are now always set up regardless of which path is taken.
+  - Added `CONNECTION_STATUS` handling to the ServiceWorker message listener (mirroring the SharedWorker path) — `connectionStatusCallbacks` are now notified when using the ServiceWorker fallback.
+  - For a freshly registered ServiceWorker (where `.active` is still `null`) `INIT` is now deferred until `navigator.serviceWorker.ready` resolves, preventing the message from being silently dropped.
+
+- **`MCPToolsProvider` repeatedly re-running initialization** (`libs/react-tools`)
+  - The `initialize` callback had unstable references (`initOptions`, `onInitialized`, `onInitError`) in its `useCallback` deps — these are typically inline objects/functions from the parent. Every parent re-render produced a new `initialize` instance, which re-triggered `useEffect([autoInit, initialize])` and logged `[MCPToolsProvider] Already initialized` on each cycle.
+  - Fixed by moving those dependencies into refs (always-current ref pattern), giving `initialize` an empty dep array and making it stable for the lifetime of the component.
+  - Replaced the `if (isInitialized)` stale-closure check with `if (workerClient.initialized)`, reading state directly from the singleton instead of a captured React state value.
+
+
 ### 🔐 Security
 
 - **Strict JWT Verification**: The proxy server now cryptographically verifies JWT signatures instead of blindly decoding the `sub` claim.

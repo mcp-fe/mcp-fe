@@ -598,93 +598,101 @@ export class WorkerClient {
   }
 
   private async initServiceWorkerFallback(): Promise<void> {
-    if ('serviceWorker' in navigator) {
-      try {
-        const existingRegistration =
-          await navigator.serviceWorker.getRegistration();
-        if (existingRegistration) {
-          this.serviceWorkerRegistration = existingRegistration;
-          this.workerType = 'service';
-          logger.info(
-            '[WorkerClient] Using existing ServiceWorker registration',
-          );
-          return;
-        }
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('Neither SharedWorker nor ServiceWorker is supported');
+    }
 
+    try {
+      const existingRegistration =
+        await navigator.serviceWorker.getRegistration();
+      if (existingRegistration) {
+        this.serviceWorkerRegistration = existingRegistration;
+        this.workerType = 'service';
+        logger.info('[WorkerClient] Using existing ServiceWorker registration');
+      } else {
         this.serviceWorkerRegistration = await navigator.serviceWorker.register(
           this.serviceWorkerUrl,
         );
         this.workerType = 'service';
+        logger.info('[WorkerClient] Using MCP ServiceWorker (fallback)');
+      }
 
-        // Setup message listener for ServiceWorker
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.addEventListener(
-            'message',
-            (ev: MessageEvent) => {
-              try {
-                const data = ev.data;
-                if (data && data.type === 'CALL_TOOL') {
-                  // Check if this call is intended for this tab
-                  const targetTabId = data.targetTabId;
-
-                  if (targetTabId && targetTabId !== this.tabId) {
-                    // Not for this tab, ignore
-                    logger.log(
-                      `[WorkerClient] Ignoring CALL_TOOL (not for this tab): ${data.toolName}`,
-                      { targetTabId, myTabId: this.tabId },
-                    );
-                    return;
-                  }
-
-                  // Worker is asking us to execute a tool handler
-                  this.handleToolCall(
-                    data.toolName,
-                    data.args,
-                    data.callId,
-                  ).catch((error) => {
-                    logger.error(
-                      '[WorkerClient] Failed to handle tool call:',
-                      error,
-                    );
-                  });
+      // Setup message listener for ServiceWorker (always, regardless of whether registration is new or existing)
+      navigator.serviceWorker.addEventListener(
+        'message',
+        (ev: MessageEvent) => {
+          try {
+            const data = ev.data;
+            if (data && data.type === 'CONNECTION_STATUS') {
+              const connected = !!data.connected;
+              this.connectionStatusCallbacks.forEach((cb) => {
+                try {
+                  cb(connected);
+                } catch {
+                  /* ignore callback errors */
                 }
-              } catch (error) {
+              });
+            } else if (data && data.type === 'CALL_TOOL') {
+              // Check if this call is intended for this tab
+              const targetTabId = data.targetTabId;
+
+              if (targetTabId && targetTabId !== this.tabId) {
+                // Not for this tab, ignore
+                logger.log(
+                  `[WorkerClient] Ignoring CALL_TOOL (not for this tab): ${data.toolName}`,
+                  { targetTabId, myTabId: this.tabId },
+                );
+                return;
+              }
+
+              // Worker is asking us to execute a tool handler
+              this.handleToolCall(
+                data.toolName,
+                data.args,
+                data.callId,
+              ).catch((error) => {
                 logger.error(
-                  '[WorkerClient] Error processing ServiceWorker message:',
+                  '[WorkerClient] Failed to handle tool call:',
                   error,
                 );
-              }
-            },
-          );
-        }
-
-        logger.info('[WorkerClient] Using MCP ServiceWorker (fallback)');
-        // Send INIT (backend URL + optional token) to service worker (best-effort)
-        try {
-          const initMsg: Record<string, unknown> = {
-            type: 'INIT',
-            backendUrl: this.backendWsUrl,
-          };
-          if (this.pendingAuthToken) initMsg['token'] = this.pendingAuthToken;
-          if (this.serviceWorkerRegistration.active) {
-            this.serviceWorkerRegistration.active.postMessage(initMsg);
-          } else if (
-            'serviceWorker' in navigator &&
-            navigator.serviceWorker.controller
-          ) {
-            navigator.serviceWorker.controller.postMessage(initMsg);
+              });
+            }
+          } catch (error) {
+            logger.error(
+              '[WorkerClient] Error processing ServiceWorker message:',
+              error,
+            );
           }
-          // clear pending token after sending INIT
+        },
+      );
+
+      // Send INIT once an active worker is available
+      try {
+        const initMsg: Record<string, unknown> = {
+          type: 'INIT',
+          backendUrl: this.backendWsUrl,
+        };
+        if (this.pendingAuthToken) initMsg['token'] = this.pendingAuthToken;
+
+        const sendInit = (worker: ServiceWorker) => {
+          worker.postMessage(initMsg);
           this.pendingAuthToken = null;
-        } catch {
-          // ignore
+        };
+
+        if (this.serviceWorkerRegistration.active) {
+          sendInit(this.serviceWorkerRegistration.active);
+        } else {
+          // Worker is still installing/activating — wait for it to become active
+          navigator.serviceWorker.ready.then((reg) => {
+            if (reg.active) sendInit(reg.active);
+          });
         }
-      } catch (error) {
-        logger.error('[WorkerClient] Failed to register ServiceWorker:', error);
-        throw error;
+      } catch {
+        // ignore INIT send errors; worker will be uninitialized but won't crash
       }
-    } else {
-      throw new Error('Neither SharedWorker nor ServiceWorker is supported');
+    } catch (error) {
+      logger.error('[WorkerClient] Failed to register ServiceWorker:', error);
+      throw error;
     }
   }
 
