@@ -15,6 +15,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
 } from 'react';
@@ -148,23 +149,30 @@ export function MCPToolsProvider({
   const [isConnected, setIsConnected] = useState(false);
   const [registeredTools] = useState<string[]>([]);
 
+  // Use refs for options/callbacks so they don't cause initialize to be recreated on every render
+  const initOptionsRef = useRef(initOptions);
+  const backendWsUrlRef = useRef(backendWsUrl);
+  const onInitializedRef = useRef(onInitialized);
+  const onInitErrorRef = useRef(onInitError);
+  // Keep refs in sync with latest props (without triggering re-creation of initialize)
+  initOptionsRef.current = initOptions;
+  backendWsUrlRef.current = backendWsUrl;
+  onInitializedRef.current = onInitialized;
+  onInitErrorRef.current = onInitError;
+
   const initialize = useCallback(
     async (options?: WorkerClientInitOptions) => {
-      if (isInitialized) {
+      if (workerClient.initialized) {
         console.log('[MCPToolsProvider] Already initialized');
         return;
       }
 
       try {
-        const opts = options || initOptions || { backendWsUrl };
+        const opts =
+          options || initOptionsRef.current || { backendWsUrl: backendWsUrlRef.current };
 
         console.log('[MCPToolsProvider] Initializing worker client...', opts);
         await workerClient.init(opts);
-
-        if (authToken) {
-          console.log('[MCPToolsProvider] Setting auth token...');
-          workerClient.setAuthToken(authToken);
-        }
 
         setIsInitialized(true);
 
@@ -178,23 +186,16 @@ export function MCPToolsProvider({
         });
 
         console.log('[MCPToolsProvider] Worker client initialized');
-        onInitialized?.();
+        onInitializedRef.current?.();
       } catch (error) {
         console.error('[MCPToolsProvider] Initialization failed:', error);
-        onInitError?.(
+        onInitErrorRef.current?.(
           error instanceof Error ? error : new Error(String(error)),
         );
         throw error;
       }
     },
-    [
-      isInitialized,
-      initOptions,
-      backendWsUrl,
-      authToken,
-      onInitialized,
-      onInitError,
-    ],
+    [], // stable — all dependencies accessed via refs
   );
 
   const getConnectionStatus = useCallback(async () => {
