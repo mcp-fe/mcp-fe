@@ -1,4 +1,5 @@
 import { Link, Routes, Route, useLocation } from 'react-router-dom';
+import styles from './NavigationPage.module.scss';
 
 const navigationItems = [
   { id: 'overview', label: 'Overview', icon: '📋', path: '/navigation' },
@@ -60,16 +61,8 @@ const OverviewSection = () => (
       </li>
     </ul>
 
-    <div
-      style={{
-        background: '#f0f7ff',
-        padding: '1rem',
-        borderRadius: '6px',
-        marginTop: '1.5rem',
-        borderLeft: '4px solid var(--primary-color)',
-      }}
-    >
-      <p style={{ margin: 0, fontWeight: 500 }}>
+    <div className={styles.infoBox}>
+      <p>
         💡 <strong>Try it now:</strong> Click through the sections in the left
         sidebar and watch the <strong>Live Event Log</strong> in the right
         sidebar. Every navigation is automatically tracked - no extra code
@@ -78,8 +71,8 @@ const OverviewSection = () => (
     </div>
 
     <h4 style={{ marginTop: '2rem', marginBottom: '1rem' }}>Key Benefits:</h4>
-    <div className="feature-grid">
-      <div className="feature-item">
+    <div className={styles.featureGrid}>
+      <div className={styles.featureItem}>
         <h4>🚀 No Manual Tracking</h4>
         <p>
           Just add one hook to your app. No need to manually track{' '}
@@ -87,7 +80,7 @@ const OverviewSection = () => (
           route changes - it's all automatic.
         </p>
       </div>
-      <div className="feature-item">
+      <div className={styles.featureItem}>
         <h4>🔄 Works with Any Router</h4>
         <p>
           Support for both <strong>React Router v6+</strong> and{' '}
@@ -95,7 +88,7 @@ const OverviewSection = () => (
           tracking.
         </p>
       </div>
-      <div className="feature-item">
+      <div className={styles.featureItem}>
         <h4>📍 Complete Context</h4>
         <p>
           Every navigation event includes full context: previous path, new path,
@@ -103,7 +96,7 @@ const OverviewSection = () => (
           behavior.
         </p>
       </div>
-      <div className="feature-item">
+      <div className={styles.featureItem}>
         <h4>🤖 AI-Ready Data</h4>
         <p>
           Events are immediately available to AI agents via MCP protocol,
@@ -122,7 +115,7 @@ const IntegrationSection = () => (
     <p>
       Getting started with MCP-FE navigation tracking in your React application:
     </p>
-    <div className="code-example">
+    <div className={styles.codeExample}>
       <h4>1. Install the required packages:</h4>
       <pre>{`npm install @mcp-fe/react-event-tracker @mcp-fe/mcp-worker`}</pre>
 
@@ -184,8 +177,8 @@ const ExamplesSection = () => (
       Here are practical examples of how AI agents can leverage navigation
       tracking data:
     </p>
-    <div className="example-scenarios">
-      <div className="scenario">
+    <div>
+      <div className={styles.scenario}>
         <h4>💬 User Journey Analysis</h4>
         <p>
           <strong>Agent Query:</strong> "Show me where the user has navigated in
@@ -204,7 +197,7 @@ const ExamplesSection = () => (
         </p>
       </div>
 
-      <div className="scenario">
+      <div className={styles.scenario}>
         <h4>🎯 Feature Discovery</h4>
         <p>
           <strong>Agent Query:</strong> "Which features has the user explored?"
@@ -221,7 +214,7 @@ const ExamplesSection = () => (
         </p>
       </div>
 
-      <div className="scenario">
+      <div className={styles.scenario}>
         <h4>🐛 Debugging & Support</h4>
         <p>
           <strong>Agent Query:</strong> "What did the user do before
@@ -238,7 +231,7 @@ const ExamplesSection = () => (
         </p>
       </div>
 
-      <div className="scenario">
+      <div className={styles.scenario}>
         <h4>📊 Behavioral Insights</h4>
         <p>
           <strong>Agent Query:</strong> "Is the user having trouble finding
@@ -265,8 +258,8 @@ const TroubleshootingSection = () => (
       If navigation events are not being tracked, follow these steps to diagnose
       the issue:
     </p>
-    <div className="troubleshooting-steps">
-      <div className="step">
+    <div>
+      <div className={styles.step}>
         <h4>✅ Check Connection Status</h4>
         <p>
           Look at the connection panel in the right sidebar. It should show
@@ -278,7 +271,7 @@ const TroubleshootingSection = () => (
         </p>
       </div>
 
-      <div className="step">
+      <div className={styles.step}>
         <h4>🔍 Verify Event Logging</h4>
         <p>
           Check the "Live Event Log" in the right sidebar. You should see
@@ -290,7 +283,7 @@ const TroubleshootingSection = () => (
         </p>
       </div>
 
-      <div className="step">
+      <div className={styles.step}>
         <h4>🔧 Worker Registration</h4>
         <p>
           Open DevTools → Application → Service Workers (or Shared Workers). You
@@ -303,7 +296,7 @@ const TroubleshootingSection = () => (
         </p>
       </div>
 
-      <div className="step">
+      <div className={styles.step}>
         <h4>🌐 MCP Proxy Server</h4>
         <p>
           Ensure the MCP proxy server is running:
@@ -315,7 +308,7 @@ const TroubleshootingSection = () => (
         </p>
       </div>
 
-      <div className="step">
+      <div className={styles.step}>
         <h4>🔐 Authentication</h4>
         <p>
           Make sure you have set a valid JWT token using{' '}
@@ -354,16 +347,16 @@ export const NavigationPage = () => {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <div className="navigation-page">
-      <div className="page-header">
+    <div className={styles.navigationPage}>
+      <div className={styles.pageHeader}>
         <h2>Navigation Demo</h2>
 
         {/* Breadcrumb Navigation */}
-        <nav className="breadcrumb">
+        <nav className={styles.breadcrumb}>
           {breadcrumbs.map((crumb, index) => (
             <span key={index}>
-              {index > 0 && <span className="separator"> / </span>}
-              <Link to={crumb.path} className="breadcrumb-item">
+              {index > 0 && <span className={styles.separator}> / </span>}
+              <Link to={crumb.path} className={styles.breadcrumbItem}>
                 {crumb.label}
               </Link>
             </span>
@@ -371,20 +364,20 @@ export const NavigationPage = () => {
         </nav>
       </div>
 
-      <div className="navigation-layout">
+      <div className={styles.navigationLayout}>
         {/* Sidebar Navigation */}
-        <aside className="navigation-sidebar">
-          <nav className="sidebar-nav">
+        <aside className={styles.navigationSidebar}>
+          <nav className={styles.sidebarNav}>
             <h3>Sections</h3>
             <ul>
               {navigationItems.map((item) => (
                 <li key={item.id}>
                   <Link
                     to={item.path}
-                    className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+                    className={`${styles.navItem} ${location.pathname === item.path ? 'active' : ''}`}
                   >
-                    <span className="nav-icon">{item.icon}</span>
-                    <span className="nav-label">{item.label}</span>
+                    <span className={styles.navIcon}>{item.icon}</span>
+                    <span className={styles.navLabel}>{item.label}</span>
                   </Link>
                 </li>
               ))}
@@ -393,7 +386,7 @@ export const NavigationPage = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="navigation-content">
+        <main className={styles.navigationContent}>
           <Routes>
             <Route path="/" element={<OverviewSection />} />
             <Route path="/integration" element={<IntegrationSection />} />

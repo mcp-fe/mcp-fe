@@ -7,6 +7,7 @@ import { MCPToolsInfo } from './components/MCPToolsInfo';
 import { TableControls } from './components/TableControls';
 import { DataTable } from './components/DataTable';
 import { TablePagination } from './components/TablePagination';
+// styles imported by sub-components
 
 export const DataTablePage = () => {
   // State management
@@ -97,7 +98,7 @@ export const DataTablePage = () => {
   };
 
   return (
-    <div className="data-table-page">
+    <div>
       <h2>Data Table Demo - Interactive Grid</h2>
       <p>
         This data table demonstrates comprehensive interaction tracking

@@ -1,8 +1,7 @@
-// Uncomment this line to use CSS modules
 import { MCPToolsProvider } from '@mcp-fe/react-tools';
 import { useReactRouterEventTracker } from '@mcp-fe/react-event-tracker';
 import { useSessionManager } from './hooks/useSessionManager';
-// import styles from './app.module.scss';
+import styles from './app.module.scss';
 import { Modal } from './components/Modal';
 import { AIAgentInstructions } from './components/AIAgentInstructions';
 import { ConnectionPanel } from './components/ConnectionPanel';
@@ -27,6 +26,7 @@ export function App() {
   const location = useLocation();
   const [showInstructions, setShowInstructions] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   return (
     <MCPToolsProvider
@@ -39,11 +39,11 @@ export function App() {
     >
       <DataTableToolsProvider>
         <FormsToolsProvider>
-          <div className="app-container">
-            <header className="app-header">
-              <div className="header-left">
+          <div className={styles.appContainer}>
+            <header className={styles.appHeader}>
+              <div className={styles.headerLeft}>
                 <h1>MCP-FE Demo</h1>
-                <nav className="header-nav">
+                <nav className={styles.headerNav}>
                   <ul>
                     {ROUTE_DEFINITIONS.map((def) => {
                       const to = navPath(def.path);
@@ -62,14 +62,47 @@ export function App() {
                   </ul>
                 </nav>
               </div>
+
+              {/* Mobile hamburger button */}
+              <button
+                className={styles.mobileNavToggle}
+                onClick={() => setIsMobileNavOpen((prev) => !prev)}
+                aria-label={isMobileNavOpen ? 'Close menu' : 'Open menu'}
+              >
+                {isMobileNavOpen ? '✕' : '☰'}
+              </button>
+
+              {/* Mobile dropdown nav */}
+              <nav
+                className={`${styles.mobileNav} ${isMobileNavOpen ? styles.open : ''}`}
+              >
+                <ul>
+                  {ROUTE_DEFINITIONS.map((def) => {
+                    const to = navPath(def.path);
+                    const isActive =
+                      def.path === '/navigation/*'
+                        ? location.pathname.startsWith('/navigation')
+                        : location.pathname === to;
+                    return (
+                      <li key={def.path}>
+                        <Link
+                          to={to}
+                          className={isActive ? 'active' : ''}
+                          onClick={() => setIsMobileNavOpen(false)}
+                        >
+                          {def.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
             </header>
 
             <main
-              className={`main-layout ${
-                isSidebarOpen ? 'layout-with-sidebar' : 'layout-no-sidebar'
-              }`}
+              className={`${styles.mainLayout} ${!isSidebarOpen ? styles.noSidebar : ''}`}
             >
-              <section className="content-area">
+              <section className={styles.contentArea}>
                 <div className="card">
                   <Routes>
                     {ROUTE_DEFINITIONS.map((def) => (
@@ -83,14 +116,25 @@ export function App() {
                 </div>
               </section>
 
-              <div className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
+              {/* Semi-transparent overlay to close mobile sidebar */}
+              {isSidebarOpen && (
+                <div
+                  className={styles.sidebarOverlay}
+                  onClick={() => setIsSidebarOpen(false)}
+                />
+              )}
+
+              {/* Sidebar */}
+              <div
+                className={`${styles.sidebar} ${isSidebarOpen ? styles.mobileOpen : ''}`}
+              >
                 {isSidebarOpen && (
-                  <aside className="sidebar-content">
+                  <aside className={styles.sidebarContent}>
                     <ConnectionPanel
                       onShowInstructions={() => setShowInstructions(true)}
                     />
 
-                    <div className="card event-log-card">
+                    <div className={`card ${styles.eventLogCard}`}>
                       <h2>Live Event Log (IndexedDB)</h2>
                       <ul className="event-list">
                         {events.length === 0 && (
@@ -116,10 +160,10 @@ export function App() {
                     </div>
                   </aside>
                 )}
+
+                {/* Desktop sidebar toggle (inside sidebar, hidden on mobile) */}
                 <button
-                  className={`sidebar-toggle-btn ${
-                    isSidebarOpen ? 'open' : 'closed'
-                  }`}
+                  className={`${styles.sidebarToggleBtn} ${isSidebarOpen ? '' : styles.closed}`}
                   onClick={() => setIsSidebarOpen((prev) => !prev)}
                   aria-label={isSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
                 >
@@ -127,6 +171,16 @@ export function App() {
                 </button>
               </div>
             </main>
+
+            {/* Mobile sidebar toggle – always fixed at right edge, separate from
+                sidebar so it isn't displaced by the sidebar's `right` animation */}
+            <button
+              className={styles.mobileSidebarToggle}
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              aria-label={isSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            >
+              {isSidebarOpen ? '›' : '‹'}
+            </button>
 
             {/* AI Agent Instructions Modal */}
             <Modal

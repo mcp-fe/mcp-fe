@@ -1,5 +1,6 @@
 import { FormEvent } from 'react';
 import { FormData } from './types';
+import styles from './FormsPage.module.scss';
 
 interface RegistrationFormProps {
   formData: FormData;
@@ -19,11 +20,11 @@ export const RegistrationForm = ({
   onSubmit,
 }: RegistrationFormProps) => {
   return (
-    <div className="form-section">
+    <div className={styles.formSection}>
       <h3>User Registration Form</h3>
-      <form onSubmit={onSubmit} className="demo-form">
-        <div className="form-row">
-          <div className="form-group">
+      <form onSubmit={onSubmit} className={styles.demoForm}>
+        <div className={styles.formRow}>
+          <div className={styles.formGroup}>
             <label htmlFor="firstName">First Name *</label>
             <input
               type="text"
@@ -31,17 +32,17 @@ export const RegistrationForm = ({
               name="firstName"
               value={formData.firstName}
               onChange={onInputChange}
-              className={validationErrors.firstName ? 'error' : ''}
+              className={validationErrors.firstName ? styles.error : ''}
               placeholder="Enter your first name"
             />
             {validationErrors.firstName && (
-              <span className="error-message">
+              <span className={styles.errorMessage}>
                 {validationErrors.firstName}
               </span>
             )}
           </div>
 
-          <div className="form-group">
+          <div className={styles.formGroup}>
             <label htmlFor="lastName">Last Name *</label>
             <input
               type="text"
@@ -49,16 +50,16 @@ export const RegistrationForm = ({
               name="lastName"
               value={formData.lastName}
               onChange={onInputChange}
-              className={validationErrors.lastName ? 'error' : ''}
+              className={validationErrors.lastName ? styles.error : ''}
               placeholder="Enter your last name"
             />
             {validationErrors.lastName && (
-              <span className="error-message">{validationErrors.lastName}</span>
+              <span className={styles.errorMessage}>{validationErrors.lastName}</span>
             )}
           </div>
         </div>
 
-        <div className="form-group">
+        <div className={styles.formGroup}>
           <label htmlFor="email">Email Address *</label>
           <input
             type="email"
@@ -66,16 +67,16 @@ export const RegistrationForm = ({
             name="email"
             value={formData.email}
             onChange={onInputChange}
-            className={validationErrors.email ? 'error' : ''}
+            className={validationErrors.email ? styles.error : ''}
             placeholder="your.email@example.com"
           />
           {validationErrors.email && (
-            <span className="error-message">{validationErrors.email}</span>
+            <span className={styles.errorMessage}>{validationErrors.email}</span>
           )}
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
+        <div className={styles.formRow}>
+          <div className={styles.formGroup}>
             <label htmlFor="age">Age *</label>
             <input
               type="number"
@@ -83,22 +84,22 @@ export const RegistrationForm = ({
               name="age"
               value={formData.age}
               onChange={onInputChange}
-              className={validationErrors.age ? 'error' : ''}
+              className={validationErrors.age ? styles.error : ''}
               placeholder="25"
             />
             {validationErrors.age && (
-              <span className="error-message">{validationErrors.age}</span>
+              <span className={styles.errorMessage}>{validationErrors.age}</span>
             )}
           </div>
 
-          <div className="form-group">
+          <div className={styles.formGroup}>
             <label htmlFor="country">Country *</label>
             <select
               id="country"
               name="country"
               value={formData.country}
               onChange={onInputChange}
-              className={validationErrors.country ? 'error' : ''}
+              className={validationErrors.country ? styles.error : ''}
             >
               <option value="">Select a country</option>
               <option value="us">United States</option>
@@ -110,15 +111,15 @@ export const RegistrationForm = ({
               <option value="other">Other</option>
             </select>
             {validationErrors.country && (
-              <span className="error-message">{validationErrors.country}</span>
+              <span className={styles.errorMessage}>{validationErrors.country}</span>
             )}
           </div>
         </div>
 
-        <div className="form-group">
+        <div className={styles.formGroup}>
           <label>Subscription Plan</label>
-          <div className="radio-group">
-            <label className="radio-label">
+          <div className={styles.radioGroup}>
+            <label className={styles.radioLabel}>
               <input
                 type="radio"
                 name="plan"
@@ -128,7 +129,7 @@ export const RegistrationForm = ({
               />
               Basic (Free)
             </label>
-            <label className="radio-label">
+            <label className={styles.radioLabel}>
               <input
                 type="radio"
                 name="plan"
@@ -138,7 +139,7 @@ export const RegistrationForm = ({
               />
               Premium ($9.99/month)
             </label>
-            <label className="radio-label">
+            <label className={styles.radioLabel}>
               <input
                 type="radio"
                 name="plan"
@@ -151,8 +152,8 @@ export const RegistrationForm = ({
           </div>
         </div>
 
-        <div className="form-group">
-          <label className="checkbox-label">
+        <div className={styles.formGroup}>
+          <label className={styles.checkboxLabel}>
             <input
               type="checkbox"
               name="newsletter"
@@ -163,23 +164,23 @@ export const RegistrationForm = ({
           </label>
         </div>
 
-        <div className="form-group">
+        <div className={styles.formGroup}>
           <label htmlFor="message">Message *</label>
           <textarea
             id="message"
             name="message"
             value={formData.message}
             onChange={onInputChange}
-            className={validationErrors.message ? 'error' : ''}
+            className={validationErrors.message ? styles.error : ''}
             placeholder="Tell us about your needs or ask a question (minimum 10 characters)"
             rows={4}
           />
           {validationErrors.message && (
-            <span className="error-message">{validationErrors.message}</span>
+            <span className={styles.errorMessage}>{validationErrors.message}</span>
           )}
         </div>
 
-        <button type="submit" className="submit-btn">
+        <button type="submit" className={styles.submitBtn}>
           Submit Registration
         </button>
       </form>

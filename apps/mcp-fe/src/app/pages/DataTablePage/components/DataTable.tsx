@@ -1,4 +1,5 @@
 import { User, SortField } from '../types';
+import styles from '../DataTablePage.module.scss';
 
 interface DataTableProps {
   users: User[];
@@ -36,8 +37,8 @@ export const DataTable = ({
   };
 
   return (
-    <div className="table-container">
-      <table className="data-table">
+    <div className={styles.tableContainer}>
+      <table className={styles.dataTable}>
         <thead>
           <tr>
             <th>
@@ -49,19 +50,19 @@ export const DataTable = ({
                 onChange={onSelectAll}
               />
             </th>
-            <th onClick={() => onSort('name')} className="sortable">
+            <th onClick={() => onSort('name')} className={styles.sortable}>
               Name {getSortIcon('name')}
             </th>
-            <th onClick={() => onSort('email')} className="sortable">
+            <th onClick={() => onSort('email')} className={styles.sortable}>
               Email {getSortIcon('email')}
             </th>
-            <th onClick={() => onSort('role')} className="sortable">
+            <th onClick={() => onSort('role')} className={styles.sortable}>
               Role {getSortIcon('role')}
             </th>
-            <th onClick={() => onSort('status')} className="sortable">
+            <th onClick={() => onSort('status')} className={styles.sortable}>
               Status {getSortIcon('status')}
             </th>
-            <th onClick={() => onSort('lastLogin')} className="sortable">
+            <th onClick={() => onSort('lastLogin')} className={styles.sortable}>
               Last Login {getSortIcon('lastLogin')}
             </th>
             <th>Actions</th>
@@ -71,7 +72,7 @@ export const DataTable = ({
           {users.map((user) => (
             <tr
               key={user.id}
-              className={selectedUsers.includes(user.id) ? 'selected' : ''}
+              className={selectedUsers.includes(user.id) ? styles.selected : ''}
             >
               <td>
                 <input
@@ -86,7 +87,7 @@ export const DataTable = ({
               <td>{getStatusBadge(user.status)}</td>
               <td>{user.lastLogin}</td>
               <td>
-                <div className="action-buttons">
+                <div className={styles.actionButtons}>
                   <button
                     className="btn btn-sm btn-primary"
                     onClick={() => onUserAction('Edit', user.id)}

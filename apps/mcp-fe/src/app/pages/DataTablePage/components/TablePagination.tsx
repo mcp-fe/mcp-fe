@@ -1,3 +1,5 @@
+import styles from '../DataTablePage.module.scss';
+
 interface TablePaginationProps {
   currentPage: number;
   totalPages: number;
@@ -14,14 +16,14 @@ export const TablePagination = ({
   onPageChange,
 }: TablePaginationProps) => {
   return (
-    <div className="table-footer">
-      <div className="pagination-info">
+    <div className={styles.tableFooter}>
+      <div>
         Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
         {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems}{' '}
         entries
       </div>
 
-      <div className="pagination">
+      <div className={styles.pagination}>
         <button
           className="btn btn-sm"
           onClick={() => onPageChange(Math.max(currentPage - 1, 1))}

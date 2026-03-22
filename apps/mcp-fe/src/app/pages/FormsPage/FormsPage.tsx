@@ -4,6 +4,7 @@ import { validateForm } from './formValidation';
 import { MCPToolsInfo } from './MCPToolsInfo';
 import { RegistrationForm } from './RegistrationForm';
 import { useFormsMCPTools } from './mcp-tools/useFormsMCPTools';
+import styles from './FormsPage.module.scss';
 
 export const FormsPage = () => {
   const [formData, setFormData] = useState<FormData>({
@@ -68,7 +69,7 @@ export const FormsPage = () => {
   };
 
   return (
-    <div className="forms-page">
+    <div className={styles.formsPage}>
       <h2>Forms Demo - Interactive State Management</h2>
       <p>
         This interactive form showcases real-time state tracking and validation

@@ -1,3 +1,5 @@
+import styles from '../DataTablePage.module.scss';
+
 interface TableControlsProps {
   searchTerm: string;
   filterRole: string;
@@ -24,23 +26,23 @@ export const TableControls = ({
   onBulkAction,
 }: TableControlsProps) => {
   return (
-    <div className="table-controls">
-      <div className="controls-row">
-        <div className="search-box">
+    <div className={styles.tableControls}>
+      <div className={styles.controlsRow}>
+        <div className={styles.searchBox}>
           <input
             type="text"
             placeholder="Search users..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="search-input"
+            className={styles.searchInput}
           />
         </div>
 
-        <div className="filters">
+        <div className={styles.filters}>
           <select
             value={filterRole}
             onChange={(e) => onRoleChange(e.target.value)}
-            className="filter-select"
+            className={styles.filterSelect}
           >
             <option value="">All Roles</option>
             <option value="Admin">Admin</option>
@@ -51,7 +53,7 @@ export const TableControls = ({
           <select
             value={filterStatus}
             onChange={(e) => onStatusChange(e.target.value)}
-            className="filter-select"
+            className={styles.filterSelect}
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
@@ -60,7 +62,7 @@ export const TableControls = ({
           </select>
         </div>
 
-        <div className="items-per-page">
+        <div className={styles.itemsPerPage}>
           <label>
             Show:
             <select
@@ -76,7 +78,7 @@ export const TableControls = ({
         </div>
       </div>
 
-      <div className="bulk-actions">
+      <div className={styles.bulkActions}>
         <button
           className="btn btn-secondary"
           onClick={() => onBulkAction('Export')}
