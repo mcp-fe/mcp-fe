@@ -43,7 +43,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx nx release --yes
+        run: npx nx release --specifier=patch --yes
 
       - name: Push release commit and tags
         run: git push --follow-tags
