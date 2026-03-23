@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "defaultBase": "master",
+  "defaultBase": "main",
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
@@ -122,6 +122,13 @@
   },
   "release": {
     "releaseTagPattern": "v{version}",
+    "changelog": {
+      "workspaceChangelog": {
+        "createRelease": "github",
+        "entryWhenNoChanges": false
+      },
+      "projectChangelogs": false
+    },
     "version": {
       "preVersionCommand": "npx nx run-many -t build",
       "manifestRootsToUpdate": [
