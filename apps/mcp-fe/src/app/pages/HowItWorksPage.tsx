@@ -190,8 +190,8 @@ export const HowItWorksPage = () => (
               <strong>Built-in tools:</strong>
               <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
                 <li>
-                  <code>get_client_status</code> - Get current state of the
-                  browser - worker connection
+                  <code>client_status</code> - Check whether a browser client
+                  is connected to the MCP Proxy Server
                 </li>
                 <li>
                   <code>get_user_events</code> - Retrieve complete user
@@ -203,6 +203,10 @@ export const HowItWorksPage = () => (
                 </li>
                 <li>
                   <code>get_click_events</code> - Retrieve click event history
+                </li>
+                <li>
+                  <code>list_browser_tabs</code> - List all active browser tabs
+                  running this application (useful for multi-tab routing)
                 </li>
               </ul>
             </li>

@@ -119,29 +119,51 @@ const IntegrationSection = () => (
       <h4>1. Install the required packages:</h4>
       <pre>{`npm install @mcp-fe/react-event-tracker @mcp-fe/mcp-worker`}</pre>
 
-      <h4>2. Make sure the MCP worker files are publicly acessible:</h4>
+      <h4>2. Make sure the MCP worker files are publicly accessible:</h4>
       <pre>{`// vite.config.ts
 
 import { defineConfig } from 'vite';
 
 export default defineConfig({
   // ... other config
-  publicDir: 'public',
   build: {
     rollupOptions: {
-      // Copy worker files during build
-      external: ['@mcp-fe/mcp-worker/mcp-*.js']
-    }
-  }
+      input: {
+        main: './index.html',
+        'mcp-service-worker': './node_modules/@mcp-fe/mcp-worker/src/mcp-service-worker.ts',
+        'mcp-shared-worker': './node_modules/@mcp-fe/mcp-worker/src/mcp-shared-worker.ts',
+      },
+      output: {
+        entryFileNames: (chunk) => {
+          // Keep worker files at root so they are served from /
+          if (chunk.name.startsWith('mcp-')) return '[name].js';
+          return 'assets/[name]-[hash].js';
+        },
+      },
+    },
+  },
 });
 `}</pre>
 
-      <h4>3. Initialize MCP worker client:</h4>
+      <h4>3. Wrap your app with MCPToolsProvider:</h4>
       <pre>
-        {`import from '@mcp-fe/mcp-worker';
+        {`import { MCPToolsProvider } from '@mcp-fe/react-tools';
 
-// Initialize MCP Worker Client - Automatically connects to MCP workers
-// Do it at the root of your app
+// MCPToolsProvider initializes the worker client and provides
+// context for all useMCPTool hooks. Place it at the root of your app.
+function Root() {
+  return (
+    <MCPToolsProvider
+      initOptions={{
+        backendWsUrl: 'ws://localhost:3001',
+        sharedWorkerUrl: '/mcp-shared-worker.js',
+        serviceWorkerUrl: '/mcp-service-worker.js',
+      }}
+    >
+      <App />
+    </MCPToolsProvider>
+  );
+}
 `}
       </pre>
 
@@ -186,8 +208,8 @@ const ExamplesSection = () => (
         </p>
         <p>
           <strong>Response:</strong> "The user started on the Home page, went to
-          How It Works, then explored Components, filled out Forms, and is now
-          on the Navigation Demo page viewing the Examples section."
+          How It Works, then filled out Forms, and is now on the Navigation Demo
+          page viewing the Examples section."
         </p>
         <p>
           <em>
@@ -203,7 +225,7 @@ const ExamplesSection = () => (
           <strong>Agent Query:</strong> "Which features has the user explored?"
         </p>
         <p>
-          <strong>Response:</strong> "User visited Forms (3 times), Components
+          <strong>Response:</strong> "User visited Forms (3 times), How It Works
           (2 times), Data Table (1 time). They spent most time on the Forms
           page."
         </p>
@@ -239,7 +261,7 @@ const ExamplesSection = () => (
         </p>
         <p>
           <strong>Response:</strong> "User navigated back and forth between Home
-          and Components 4 times in 2 minutes - may be looking for specific
+          and How It Works 4 times in 2 minutes - may be looking for specific
           information"
         </p>
         <p>
