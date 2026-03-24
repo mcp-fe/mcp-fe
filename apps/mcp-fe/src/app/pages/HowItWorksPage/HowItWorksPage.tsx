@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import mcpArchitectureImg from '../../../assets/mcp-architecture.png';
+import McpArchitectureDiagram from '../../../assets/mcp-fe-architecture-diagram.svg';
 import styles from './HowItWorksPage.module.scss';
 
 export const HowItWorksPage = () => (
@@ -13,7 +13,7 @@ export const HowItWorksPage = () => (
     </p>
 
     <div className={styles.architectureDiagram}>
-      <img src={mcpArchitectureImg} alt="MCP-FE Architecture Diagram" />
+      <McpArchitectureDiagram aria-label="MCP-FE Architecture Diagram" />
     </div>
 
     <div>

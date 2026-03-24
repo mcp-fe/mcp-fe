@@ -1,0 +1,77 @@
+<svg width="100%" viewBox="0 0 980 460" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: ui-sans-serif, system-ui, sans-serif; }
+      .th { font-size: 14px; font-weight: 500; }
+      .ts { font-size: 12px; font-weight: 400; }
+    </style>
+  </defs>
+
+  <!-- Frontend Browser container: x=12 w=330 → right=342, center-x=177 -->
+  <rect x="12" y="60" width="330" height="310" rx="14" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+  <text class="th" x="177" y="86" text-anchor="middle" fill="#2C2C2A">Frontend browser</text>
+  <text class="ts" x="177" y="102" text-anchor="middle" fill="#5F5E5A">User client</text>
+
+  <!-- FE App box -->
+  <rect x="26" y="118" width="142" height="110" rx="8" fill="#CECBF6" stroke="#534AB7" stroke-width="0.5"/>
+  <text class="th" x="97" y="140" text-anchor="middle" fill="#3C3489">FE App</text>
+  <text class="ts" x="97" y="158" text-anchor="middle" fill="#534AB7">@mcp-fe/react-tools</text>
+  <text class="ts" x="97" y="176" text-anchor="middle" fill="#534AB7">Buttons, Forms</text>
+  <text class="ts" x="97" y="194" text-anchor="middle" fill="#534AB7">Live DOM &amp; state</text>
+
+  <!-- SharedWorker box -->
+  <rect x="182" y="118" width="150" height="110" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+  <text class="th" x="257" y="140" text-anchor="middle" fill="#085041">SharedWorker</text>
+  <text class="ts" x="257" y="158" text-anchor="middle" fill="#0F6E56">@mcp-fe/mcp-worker</text>
+  <text class="ts" x="257" y="176" text-anchor="middle" fill="#0F6E56">Off main thread</text>
+  <text class="ts" x="257" y="194" text-anchor="middle" fill="#0F6E56">IndexedDB logs</text>
+
+  <!-- Context arrow FE App ↔ SharedWorker -->
+  <line x1="168" y1="173" x2="182" y2="173" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+
+  <!-- WebMCP box -->
+  <rect x="26" y="256" width="184" height="50" rx="8" fill="#C0DD97" stroke="#3B6D11" stroke-width="0.5"/>
+  <text class="th" x="118" y="277" text-anchor="middle" fill="#27500A">WebMCP</text>
+  <text class="ts" x="118" y="295" text-anchor="middle" fill="#3B6D11">navigator.modelContext</text>
+
+  <!-- WebMCP optional arrow to SharedWorker -->
+  <path d="M118 256 Q118 230 182 230" fill="none" stroke="#3B6D11" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text class="ts" x="152" y="240" text-anchor="middle" fill="#3B6D11" font-size="10">Optional</text>
+
+  <!-- WebSocket arrow: SharedWorker (right=332) → MCP Server (left=470), 138px gap -->
+  <line x1="332" y1="173" x2="468" y2="173" stroke="#1D9E75" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text class="ts" x="400" y="163" text-anchor="middle" fill="#0F6E56">WebSocket</text>
+
+  <!-- Node.js MCP Server box: x=470 w=190 → right=660, center-x=565 -->
+  <rect x="470" y="98" width="190" height="172" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
+  <text class="th" x="565" y="124" text-anchor="middle" fill="#0C447C">Node.js MCP server</text>
+  <text class="ts" x="565" y="142" text-anchor="middle" fill="#185FA5">Docker container</text>
+  <rect x="488" y="154" width="154" height="36" rx="5" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text class="ts" x="565" y="177" text-anchor="middle" fill="#185FA5">Auth gateway</text>
+  <rect x="488" y="200" width="154" height="36" rx="5" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+  <text class="ts" x="565" y="223" text-anchor="middle" fill="#185FA5">Protocol translator</text>
+
+  <!-- MCP Protocol arrow: MCP Server (right=660) → AI Agent (left=770), 110px gap -->
+  <line x1="660" y1="184" x2="768" y2="184" stroke="#378ADD" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text class="ts" x="714" y="174" text-anchor="middle" fill="#185FA5">MCP protocol</text>
+
+  <!-- AI Agent box: x=770 w=178 → right=948, center-x=859 -->
+  <rect x="770" y="114" width="178" height="140" rx="8" fill="#F0997B" stroke="#993C1D" stroke-width="0.5"/>
+  <text class="th" x="859" y="138" text-anchor="middle" fill="#712B13">AI Agent</text>
+  <text class="ts" x="859" y="157" text-anchor="middle" fill="#993C1D">MCP Client</text>
+  <text class="ts" x="859" y="177" text-anchor="middle" fill="#993C1D">Decision making</text>
+  <text class="ts" x="859" y="195" text-anchor="middle" fill="#993C1D">&amp; tool execution</text>
+  <text class="ts" x="859" y="213" text-anchor="middle" fill="#993C1D">Context request</text>
+
+  <!-- "Provides context": Frontend Browser top (177, 60) → AI Agent top (859, 114) -->
+  <path d="M177 60 C177 14 859 14 859 114" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+  <text class="ts" x="518" y="10" text-anchor="middle" fill="#0F6E56">Provides context</text>
+
+  <!-- "Executes actions": AI Agent bottom (859, 254) → Frontend Browser bottom (177, 370) -->
+  <path d="M859 254 C859 444 177 444 177 370" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+  <text class="ts" x="518" y="452" text-anchor="middle" fill="#993C1D">Executes actions</text>
+
+</svg>
