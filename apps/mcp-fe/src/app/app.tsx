@@ -44,7 +44,7 @@ export function App() {
           <div className={styles.appContainer}>
             <header className={styles.appHeader}>
               <div className={styles.headerLeft}>
-                <h1>MCP-FE Demo</h1>
+                <Link to="/" className={styles.siteTitle}>MCP-FE Demo</Link>
                 <nav className={styles.headerNav}>
                   <ul>
                     {ROUTE_DEFINITIONS.map((def) => {

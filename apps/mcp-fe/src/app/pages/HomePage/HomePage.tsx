@@ -4,7 +4,7 @@ import styles from './HomePage.module.scss';
 
 export const HomePage = () => (
   <div>
-    <h1>MCP-FE (Model Context Protocol - Frontend Edge)</h1>
+    <h1>MCP-FE — Frontend Edge for AI Agents</h1>
     <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>
       Turn your browser into an active, queryable node in the MCP ecosystem.
       Create a <strong>bidirectional bridge</strong> between AI Agents and your

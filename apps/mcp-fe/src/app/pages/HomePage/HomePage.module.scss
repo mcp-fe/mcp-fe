@@ -6,6 +6,10 @@
   border-radius: 8px;
   margin-bottom: 2rem;
 
+  @media (max-width: 768px) {
+    margin-top: 2rem;
+  }
+
   h3 {
     margin-top: 0;
   }

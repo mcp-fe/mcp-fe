@@ -201,71 +201,81 @@ const ExamplesSection = () => (
     </p>
     <div>
       <div className={styles.scenario}>
-        <h4>💬 User Journey Analysis</h4>
+        <h4>🤖 In-App AI Copilot</h4>
         <p>
-          <strong>Agent Query:</strong> "Show me where the user has navigated in
-          the last 10 minutes"
+          <strong>Agent Query:</strong> "What is the user currently trying to
+          do?"
         </p>
         <p>
-          <strong>Response:</strong> "The user started on the Home page, went to
-          How It Works, then filled out Forms, and is now on the Navigation Demo
-          page viewing the Examples section."
+          <strong>Response:</strong> "The user visited the Checkout page 3 times
+          in the last 5 minutes and navigated back to the Cart each time —
+          they're likely stuck on the checkout flow."
         </p>
         <p>
           <em>
-            This helps agents understand context and provide relevant
-            suggestions
+            Navigation history gives the copilot the context it needs to provide
+            relevant, proactive help without the user having to explain
+            anything.
           </em>
         </p>
       </div>
 
       <div className={styles.scenario}>
-        <h4>🎯 Feature Discovery</h4>
+        <h4>💬 Support with Full Context</h4>
         <p>
-          <strong>Agent Query:</strong> "Which features has the user explored?"
+          <strong>Agent Query:</strong> "What did the user do before opening
+          this support chat?"
         </p>
         <p>
-          <strong>Response:</strong> "User visited Forms (3 times), How It Works
-          (2 times), Data Table (1 time). They spent most time on the Forms
-          page."
+          <strong>Response:</strong> "User navigated: Home → Forms → filled out
+          the registration form → hit Submit → landed on an error page — then
+          opened support."
         </p>
         <p>
           <em>
-            Reveals user interests and can guide personalized recommendations
+            The support agent already knows the full journey. No screenshots, no
+            "can you describe what happened" — just immediate context.
           </em>
         </p>
       </div>
 
       <div className={styles.scenario}>
-        <h4>🐛 Debugging & Support</h4>
+        <h4>🗺️ Guided Complex Workflows</h4>
         <p>
-          <strong>Agent Query:</strong> "What did the user do before
-          encountering the error?"
+          <strong>Agent Query:</strong> "Where is the user in the onboarding
+          flow?"
         </p>
         <p>
-          <strong>Response:</strong> "User navigated: Home → Forms → submitted
-          contact form → navigated to Data Table → error occurred"
+          <strong>Response:</strong> "User completed steps 1 and 2 (Profile,
+          Preferences), skipped step 3 (Billing), and is now on step 4
+          (Integrations) — Billing is still incomplete."
         </p>
         <p>
           <em>
-            Provides crucial debugging context without manual error reports
+            The agent knows exactly which steps were visited and in what order,
+            enabling it to guide the user to what's missing instead of pointing
+            to generic documentation.
           </em>
         </p>
       </div>
 
       <div className={styles.scenario}>
-        <h4>📊 Behavioral Insights</h4>
+        <h4>🌐 Browser-Native Agent Access</h4>
         <p>
-          <strong>Agent Query:</strong> "Is the user having trouble finding
-          something?"
+          <strong>Browser agent query:</strong> "What has the user been doing in
+          this app?"
         </p>
         <p>
-          <strong>Response:</strong> "User navigated back and forth between Home
-          and How It Works 4 times in 2 minutes - may be looking for specific
-          information"
+          <strong>Response:</strong> "User spent most time on the Data Table
+          page, visited Settings twice, and hasn't explored the Reports section
+          yet."
         </p>
         <p>
-          <em>Detects patterns that indicate confusion or search behavior</em>
+          <em>
+            Via the WebMCP adapter, browser-native agents and extensions get the
+            same structured navigation data — no proxy required, no DOM
+            scraping.
+          </em>
         </p>
       </div>
     </div>

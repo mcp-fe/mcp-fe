@@ -27,15 +27,22 @@
   position: relative;
   flex-shrink: 0;
 
-  h1 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: var(--primary-color);
-    white-space: nowrap;
-  }
 
   @media (max-width: 768px) {
     padding: 0 1rem;
+  }
+}
+
+.siteTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  white-space: nowrap;
+  text-decoration: none;
+
+  &:hover {
+    opacity: 0.8;
   }
 }
 
