@@ -105,6 +105,9 @@ importers:
       '@rspack/plugin-react-refresh':
         specifier: ^1.0.0
         version: 1.6.0(react-refresh@0.14.2)
+      '@svgr/webpack':
+        specifier: ^8.1.0
+        version: 8.1.0(typescript@5.9.3)
       '@swc-node/register':
         specifier: ~1.9.1
         version: 1.9.2(@swc/core@1.5.29(@swc/helpers@0.5.18))(@swc/types@0.1.25)(typescript@5.9.3)

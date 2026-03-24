@@ -47,6 +47,7 @@
     "@rspack/core": "^1.5.0",
     "@rspack/dev-server": "^1.1.4",
     "@rspack/plugin-react-refresh": "^1.0.0",
+    "@svgr/webpack": "^8.1.0",
     "@swc-node/register": "~1.9.1",
     "@swc/cli": "~0.6.0",
     "@swc/core": "~1.5.7",
