@@ -1,0 +1,142 @@
+// HowItWorksPage styles
+
+.page {
+  // intentionally empty wrapper
+}
+
+// ---------------------------------------------------------------------------
+// Intro
+// ---------------------------------------------------------------------------
+.leadText {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+// ---------------------------------------------------------------------------
+// Architecture diagram
+// ---------------------------------------------------------------------------
+.architectureDiagram {
+  margin-bottom: 2rem;
+  text-align: center;
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Step cards
+// ---------------------------------------------------------------------------
+.stepCard {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+
+  // nested lists inside step cards
+  ul ul {
+    margin-left: 1.5rem;
+    margin-top: 0.5rem;
+  }
+}
+
+.stepCard1 { background-color: #f8f9fa; }
+.stepCard2 { background-color: #e8f4f8; }
+.stepCard3 { background-color: #fff9e6; }
+.stepCard4 { background-color: #e8f8e8; }
+
+// ---------------------------------------------------------------------------
+// Key principles
+// ---------------------------------------------------------------------------
+.keyPrinciples {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+}
+
+.principleItem {
+  margin-bottom: 1.5rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Design decisions
+// ---------------------------------------------------------------------------
+.designDecisions {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #fdf6ff;
+  border: 1px solid #c084fc;
+  border-radius: 8px;
+}
+
+.decisionItem {
+  margin-bottom: 1.5rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.codeBlock {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+
+// ---------------------------------------------------------------------------
+// Example flow
+// ---------------------------------------------------------------------------
+.exampleFlow {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+
+  ol {
+    margin-left: 1.5rem;
+  }
+}
+
+.exampleNote {
+  margin-top: 1rem;
+  font-style: italic;
+}
+
+// ---------------------------------------------------------------------------
+// Footer nav
+// ---------------------------------------------------------------------------
+.gettingStarted {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.demoLink {
+  display: inline-block;
+  font-size: 1.1rem;
+  padding: 0.5rem 1rem;
+  color: var(--primary-color);
+  text-decoration: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+
+  & + & {
+    margin-left: 0.75rem;
+  }
+
+  &:hover {
+    background: var(--bg-color);
+    border-color: var(--primary-color);
+  }
+}

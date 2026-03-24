@@ -1,36 +1,22 @@
 import { Link } from 'react-router-dom';
-import mcpArchitectureImg from '../../assets/mcp-architecture.png';
+import mcpArchitectureImg from '../../../assets/mcp-architecture.png';
+import styles from './HowItWorksPage.module.scss';
 
 export const HowItWorksPage = () => (
-  <div className="how-it-works-page">
+  <div className={styles.page}>
     <h2>How It Works</h2>
-    <p
-      className="lead-text"
-      style={{ fontSize: '1.1rem', marginBottom: '2rem' }}
-    >
+    <p className={styles.leadText}>
       MCP-FE implements a <strong>bidirectional architecture</strong> where the
       browser acts as a local MCP server with pull-based data requests from AI
       agents, plus the ability for agents to send data back to components and
       interact with custom tools registered directly in your React components.
     </p>
 
-    <div
-      className="architecture-diagram"
-      style={{ marginBottom: '2rem', textAlign: 'center' }}
-    >
-      <img
-        src={mcpArchitectureImg}
-        alt="MCP-FE Architecture Diagram"
-        style={{
-          maxWidth: '100%',
-          height: 'auto',
-          borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        }}
-      />
+    <div className={styles.architectureDiagram}>
+      <img src={mcpArchitectureImg} alt="MCP-FE Architecture Diagram" />
     </div>
 
-    <div className="architecture-explanation">
+    <div>
       <h3>Architecture Overview</h3>
       <p>
         The MCP-FE architecture consists of four main components working
@@ -38,16 +24,8 @@ export const HowItWorksPage = () => (
         real-time:
       </p>
 
-      <div className="architecture-steps">
-        <div
-          className="step-card"
-          style={{
-            marginBottom: '1.5rem',
-            padding: '1.5rem',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-          }}
-        >
+      <div>
+        <div className={`${styles.stepCard} ${styles.stepCard1}`}>
           <h4>1. Frontend Application</h4>
           <p>
             Your React (or any other) application integrates MCP-FE capabilities
@@ -58,7 +36,7 @@ export const HowItWorksPage = () => (
               <strong>Event Tracking:</strong>{' '}
               <code>@mcp-fe/event-tracker</code> or{' '}
               <code>@mcp-fe/react-event-tracker</code> automatically capture:
-              <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+              <ul>
                 <li>Navigation events (route changes, page transitions)</li>
                 <li>Click events (buttons, links, interactive elements)</li>
                 <li>Input events (typing, form changes, validations)</li>
@@ -85,15 +63,7 @@ export const HowItWorksPage = () => (
           </p>
         </div>
 
-        <div
-          className="step-card"
-          style={{
-            marginBottom: '1.5rem',
-            padding: '1.5rem',
-            backgroundColor: '#e8f4f8',
-            borderRadius: '8px',
-          }}
-        >
+        <div className={`${styles.stepCard} ${styles.stepCard2}`}>
           <h4>2. MCP Worker (Browser worker)</h4>
           <p>
             A <code>SharedWorker</code> (with <code>ServiceWorker</code>{' '}
@@ -134,15 +104,7 @@ export const HowItWorksPage = () => (
           </p>
         </div>
 
-        <div
-          className="step-card"
-          style={{
-            marginBottom: '1.5rem',
-            padding: '1.5rem',
-            backgroundColor: '#fff9e6',
-            borderRadius: '8px',
-          }}
-        >
+        <div className={`${styles.stepCard} ${styles.stepCard3}`}>
           <h4>3. Node.js MCP Proxy Server</h4>
           <p>
             A lightweight Node.js server acts as a bridge between AI agents and
@@ -171,15 +133,7 @@ export const HowItWorksPage = () => (
           </p>
         </div>
 
-        <div
-          className="step-card"
-          style={{
-            marginBottom: '1.5rem',
-            padding: '1.5rem',
-            backgroundColor: '#e8f8e8',
-            borderRadius: '8px',
-          }}
-        >
+        <div className={`${styles.stepCard} ${styles.stepCard4}`}>
           <h4>4. AI Agent (Claude, Cursor, etc.)</h4>
           <p>
             Standard MCP-compatible AI agents connect to the proxy server and
@@ -188,10 +142,10 @@ export const HowItWorksPage = () => (
           <ul>
             <li>
               <strong>Built-in tools:</strong>
-              <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+              <ul>
                 <li>
-                  <code>client_status</code> - Check whether a browser client
-                  is connected to the MCP Proxy Server
+                  <code>client_status</code> - Check whether a browser client is
+                  connected to the MCP Proxy Server
                 </li>
                 <li>
                   <code>get_user_events</code> - Retrieve complete user
@@ -230,18 +184,10 @@ export const HowItWorksPage = () => (
       </div>
     </div>
 
-    <div
-      className="key-principles"
-      style={{
-        marginTop: '2rem',
-        padding: '1.5rem',
-        backgroundColor: '#f0f0f0',
-        borderRadius: '8px',
-      }}
-    >
+    <div className={styles.keyPrinciples}>
       <h3>Key Principles</h3>
 
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div className={styles.principleItem}>
         <h4>🔒 Privacy-First</h4>
         <p>
           All data stays in your browser's IndexedDB. It's never sent to any
@@ -250,7 +196,7 @@ export const HowItWorksPage = () => (
         </p>
       </div>
 
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div className={styles.principleItem}>
         <h4>📡 Pull, Don't Push</h4>
         <p>
           Unlike traditional analytics that continuously stream data to servers,
@@ -259,7 +205,7 @@ export const HowItWorksPage = () => (
         </p>
       </div>
 
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div className={styles.principleItem}>
         <h4>⚡ Edge Computing</h4>
         <p>
           By running the MCP server in a browser worker, we bring compute to the
@@ -268,7 +214,7 @@ export const HowItWorksPage = () => (
         </p>
       </div>
 
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div className={styles.principleItem}>
         <h4>🔄 Bidirectional Communication</h4>
         <p>
           Unlike traditional one-way analytics, MCP-FE enables two-way
@@ -278,7 +224,7 @@ export const HowItWorksPage = () => (
         </p>
       </div>
 
-      <div>
+      <div className={styles.principleItem}>
         <h4>🔌 Standard MCP Protocol</h4>
         <p>
           MCP-FE uses the standard Model Context Protocol. Any MCP-compatible AI
@@ -288,16 +234,7 @@ export const HowItWorksPage = () => (
       </div>
     </div>
 
-    <div
-      className="design-decisions"
-      style={{
-        marginTop: '2rem',
-        padding: '1.5rem',
-        backgroundColor: '#fdf6ff',
-        border: '1px solid #c084fc',
-        borderRadius: '8px',
-      }}
-    >
+    <div className={styles.designDecisions}>
       <h3>Demo Design Decisions</h3>
       <p>
         Some implementation choices in this demo exist because of real-world
@@ -305,7 +242,7 @@ export const HowItWorksPage = () => (
         the way they are.
       </p>
 
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div className={styles.decisionItem}>
         <h4>⚡ Why are tools registered at startup, not per-page?</h4>
         <p>
           The MCP protocol lets a server notify clients when its tool list
@@ -329,33 +266,15 @@ export const HowItWorksPage = () => (
           isn't on the relevant page, it returns a clear error message instead
           of crashing:
         </p>
-        <pre
-          style={{
-            background: '#1e1e1e',
-            color: '#d4d4d4',
-            padding: '1rem',
-            borderRadius: '6px',
-            fontSize: '0.85rem',
-            overflowX: 'auto',
-          }}
-        >
+        <pre className={styles.codeBlock}>
           {`{ "isError": true, "content": [{ "text": "Navigate to /forms to use this tool." }] }`}
         </pre>
       </div>
     </div>
 
-    <div
-      className="example-flow"
-      style={{
-        marginTop: '2rem',
-        padding: '1.5rem',
-        backgroundColor: '#fff',
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-      }}
-    >
+    <div className={styles.exampleFlow}>
       <h3>Example: AI Agent Interactive Flow</h3>
-      <ol style={{ marginLeft: '1.5rem' }}>
+      <ol>
         <li>
           <strong>User asks:</strong> "Why can't I submit this form?"
         </li>
@@ -391,31 +310,20 @@ export const HowItWorksPage = () => (
           custom tool to populate the email field with a corrected value
         </li>
       </ol>
-      <p style={{ marginTop: '1rem', fontStyle: 'italic' }}>
+      <p className={styles.exampleNote}>
         All of this happens in real-time with bidirectional communication - the
         AI agent has full context of user actions and can actively help by
         updating the UI.
       </p>
     </div>
 
-    <div
-      className="getting-started-link"
-      style={{ marginTop: '2rem', textAlign: 'center' }}
-    >
+    <div className={styles.gettingStarted}>
       <h3>Ready to try it?</h3>
       <p>Explore the interactive demos to see MCP-FE in action!</p>
-      <Link
-        to="/"
-        className="demo-link"
-        style={{ fontSize: '1.1rem', padding: '0.5rem 1rem' }}
-      >
+      <Link to="/" className={styles.demoLink}>
         ← Back to Home
-      </Link>{' '}
-      <Link
-        to="/navigation"
-        className="demo-link"
-        style={{ fontSize: '1.1rem', padding: '0.5rem 1rem' }}
-      >
+      </Link>
+      <Link to="/navigation" className={styles.demoLink}>
         Try Navigation →
       </Link>
     </div>

@@ -187,32 +187,3 @@ h2 {
     color: #856404;
   }
 }
-
-// ---------------------------------------------------------------------------
-// HowItWorksPage styles (not yet migrated to a module)
-// ---------------------------------------------------------------------------
-.doc-section {
-  font-size: 0.95rem;
-  line-height: 1.5;
-
-  code {
-    background: #f8f8f8;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-family: monospace;
-  }
-}
-
-.architecture-image {
-  margin: 1.5rem 0;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  overflow: hidden;
-  background: white;
-
-  img {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-}
