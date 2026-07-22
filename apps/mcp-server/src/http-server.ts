@@ -333,35 +333,44 @@ export function createHTTPServer(
   });
 
   // Debug endpoint - show session status
-  app.get('/debug/sessions', async (req, res) => {
-    const token =
-      (req.query.token as string) || req.headers.authorization?.split(' ')[1];
-    const sessionId = await verifyToken(
-      token?.replaceAll('Bearer ', '') || null,
-    );
+  // Disabled by default: it exposes internal session/connection state to anyone
+  // holding a valid token, which is more than most deployments should expose by default.
+  const debugEndpointsEnabled = process.env.ENABLE_DEBUG_ENDPOINTS === 'true';
+  if (debugEndpointsEnabled) {
+    app.get('/debug/sessions', async (req, res) => {
+      const token =
+        (req.query.token as string) || req.headers.authorization?.split(' ')[1];
+      const sessionId = await verifyToken(
+        token?.replaceAll('Bearer ', '') || null,
+      );
 
-    if (!sessionId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+      if (!sessionId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
-    const session = sessionManager.getSession(sessionId);
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+      const session = sessionManager.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: 'Session not found' });
+      }
 
-    const health = sessionManager.isSessionHealthy(sessionId);
-    return res.json({
-      sessionId,
-      createdAt: new Date(session.createdAt),
-      lastActivity: new Date(session.lastActivity),
-      isWSConnected: session.isWSConnected,
-      transport: session.transport ? 'StreamableHTTP' : 'None',
-      mcpServer: session.mcpServer ? 'Active' : 'None',
-      pendingMessagesCount: session.pendingMessages.length,
-      pendingRequestsCount: session.pendingRequests.size,
-      health: health.healthy ? 'HEALTHY' : `UNHEALTHY (${health.reason})`,
+      const health = sessionManager.isSessionHealthy(sessionId);
+      return res.json({
+        sessionId,
+        createdAt: new Date(session.createdAt),
+        lastActivity: new Date(session.lastActivity),
+        isWSConnected: session.isWSConnected,
+        transport: session.transport ? 'StreamableHTTP' : 'None',
+        mcpServer: session.mcpServer ? 'Active' : 'None',
+        pendingMessagesCount: session.pendingMessages.length,
+        pendingRequestsCount: session.pendingRequests.size,
+        health: health.healthy ? 'HEALTHY' : `UNHEALTHY (${health.reason})`,
+      });
     });
-  });
+  } else {
+    console.log(
+      '[HTTP] Debug endpoints disabled (set ENABLE_DEBUG_ENDPOINTS=true to enable)',
+    );
+  }
 
   const server = app.listen(port, () => {
     console.log(`[HTTP] Server listening on port ${port}`);

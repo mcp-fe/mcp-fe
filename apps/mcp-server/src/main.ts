@@ -25,6 +25,7 @@ import { createHTTPServer } from './http-server';
 import { setupWebSocketServer } from './websocket-server';
 import { WebSocketManager } from './websocket-manager';
 import { SessionManager } from './session-manager';
+import { createMCPServerForSession } from './mcp-handlers';
 
 // Initialize components
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
@@ -38,7 +39,7 @@ const allowedDomains = ALLOWED_DOMAIN
       .filter(Boolean)
   : undefined;
 
-const sessionManager = new SessionManager();
+const sessionManager = new SessionManager(createMCPServerForSession);
 const wsManager = new WebSocketManager(sessionManager);
 
 console.log(`[Main] Server configuration:`);

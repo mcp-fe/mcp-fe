@@ -1,11 +1,23 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { WebSocket } from 'ws';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { WebSocketManager } from './websocket-manager';
 
 /**
  * Session Manager - handles session state and message queueing
  * Tracks active sessions, server-initiated messages, connection state, and WebSocket references
  */
+
+/**
+ * Builds the per-session MCP Server instance. Injected from the composition root (main.ts)
+ * instead of imported directly, since the natural implementation (./mcp-handlers) imports
+ * WebSocketManager, which itself imports SessionManager — a static import here would create
+ * a module-load circular dependency.
+ */
+export type McpServerFactory = (
+  sessionId: string,
+  wsManager: WebSocketManager,
+) => Server;
 
 export interface SessionState {
   sessionId: string;
@@ -25,7 +37,7 @@ export class SessionManager {
   private readonly MESSAGE_QUEUE_MAX = 100;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
-  constructor() {
+  constructor(private readonly mcpServerFactory: McpServerFactory) {
     const ttlMinutes = process.env.SESSION_TTL_MINUTES
       ? parseInt(process.env.SESSION_TTL_MINUTES, 10)
       : 30;
@@ -64,7 +76,10 @@ export class SessionManager {
   /**
    * Create MCP Server instance for a session with handlers setup
    */
-  createMCPServerForSession(sessionId: string, wsManager: any): Server {
+  createMCPServerForSession(
+    sessionId: string,
+    wsManager: WebSocketManager,
+  ): Server {
     const session = this.getOrCreateSession(sessionId);
 
     if (session.mcpServer) {
@@ -72,12 +87,7 @@ export class SessionManager {
       return session.mcpServer;
     }
 
-    // Import here to avoid circular dependency
-    const { createMCPServerForSession } = require('./mcp-handlers');
-    session.mcpServer = createMCPServerForSession(
-      sessionId,
-      wsManager,
-    ) as Server;
+    session.mcpServer = this.mcpServerFactory(sessionId, wsManager);
 
     console.log(`[Session] Created MCP Server for session: ${sessionId}`);
     return session.mcpServer;

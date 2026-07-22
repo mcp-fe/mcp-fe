@@ -7,7 +7,8 @@
  * Type guard for get_user_events tool arguments
  */
 export function isGetUserEventsArgs(args: unknown): args is GetUserEventsArgs {
-  if (!args || typeof args !== 'object') return true; // null/undefined is valid
+  if (args === null || args === undefined) return true; // no args is valid
+  if (typeof args !== 'object' || Array.isArray(args)) return false;
   const obj = args as Record<string, unknown>;
   return (
     (obj['type'] === undefined ||
@@ -27,7 +28,8 @@ export function isGetUserEventsArgs(args: unknown): args is GetUserEventsArgs {
 export function isGetNavigationHistoryArgs(
   args: unknown,
 ): args is GetNavigationHistoryArgs {
-  if (!args || typeof args !== 'object') return true;
+  if (args === null || args === undefined) return true; // no args is valid
+  if (typeof args !== 'object' || Array.isArray(args)) return false;
   const obj = args as Record<string, unknown>;
   return obj['limit'] === undefined || typeof obj['limit'] === 'number';
 }
@@ -38,7 +40,8 @@ export function isGetNavigationHistoryArgs(
 export function isGetClickEventsArgs(
   args: unknown,
 ): args is GetClickEventsArgs {
-  if (!args || typeof args !== 'object') return true;
+  if (args === null || args === undefined) return true; // no args is valid
+  if (typeof args !== 'object' || Array.isArray(args)) return false;
   const obj = args as Record<string, unknown>;
   return (
     (obj['element'] === undefined || typeof obj['element'] === 'string') &&
