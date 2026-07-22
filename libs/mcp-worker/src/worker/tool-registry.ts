@@ -3,6 +3,7 @@
  * Manages tool definitions and their handlers
  */
 
+import { logger } from '../shared/logger';
 import type { ToolDefinition, ToolHandler } from '../shared/types';
 
 // Re-export types from shared
@@ -20,6 +21,11 @@ export class ToolRegistry {
   private handlers = new Map<string, ToolHandler>();
 
   register(definition: ToolDefinition, handler: ToolHandler): void {
+    if (this.tools.has(definition.name)) {
+      logger.warn(
+        `[ToolRegistry] Overwriting already-registered tool '${definition.name}'`,
+      );
+    }
     this.tools.set(definition.name, definition);
     this.handlers.set(definition.name, handler);
   }

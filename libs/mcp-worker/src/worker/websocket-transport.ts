@@ -17,8 +17,11 @@ export class WebSocketTransport implements Transport {
         const message = JSON.parse(event.data);
         this.onmessage?.(message);
       } catch (error) {
+        const cause = error instanceof Error ? error.message : String(error);
         this.onerror?.(
-          error instanceof Error ? error : new Error(String(error)),
+          new Error(
+            `Failed to parse WebSocket message: ${cause} (raw: ${event.data})`,
+          ),
         );
       }
     });
@@ -28,7 +31,14 @@ export class WebSocketTransport implements Transport {
     });
 
     this.ws.addEventListener('error', (event) => {
-      this.onerror?.(new Error('WebSocket error'));
+      // The browser WebSocket spec deliberately omits detail from error
+      // events, but runtimes like `ws` attach `.message`/`.error` — surface
+      // whatever is actually available instead of a fixed generic string.
+      const detail =
+        (event as { message?: string })?.message ||
+        (event as { error?: Error })?.error?.message ||
+        'unknown reason';
+      this.onerror?.(new Error(`WebSocket error: ${detail}`));
     });
   }
 

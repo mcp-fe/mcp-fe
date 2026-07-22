@@ -77,9 +77,12 @@ export function createMCPServer(options: MCPServerOptions = {}): Server {
  * Call this whenever tools are added or removed from the registry
  */
 export function notifyToolsChanged(server: Server): void {
+  // server.notification() rejects (rather than throwing synchronously) when
+  // there's no connected transport yet — catch on the returned promise too,
+  // or the rejection goes unhandled and crashes the process.
   try {
-    server.notification({
-      method: 'notifications/tools/list_changed',
+    server.notification({ method: 'notifications/tools/list_changed' }).catch(() => {
+      // Silently ignore - client might not be connected yet
     });
   } catch {
     // Silently ignore - client might not be connected yet

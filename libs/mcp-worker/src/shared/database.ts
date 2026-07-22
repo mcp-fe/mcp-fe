@@ -2,19 +2,41 @@
  * IndexedDB operations for storing and querying user events
  */
 
+import { logger } from './logger';
 import type { UserEvent, EventFilters } from './types';
 
 const DB_NAME = 'user-activity-db';
 const DB_VERSION = 1;
 const STORE_NAME = 'user-events';
 
+// Cached connection: every storeEvent/queryEvents call used to open (and never
+// close) a brand new IndexedDB connection, leaking one connection per operation.
+// Open once and reuse it, re-opening only if the connection is later closed.
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 // Initialize IndexedDB
 export async function initDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => {
+      dbPromise = null;
+      reject(request.error);
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onclose = () => {
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onblocked = () => {
+      logger.warn(
+        `[Database] Open blocked: another connection to '${DB_NAME}' is holding an older version open`,
+      );
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -26,6 +48,8 @@ export async function initDB(): Promise<IDBDatabase> {
       }
     };
   });
+
+  return dbPromise;
 }
 
 // Store event in IndexedDB
@@ -47,15 +71,32 @@ export async function storeEvent(event: Omit<UserEvent, 'id'>): Promise<void> {
 
   // Clean up old events (keep last 1000 events)
   const countRequest = store.count();
+  countRequest.onerror = () => {
+    logger.warn('[Database] Failed to count events for pruning:', countRequest.error);
+  };
   countRequest.onsuccess = () => {
     if (countRequest.result > 1000) {
       const index = store.index('timestamp');
       const getAllRequest = index.getAll();
+      getAllRequest.onerror = () => {
+        logger.warn(
+          '[Database] Failed to load events for pruning:',
+          getAllRequest.error,
+        );
+      };
       getAllRequest.onsuccess = () => {
         const events = getAllRequest.result as UserEvent[];
         events.sort((a, b) => a.timestamp - b.timestamp);
         const toDelete = events.slice(0, events.length - 1000);
-        toDelete.forEach((event) => store.delete(event.id));
+        toDelete.forEach((event) => {
+          const deleteRequest = store.delete(event.id);
+          deleteRequest.onerror = () => {
+            logger.warn(
+              `[Database] Failed to prune event ${event.id}:`,
+              deleteRequest.error,
+            );
+          };
+        });
       };
     }
   };
@@ -101,4 +142,19 @@ export async function queryEvents(
     };
     request.onerror = () => reject(request.error);
   });
+}
+
+/**
+ * Test-only: close the cached connection so the next initDB() call opens a
+ * fresh one. Not used by production code paths.
+ */
+export async function __closeDbForTests(): Promise<void> {
+  const current = dbPromise;
+  dbPromise = null;
+  if (!current) return;
+  try {
+    (await current).close();
+  } catch {
+    // already closed/errored — nothing to do
+  }
 }

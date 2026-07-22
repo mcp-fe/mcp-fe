@@ -66,6 +66,9 @@ docker run -p 3001:3001 \
 - `SESSION_TTL_MINUTES` - Idle session expiry in minutes (default: `30`)
   - Sessions inactive longer than this are closed and their memory freed
   - WebSocket connections are closed with code `1001` on expiry
+- `ENABLE_DEBUG_ENDPOINTS` - Mount the `/debug/sessions` introspection endpoint (default: `false`)
+  - Exposes internal session/connection state to any caller with a valid token
+  - Leave disabled in production unless you specifically need it
 
 ## Authentication
 
