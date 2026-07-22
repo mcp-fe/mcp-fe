@@ -71,6 +71,14 @@ describe('useMCPTool', () => {
         'Test tool',
         { type: 'object', properties: {} },
         expect.any(Function),
+        {
+          outputSchema: undefined,
+          annotations: undefined,
+          execution: undefined,
+          _meta: undefined,
+          icons: undefined,
+          title: undefined,
+        },
       );
 
       // Simulate WorkerClient notifying that tool is registered

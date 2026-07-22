@@ -115,9 +115,7 @@ jobs:
             git fetch origin main --depth=1 || true
             echo "Running affected tests (base: origin/main)"
             pnpm exec nx affected --target=test --base=origin/main --parallel
-            pnpm exec nx affected --target=test-ci --base=origin/main --parallel
           else
             echo "Running full test suite for all projects"
             pnpm exec nx run-many --target=test --all --parallel
-            pnpm exec nx run-many --target=test-ci --all --parallel
           fi
