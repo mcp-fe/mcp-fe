@@ -12,9 +12,15 @@ import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
  */
 export class SessionEventStore implements EventStore {
   private events = new Map<EventId, { streamId: StreamId; message: JSONRPCMessage }>();
+  private sequence = 0;
 
   private generateEventId(streamId: StreamId): EventId {
-    return `${streamId}_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    // replayEventsAfter relies on lexicographic sort to recover insertion
+    // order. Date.now() alone isn't enough — multiple events created within
+    // the same millisecond would then tie-break on a random suffix instead of
+    // insertion order. A zero-padded monotonic counter makes the sort stable.
+    const seq = (this.sequence++).toString().padStart(15, '0');
+    return `${streamId}_${Date.now()}_${seq}`;
   }
 
   async storeEvent(streamId: StreamId, message: JSONRPCMessage): Promise<EventId> {
